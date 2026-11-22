@@ -10,17 +10,30 @@ import { Sheet } from "@/components/ui/Sheet";
 import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
 import { STUDENT } from "@/lib/data/academics";
+import { parseAgentText } from "@/lib/agent-presentation";
 
 type ToolRow = { id: string; tool: string; input: string; status: "running" | "done"; output?: string };
 type AgentMsg = { id: number; role: "agent"; plan: string[]; step: number; tools: ToolRow[]; text: string; cards: AgentCard[]; done: boolean };
 type UserMsg = { id: number; role: "user"; text: string };
 type Msg = UserMsg | AgentMsg;
 
-/** Minimal inline markdown: **bold** and *italic*. */
+/** Inline emphasis only. Content is always React text, never injected HTML. */
 function rich(text: string): ReactNode {
   return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((p, i) =>
     p.startsWith("**") ? <strong key={i} className="font-semibold">{p.slice(2, -2)}</strong> : p.startsWith("*") && p.length > 2 ? <em key={i}>{p.slice(1, -1)}</em> : <Fragment key={i}>{p}</Fragment>,
   );
+}
+
+function AgentText({ value }: { value: string }) {
+  return <div className="space-y-2 text-[0.97rem] leading-[1.55] tracking-[-0.008em]">
+    {parseAgentText(value).map((block, i) => {
+      if (block.kind === "heading") return <p key={i} className="font-semibold">{rich(block.text)}</p>;
+      if (block.kind === "list") return <ul key={i} className="list-outside list-disc space-y-1 pl-5">
+        {block.items.map((item, j) => <li key={j}>{rich(item)}</li>)}
+      </ul>;
+      return <p key={i} className="whitespace-pre-line">{rich(block.text)}</p>;
+    })}
+  </div>;
 }
 
 export function AgentPanel() {
@@ -214,7 +227,7 @@ function AgentBubble({ m, onNavigate, onUndo, onSuggest }: { m: AgentMsg; onNavi
         </div>
       )}
 
-      {m.text && <p className="whitespace-pre-line text-[0.97rem] leading-[1.55] tracking-[-0.008em]">{rich(m.text)}</p>}
+      {m.text && <AgentText value={m.text} />}
 
       {m.cards.map((c, i) => c.kind === "suggest" ? null : (
         <motion.div key={i} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={SPRING}>

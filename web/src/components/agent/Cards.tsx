@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ArrowRight, Check, Copy, ExternalLink, MapPin, Pencil, Undo2 } from "lucide-react";
 import type { AgentCard } from "@/lib/agent";
 import { COURSE_BY_ID } from "@/lib/data/academics";
-import { dueLabel, atDay, dayShort, dateShort } from "@/lib/time";
+import { dueLabel, atDay, dayShort, dateShort, timeOf } from "@/lib/time";
 import { mailtoHref } from "@/lib/email";
 import { Pill, Ring } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
@@ -190,7 +190,14 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
       {sessions.length > 0 && <ol className="space-y-3">
         {sessions.map((session) => <li key={session.id} className="rounded-xl bg-surface-2 p-3">
           <div className="mb-2 flex items-start justify-between gap-2">
-            <p className="text-[0.9rem] font-semibold">{session.title}</p>
+            <div className="min-w-0">
+              <p className="text-[0.9rem] font-semibold">{session.title}</p>
+              <p className="mt-1 text-[0.8rem] font-medium text-label-2">
+                {Number.isFinite(Date.parse(session.start)) && Number.isFinite(Date.parse(session.end))
+                  ? `${dayShort(new Date(session.start))} ${dateShort(new Date(session.start))} · ${timeOf(new Date(session.start))}–${timeOf(new Date(session.end))} MYT`
+                  : "Choose a valid start and end time"}
+              </p>
+            </div>
             <button type="button" onClick={() => setSessions((all) => all.filter((s) => s.id !== session.id))} className="press text-[0.78rem] font-semibold text-label-2 underline-offset-2 hover:underline" aria-label={`Remove ${session.title}`}>Remove</button>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -204,7 +211,7 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
         </li>)}
       </ol>}
       {card.proposal.skipped.length > 0 && <div className="mt-3 rounded-lg bg-orange-soft px-3 py-2 text-[0.82rem] text-orange">
-        <p className="font-semibold">Could not schedule:</p>
+        <p className="font-semibold">Other tasks to review:</p>
         <ul className="list-inside list-disc">{card.proposal.skipped.map((reason) => <li key={reason}>{reason}</li>)}</ul>
       </div>}
       {issues.length > 0 && <div className="mt-3 rounded-lg bg-red-soft px-3 py-2 text-[0.8rem] text-red" role="alert">
