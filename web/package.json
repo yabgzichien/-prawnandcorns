@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test": "npm run check:copy && node --experimental-strip-types --test tests/*.test.ts",
+    "check:copy": "node scripts/check-copy-style.mjs",
     "lint": "eslint"
   },
   "dependencies": {

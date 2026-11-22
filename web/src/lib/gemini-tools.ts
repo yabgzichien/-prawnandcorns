@@ -1,8 +1,8 @@
 import { ASSIGNMENTS, CLASSES, COURSE_BY_ID } from "./data/academics";
 import { FINANCE } from "./data/life";
 import { searchCampus } from "./data/campus";
-import { demoStudyProposal, demoTasks } from "./planning-demo";
-import { sanitizeStudySessions, type StudySession } from "./planning";
+import { demoStudyProposal, demoTasks, sanitizeDemoStudySessions } from "./planning-demo";
+import type { StudySession } from "./planning";
 import type { GeminiToolResult } from "./gemini-agent";
 
 export type DemoAgentContext = { submitted: string[]; studySessions: StudySession[] };
@@ -14,7 +14,7 @@ export function sanitizeDemoContext(raw: unknown): DemoAgentContext {
   const submitted = Array.isArray(value.submitted)
     ? [...new Set(value.submitted.filter((id): id is string => typeof id === "string" && ids.has(id)))].slice(0, 30)
     : [];
-  return { submitted, studySessions: sanitizeStudySessions(value.studySessions) };
+  return { submitted, studySessions: sanitizeDemoStudySessions(value.studySessions) };
 }
 
 /** The only actions the model can execute. All are read-only or proposal-only. */

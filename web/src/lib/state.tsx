@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
-import { asMalaysiaIso, sanitizeStudySessions, tryConfirmStudyPlan, type BusyBlock, type StudySession } from "./planning";
-import { demoClassBlocks, demoTasks } from "./planning-demo";
+import { asMalaysiaIso, tryConfirmStudyPlan, type BusyBlock, type StudySession } from "./planning";
+import { demoClassBlocks, demoTasks, sanitizeDemoStudySessions } from "./planning-demo";
 import { DEMO_NOW } from "./time";
 
 export type WidgetId = "next" | "alerts" | "due" | "today" | "fees" | "progress" | "clubs" | "find";
@@ -71,7 +71,7 @@ type Action =
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeStudySessions(a.saved.studySessions), hydrated: true };
+    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), hydrated: true };
     case "theme": return { ...s, theme: a.theme };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };

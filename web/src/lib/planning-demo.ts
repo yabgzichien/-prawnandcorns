@@ -1,6 +1,14 @@
 import { ASSIGNMENTS, CLASSES, sessionDate } from "./data/academics";
 import { DEMO_NOW, WEEK_START } from "./time";
-import { asMalaysiaIso, proposeStudyPlan, type BusyBlock, type StudySession, type StudyTask } from "./planning";
+import { asMalaysiaIso, proposeStudyPlan, reconcileStudySessionTitles, sanitizeStudySessions, type BusyBlock, type StudySession, type StudyTask } from "./planning";
+import { normalizeGeneratedCopy } from "./agent-presentation";
+
+/** Keep saved browser sessions from older demo versions, but update their
+ * display titles from canonical task IDs so changed copy is consistent. */
+export function sanitizeDemoStudySessions(raw: unknown): StudySession[] {
+  const titles = new Map(ASSIGNMENTS.map((task) => [task.id, task.title]));
+  return reconcileStudySessionTitles(sanitizeStudySessions(raw), titles, normalizeGeneratedCopy);
+}
 
 /** Explicit adapter for the competition's entirely fictional academic records. */
 export function demoTasks(submitted: string[] = []): StudyTask[] {

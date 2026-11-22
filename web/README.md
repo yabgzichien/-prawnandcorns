@@ -8,6 +8,7 @@ npm run dev      # http://localhost:3000
 npm run build
 npm run lint
 npm test
+npm run check:copy
 ```
 
 ### Gemini API setup (local)
@@ -50,7 +51,7 @@ Press **Reset demo** (sidebar / More) between runs — layout, ticked assignment
 3. "Where is A3-G01?" → *Show on map*
 4. "Draft an email to Finance about my fee instalment" → draft + approval (nothing is sent)
 5. "Add a finance widget and hide clubs" → dashboard changes, **Undo** available
-6. "When is my next class?" · "Which GE courses should I take?" · "How much do I owe?"
+6. "When is my next class?", "Which GE courses should I take?", or "How much do I owe?"
 7. "I like robotics and photography — which clubs fit?"
 8. "Help me plan my week. I have a meeting on Wednesday evening." → review the assumed 18:00–21:00 block, edit study sessions, **Confirm & save**, then reload Home
 
@@ -78,6 +79,9 @@ src/components/agent/   panel + result cards
 ```
 
 ## Design notes
+
+The team keeps its own UX rules in [`../docs/ux/UX_GUIDELINES.md`](../docs/ux/UX_GUIDELINES.md) and [`../docs/ux/PROJECT_BRIEF.md`](../docs/ux/PROJECT_BRIEF.md). These use David's UX Engineering Kit as process guidance, not as a replacement theme or a private dependency. Run `npm run check:copy` to catch unwanted decorative punctuation in project-owned copy. The original competition handbook is an externally supplied source and is not rewritten by that check.
+
 
 System font, size-specific tracking, translucent chrome with `backdrop-filter`, press feedback on pointer-down, no-bounce springs by default, interruptible drag/flick on the map and sheets (velocity handoff + momentum projection), rubber-banding at map edges, reduced-motion / reduced-transparency / increased-contrast fallbacks.
 

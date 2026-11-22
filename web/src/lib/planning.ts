@@ -113,6 +113,18 @@ export function sanitizeStudySessions(value: unknown): StudySession[] {
   }).slice(0, 50);
 }
 
+/** Keep previously saved times and identifiers while updating display copy. */
+export function reconcileStudySessionTitles(
+  sessions: StudySession[],
+  titlesByTaskId: ReadonlyMap<string, string>,
+  normalizeUnknown: (title: string) => string,
+): StudySession[] {
+  return sessions.map((session) => ({
+    ...session,
+    title: titlesByTaskId.get(session.taskId) ?? normalizeUnknown(session.title),
+  }));
+}
+
 /** Confirmation gate: the UI cannot bypass the same rules used to create a proposal. */
 export function tryConfirmStudyPlan(
   proposed: StudySession[],

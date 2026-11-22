@@ -17,11 +17,11 @@ export type Place = {
 };
 
 export const PLACES: Place[] = [
-  { id: "A1", name: "Block A1", kind: "teaching", osm: "A1", floors: 6, blurb: "Teaching block · classrooms and tutorial rooms" },
-  { id: "A2", name: "Block A2", kind: "teaching", osm: "A2", floors: 6, blurb: "Teaching block · classrooms and seminar rooms" },
-  { id: "A3", name: "Block A3", kind: "teaching", osm: "A3", floors: 7, blurb: "Main teaching block · lecture halls and library" },
-  { id: "A4", name: "Block A4", kind: "teaching", osm: "A4", floors: 6, blurb: "Teaching block · classrooms and study rooms" },
-  { id: "A5", name: "Block A5", kind: "teaching", osm: "A5", floors: 6, blurb: "Teaching block · computing and electronics labs" },
+  { id: "A1", name: "Block A1", kind: "teaching", osm: "A1", floors: 6, blurb: "Teaching block, classrooms and tutorial rooms" },
+  { id: "A2", name: "Block A2", kind: "teaching", osm: "A2", floors: 6, blurb: "Teaching block, classrooms and seminar rooms" },
+  { id: "A3", name: "Block A3", kind: "teaching", osm: "A3", floors: 7, blurb: "Main teaching block, lecture halls and library" },
+  { id: "A4", name: "Block A4", kind: "teaching", osm: "A4", floors: 6, blurb: "Teaching block, classrooms and study rooms" },
+  { id: "A5", name: "Block A5", kind: "teaching", osm: "A5", floors: 6, blurb: "Teaching block, computing and electronics labs" },
   { id: "B1", name: "B1 Hall & Sports Complex", kind: "sports", osm: "B1", floors: 3, blurb: "Multi-purpose hall, indoor courts and gym", approximate: true },
   { id: "CANTEEN", name: "Canteen (D6)", kind: "food", osm: "Canteen D6", floors: 2, blurb: "Main canteen" },
   { id: "CAFE", name: "Lakefront Café", kind: "food", osm: "Musical Island", floors: 1, blurb: "Coffee and light bites by the lake" },

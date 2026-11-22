@@ -21,7 +21,7 @@ export function HomeView() {
   return (
     <div>
       <header className="pb-6 pt-1">
-        <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)} · {STUDENT.semester}</p>
+        <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)}, {STUDENT.semester}</p>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="t-display">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
           <button onClick={() => setCustomise(true)} className="press btn btn-plain"><SlidersHorizontal size={17} /> Customise</button>
@@ -51,14 +51,14 @@ export function HomeView() {
         <section className="card mb-6 p-5" aria-label="Confirmed study plan">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="t-title">Your study plan</h2>
-            <span className="t-caption">Confirmed · Fictional demo · MYT</span>
+            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
           </div>
           <ul className="divide-y divide-sep">
             {[...studySessions].sort((a, b) => a.start.localeCompare(b.start)).map((session) => (
               <li key={session.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-[0.92rem] font-semibold">{session.title}</p>
-                  <p className="t-caption">{session.start.slice(0, 10)} · {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
+                  <p className="t-caption">{session.start.slice(0, 10)}, {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
                 </div>
                 <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
               </li>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { proposeStudyPlan, validateStudySessions, sanitizeStudySessions, tryConfirmStudyPlan, type BusyBlock, type StudyTask, type StudySession } from "../src/lib/planning.ts";
+import { proposeStudyPlan, reconcileStudySessionTitles, validateStudySessions, sanitizeStudySessions, tryConfirmStudyPlan, type BusyBlock, type StudyTask, type StudySession } from "../src/lib/planning.ts";
 
 const now = "2026-11-23T13:20:00+08:00";
 const monday = "2026-11-23T00:00:00+08:00";
@@ -76,6 +76,18 @@ test("sanitizes invalid or stale localStorage sessions instead of trusting arbit
   const good: StudySession = { id: "saved", taskId: "quiz", title: "Quiz", start: "2026-11-24T18:00:00+08:00", end: "2026-11-24T19:00:00+08:00" };
   assert.deepEqual(sanitizeStudySessions([good, null, { id: 8 }, { ...good, id: "duplicate", start: "bad" }, good]), [good]);
   assert.deepEqual(sanitizeStudySessions("not-an-array"), []);
+});
+
+test("previously saved demo sessions retain their IDs and times but gain the updated task title", () => {
+  const separator = String.fromCodePoint(0x00b7);
+  const saved: StudySession = { id: "legacy-plan", taskId: "a1", title: `Lab 6 ${separator} Loops & Arrays`,
+    start: "2026-11-23T13:30:00+08:00", end: "2026-11-23T14:30:00+08:00" };
+  const canonical = new Map([["a1", "Lab 6: Loops & Arrays"]]);
+  const clean = (value: string) => value.replaceAll(` ${separator} `, ", ");
+  const migrated = reconcileStudySessionTitles(sanitizeStudySessions([saved]), canonical, clean);
+  assert.deepEqual(migrated, [{ ...saved, title: "Lab 6: Loops & Arrays" }]);
+  const unknown = reconcileStudySessionTitles(sanitizeStudySessions([{ ...saved, taskId: "unknown", title: `Old ${separator} exercise` }]), canonical, clean);
+  assert.equal(unknown[0].title, "Old, exercise");
 });
 
 test("confirmation saves only a fresh, valid proposal, leaving existing sessions unchanged on failure", () => {

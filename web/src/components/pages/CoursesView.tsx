@@ -10,21 +10,21 @@ export function CoursesView() {
   const credits = COURSES.reduce((a, c) => a + c.credits, 0);
   return (
     <div>
-      <PageHeader eyebrow="BSc Computer Science · Year 1" title="Courses" sub="What you&rsquo;re taking now, what&rsquo;s coming, and which General Education credits you still need."
+      <PageHeader eyebrow="BSc Computer Science, Year 1" title="Courses" sub="What you&rsquo;re taking now, what&rsquo;s coming, and which General Education credits you still need."
         action={<a href="https://ac.xmu.edu.my/" target="_blank" rel="noreferrer" className="press btn btn-plain">Official handbook <ExternalLink size={15} /></a>} />
 
       <Stagger className="space-y-8">
         <Item>
           <div className="mb-3 flex items-end justify-between px-1">
             <h2 className="t-headline">This semester</h2>
-            <p className="t-caption">{COURSES.length} courses · {credits} credits</p>
+            <p className="t-caption">{COURSES.length} courses, {credits} credits</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {COURSES.map((c) => (
               <article key={c.id} className="card p-5">
                 <div className="flex items-center justify-between">
                   <span className={`inline-flex items-center gap-2 text-[0.8rem] font-bold tracking-wide ${toneClass[c.tone].fg}`}><span className={`h-2 w-2 rounded-full ${toneClass[c.tone].dot}`} />{c.code}</span>
-                  <Pill tone={c.kind === "Core" ? "blue" : "teal"}>{c.kind} · {c.credits} cr</Pill>
+                  <Pill tone={c.kind === "Core" ? "blue" : "teal"}>{c.kind}, {c.credits} cr</Pill>
                 </div>
                 <h3 className="t-headline mt-3">{c.title}</h3>
                 <p className="t-sub mt-1">{c.blurb}</p>
@@ -61,8 +61,8 @@ export function CoursesView() {
                 <Ring value={g.done / g.need} size={60} stroke={7} tone={g.done >= g.need ? "var(--green)" : "var(--accent)"}><span className="tnum text-[0.8rem] font-bold">{g.done}/{g.need}</span></Ring>
                 <div className="min-w-0">
                   <h3 className="font-semibold tracking-[-0.01em]">{g.title}</h3>
-                  <p className="t-caption">{g.need} credits needed{g.taking ? ` · taking ${g.taking}` : ""}</p>
-                  <p className="t-caption mt-2"><span className="font-semibold text-label">Options:</span> {g.options.join(" · ")}</p>
+                  <p className="t-caption">{g.need} credits needed{g.taking ? `, taking ${g.taking}` : ""}</p>
+                  <p className="t-caption mt-2"><span className="font-semibold text-label">Options:</span> {g.options.join(", ")}</p>
                 </div>
               </article>
             ))}

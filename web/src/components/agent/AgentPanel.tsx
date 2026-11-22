@@ -131,7 +131,7 @@ export function AgentPanel() {
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-fg"><Sparkles size={19} strokeWidth={2.4} /></span>
         <div className="min-w-0 flex-1">
           <h2 className="t-headline">Compass</h2>
-          <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} · demo-data tools` : "Rule-based demo · fictional data"}</p>
+          <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} (demo data)` : "Rule-based demo (fictional data)"}</p>
         </div>
         {msgs.length > 0 && <button onClick={() => { stop(); setMsgs([]); }} className="press btn btn-sm btn-plain">Clear</button>}
         <button onClick={closeAgent} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>

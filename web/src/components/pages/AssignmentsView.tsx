@@ -38,7 +38,7 @@ export function AssignmentsView() {
 
   return (
     <div>
-      <PageHeader eyebrow="From Moodle" title="Assignments" sub={`${openCount} open · deadlines from all your courses in one list, ordered by what's due first.`}
+      <PageHeader eyebrow="From Moodle" title="Assignments" sub={`${openCount} open assignments. Deadlines from all courses, ordered by what's due first.`}
         action={<button onClick={() => { download("xmum-deadlines.ics", deadlinesICS()); showToast("Deadlines exported with reminders"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
 
       {/* Moodle connection */}
@@ -48,7 +48,7 @@ export function AssignmentsView() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="t-headline">{moodle === "connected" ? "Moodle connected" : "Connect Moodle"}</p>
-          <p className="t-sub">{moodle === "connected" ? `Last synced ${synced} · read-only` : "Sync your real deadlines. You sign in on Moodle itself; Compass only reads dates."}</p>
+          <p className="t-sub">{moodle === "connected" ? `Last synced ${synced}, read-only` : "Sync your real deadlines. You sign in on Moodle itself; Compass only reads dates."}</p>
         </div>
         {moodle === "connected" ? (
           <div className="flex gap-2">
@@ -65,7 +65,7 @@ export function AssignmentsView() {
       <Stagger key={filter} className="space-y-6">
         {groups.map((g) => (
           <Item key={g.title}>
-            <h2 className="t-eyebrow mb-2 flex items-center gap-2 px-1"><span className={`h-2 w-2 rounded-full bg-${g.tone}`} style={{ background: `var(--${g.tone === "blue" ? "accent" : g.tone})` }} />{g.title} · {g.items.length}</h2>
+            <h2 className="t-eyebrow mb-2 flex items-center gap-2 px-1"><span className={`h-2 w-2 rounded-full bg-${g.tone}`} style={{ background: `var(--${g.tone === "blue" ? "accent" : g.tone})` }} />{g.title}, {g.items.length}</h2>
             <ul className="card divide-y divide-sep overflow-hidden">
               {g.items.map((a) => {
                 const done = isDone(a);

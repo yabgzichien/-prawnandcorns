@@ -73,7 +73,7 @@ export function MapView() {
       });
       seen.forEach((labels, place) => list.push({ id: "route-" + place, place, at: placeCenter(PLACE_BY_ID[place]), label: labels.join("") === labels[0] ? labels[0] : labels[0], tone: "green" }));
     }
-    if (selected) list.push({ id: "sel", place: selected, at: placeCenter(PLACE_BY_ID[selected]), label: room ? room.code.split("-")[1] ?? "•" : "•", tone: "accent" });
+    if (selected) list.push({ id: "sel", place: selected, at: placeCenter(PLACE_BY_ID[selected]), label: room ? room.code.split("-")[1] ?? "S" : "S", tone: "accent" });
     return list;
   }, [route, showRoute, selected, room]);
 
@@ -101,7 +101,7 @@ export function MapView() {
                   <li key={i}>
                     <button onMouseDown={(e) => e.preventDefault()} onClick={() => { if (h.type === "room") choose(h.place.id, h.room); else choose(h.place.id); setQuery(""); }} className="press-row flex w-full min-h-[52px] items-center gap-3 rounded-2xl px-3 text-left">
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: `color-mix(in srgb, ${KIND_META[h.place.kind].color} 18%, transparent)`, color: KIND_META[h.place.kind].color }}>{(() => { const I = KIND_META[h.place.kind].icon; return <I size={16} />; })()}</span>
-                      <span className="min-w-0"><span className="block truncate text-[0.95rem] font-semibold tracking-[-0.01em]">{h.type === "room" ? `${h.room.code} · ${h.room.name}` : h.place.name}</span><span className="t-caption block truncate">{h.type === "room" ? `${h.place.name} · ${h.room.floor}` : h.place.blurb}</span></span>
+                      <span className="min-w-0"><span className="block truncate text-[0.95rem] font-semibold tracking-[-0.01em]">{h.type === "room" ? `${h.room.code}, ${h.room.name}` : h.place.name}</span><span className="t-caption block truncate">{h.type === "room" ? `${h.place.name}, ${h.room.floor}` : h.place.blurb}</span></span>
                     </button>
                   </li>
                 ))}
@@ -135,7 +135,7 @@ export function MapView() {
           <button aria-label="Reset view" onClick={() => { choose(null); canvas.current?.reset(); }} className="press-row grid h-11 w-11 place-items-center"><Compass size={18} /></button>
         </div>
       </div>
-      <p className="glass pointer-events-none absolute bottom-[100px] left-3 z-10 rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 lg:left-[72px]">Map data © OpenStreetMap contributors · building use &amp; room labels are demo data</p>
+      <p className="glass pointer-events-none absolute bottom-[100px] left-3 z-10 rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 lg:left-[72px]">Map © OpenStreetMap contributors. Building details and room labels are demo data.</p>
 
       {/* Detail panel — a side card on desktop, a bottom card on phones */}
       <motion.aside
@@ -159,8 +159,8 @@ export function MapView() {
               {room && (
                 <div className="mx-5 mb-3 rounded-2xl bg-accent-soft p-3.5">
                   <p className="t-eyebrow text-accent">Selected room</p>
-                  <p className="mt-0.5 font-semibold tracking-[-0.01em]">{room.code} · {room.name}</p>
-                  <p className="t-caption">{room.floor}{room.seats ? ` · ${room.seats} seats` : ""} · {room.type}</p>
+                  <p className="mt-0.5 font-semibold tracking-[-0.01em]">{room.code}, {room.name}</p>
+                  <p className="t-caption">{room.floor}{room.seats ? `, ${room.seats} seats` : ""}, {room.type}</p>
                 </div>
               )}
 
@@ -173,7 +173,7 @@ export function MapView() {
                       {rooms.map((r) => (
                         <li key={r.code} className="border-b border-sep last:border-0">
                           <button onClick={() => setRoom(r)} aria-pressed={room?.code === r.code} className="press-row flex w-full min-h-[52px] items-center gap-3 px-4 text-left">
-                            <span className="min-w-0 flex-1"><span className="block text-[0.95rem] font-semibold tracking-[-0.01em]">{r.code}</span><span className="t-caption">{r.name} · {r.floor}</span></span>
+                            <span className="min-w-0 flex-1"><span className="block text-[0.95rem] font-semibold tracking-[-0.01em]">{r.code}</span><span className="t-caption">{r.name}, {r.floor}</span></span>
                             {room?.code === r.code ? <Check size={17} className="text-accent" strokeWidth={3} /> : <Pill tone={r.type === "Lab" ? "purple" : r.type === "Lecture hall" ? "blue" : "teal"}>{r.type}</Pill>}
                           </button>
                         </li>
@@ -194,7 +194,7 @@ export function MapView() {
                       <li key={c.id} className="border-b border-sep last:border-0">
                         <button onClick={() => r && choose(r.place, r)} className="press-row flex w-full min-h-[56px] items-center gap-3 px-4 text-left">
                           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-green text-[0.8rem] font-bold" style={{ color: "var(--bg)" }}>{i + 1}</span>
-                          <span className="min-w-0 flex-1"><span className="block text-[0.95rem] font-semibold tracking-[-0.01em]">{COURSE_BY_ID[c.courseId].code} · {c.start}</span><span className="t-caption">{c.room}{r ? ` · ${PLACE_BY_ID[r.place].name}` : ""}</span></span>
+                          <span className="min-w-0 flex-1"><span className="block text-[0.95rem] font-semibold tracking-[-0.01em]">{COURSE_BY_ID[c.courseId].code}, {c.start}</span><span className="t-caption">{c.room}{r ? `, ${PLACE_BY_ID[r.place].name}` : ""}</span></span>
                         </button>
                       </li>
                     );

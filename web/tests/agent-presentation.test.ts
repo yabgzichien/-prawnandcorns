@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseAgentText, presentGeminiAnswer } from "../src/lib/agent-presentation.ts";
+import { normalizeGeneratedCopy, parseAgentText, presentGeminiAnswer } from "../src/lib/agent-presentation.ts";
 import type { AgentCard } from "../src/lib/agent.ts";
 
 const planCard: AgentCard = {
@@ -22,6 +22,15 @@ test("schedule card keeps a concise introduction, not a duplicate model timetabl
 test("non-plan Gemini answers preserve details", () => {
   const answer = "**Due soon**\n* Lab\n* Quiz";
   assert.equal(presentGeminiAnswer(answer, [], "gemini-4-hydrogen"), answer);
+});
+
+test("generated copy uses plain punctuation instead of decorative midpoints", () => {
+  const marker = String.fromCodePoint(0x00b7);
+  const bullet = String.fromCodePoint(0x2022);
+  const raw = `Lab 6 ${marker} Loops & Arrays\n${bullet} Check the deadline`;
+  const normalized = normalizeGeneratedCopy(raw);
+  assert.equal(normalized, "Lab 6, Loops & Arrays\n- Check the deadline");
+  assert.equal(presentGeminiAnswer(raw, [], "gemini-2.5-flash"), normalized);
 });
 
 test("empty proposal displays a clarification instead of a phantom schedule", () => {
