@@ -7,7 +7,7 @@
 | Area | Current implementation | Honest limitation |
 | --- | --- | --- |
 | Web UX | Next.js 16 frontend with Dashboard, Timetable, Assignments, Map, Courses, Clubs, Finance and Mail | Existing design belongs to the team's UI workstream; do not redesign unilaterally |
-| Assistant | Rule-based Demo mode and server-side Gemini model with bounded function/tool calling when an API key is configured | Live Gemini access has **not** been verified without a local key; no real university integrations |
+| Assistant | Rule-based Demo mode and server-side Gemini model with bounded function/tool calling | Gemini 2.5 Flash has been live-tested as an explicit fallback; Hydrogen currently gives Google 503 or times out; no real university integrations |
 | Scheduling MVP | Pure deterministic study-plan generation, conflict/deadline validation and explicit review/confirm/reject | Uses fictional academic data and a fixed demo clock |
 | Persistence | Confirmed study sessions in localStorage, visible after refresh on Home; removal/reset available | Device/browser only, no sync, accounts or backend database |
 | University integrations | Mock Moodle/academic data and contacts/campus content for a fictional student | No authorized API integration, no real student records |
@@ -27,7 +27,7 @@
 
 ## Technical boundaries
 
-**LLM:** The planner uses deterministic scheduling rules. When a real Gemini or other model is selected, the model should parse intent and decide which *typed* tools to call, while the application independently validates dates, overlaps, approval and commits. Tool output should identify provenance (demo, publicly sourced or authorized integration) and avoid implying live sync where none exists. Put provider credentials and server-only tool endpoints in a secure deployment environment, not in the browser.
+**LLM:** The planner uses deterministic scheduling rules. When Gemini is enabled, the model parses intent and chooses from an allowlist of typed demo tools, while the application independently validates dates, overlaps, approval and commits. Tool output identifies fictional data and avoids implying live sync where none exists. Provider credentials and tool endpoints belong on the server, never in the browser.
 
 **Data contract:** `StudyTask { id, title, due, status, weight }`; `BusyBlock { label, start, end }`; `StudySession { id, taskId, title, start, end }`; `StudyProposal { sessions, blocked, assumptions, skipped }`. All saved session times use ISO-8601 with `+08:00` and Malaysian wall-clock dates.
 
@@ -37,25 +37,25 @@
 
 ## Remaining technical work, in order
 
-1. **Model choice and ownership:** Gemini API has been chosen. Add a valid Gemini Developer API key securely to `web/.env.local` and run a real API test; confirm who owns billing and rate limits. The server route and tool boundary exist but live provider access is currently unverified.
+1. **Model choice and ownership:** A local Gemini Developer API key was configured and verified on 23 November 2026. Hydrogen remains the preferred model but is currently returning HTTP 503 or timing out; Gemini 2.5 Flash is a tested fallback. Confirm who owns billing, usage and rate limits before public hosting. Never commit `.env.local`.
 2. **Database:** Add Neon only when there is a genuine need for multi-device persistent accounts, and agree on authentication/data retention first. Browser-local demo persistence remains appropriate for current judging scope.
 3. **Integration permissions:** Obtain explicit authorization before exploring Moodle/AC; otherwise keep demo data and clearly name it.
 4. **Frontend integration:** Coordinate confirmed data contracts and small component interfaces with Jinquan and the UI/UX team before modifying main navigation, home hierarchy or design system.
 5. **QA and evidence:** Test Chrome and Safari desktop/mobile sizes, invalid inputs, slow operations, reload/reset, screenshots and a live demo rehearsal. Capture test outcomes for the technical and presentation criteria.
 
-## Verification evidence (22 November 2026)
+## Verification evidence (23 November 2026)
 
-- **14/14** combined planner and Gemini protocol tests passed using `npm test` (including 10 scheduling/persistence tests and 4 mocked Gemini tool-calling tests).
+- **20/20** combined planner and Gemini protocol tests passed using `npm test` (including deterministic planner tests, model selection, bounded retries, timeout fallback and authentication/quota failure handling).
 - TypeScript (`npx tsc --noEmit`), ESLint (`npm run lint`) and production build (`npm run build`) passed.
 - Production server HTTP smoke test: Home `/`, `/assignments`, and `/map` returned **200**.
 - **Still unverified:** the exact end-to-end clickable interaction in Chrome/Safari, localStorage across real browser reload, narrow mobile layout, and accessibility keyboard testing. These need a team manual QA pass; a successful build does not establish them.
-- **New Gemini integration:** protocol tests use a mock transport, not real Gemini. There is no local Gemini key in this checkout. Demo mode can be previewed now; a successful live Gemini tool-call request needs a key in `web/.env.local` followed by a server restart. The server refuses remote Gemini POST by default until production protections are added.
+- **Live Gemini verification:** A real local API key successfully listed Gemini models. A direct `gemini-2.5-flash` call returned HTTP 200 and called `get_demo_assignments`. The local `/api/agent` with Hydrogen preferred and Flash fallback also returned HTTP 200, reported `fallbackFrom: gemini-4-hydrogen`, used `get_demo_assignments`, and produced a natural-language answer. A separate real scheduling request invoked `propose_study_plan`, returned a `study-plan` card containing three sessions and the Wednesday evening 18:00–21:00 assumption, and returned `saved: false`. This is **real model tool calling**, not just a mocked test. A live Hydrogen-successful response has **not** been demonstrated due to Google-side 503/timeouts.
 
 ## Gemini connector boundaries (22 November 2026)
 
 `web/src/app/api/agent/route.ts` is the sole browser-visible endpoint. The provider key goes in the server's `.env.local`, not client JavaScript. `gemini-agent.ts` implements a bounded model tool-call loop; `gemini-tools.ts` exposes a static allowlist of read-only fictional-data tools and a proposal-only scheduling tool. The browser still performs final confirmation, and no real-world calendar, Moodle or AC operations are available.
 
-The GET status endpoint reports configuration without exposing the key. If no key is configured, POST returns 503 and the UI visibly defaults to the existing scripted Demo assistant. Tests with a mocked provider transport verify tool calls, allowlisting, card rendering contracts and secret-safe upstream error responses. **Live model response, quota and provider compatibility remain unverified**, and the exact UI flow needs real-device review before competition presentation.
+The GET status endpoint reports configuration without exposing the key. If no key is configured, POST returns 503 and the UI visibly defaults to the existing scripted Demo assistant. The server tries Hydrogen first (18-second budget), allows limited retries on Google HTTP 503, and transparently uses Gemini 2.5 Flash as a fallback for 503 or provider timeout. It does **not** silently retry key/authentication or quota failures with another model. Tests use a mock transport, and real calls have also verified the assignment and planning flows. Real-device review of clicking, confirming and persistence is still needed before competition presentation.
 
 ## Official evaluation breakdown
 

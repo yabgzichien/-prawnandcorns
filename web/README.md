@@ -20,7 +20,7 @@ cp .env.example .env.local
 npm run dev -- -p 3456
 ```
 
-Open `http://localhost:3456`, launch **Compass**, and select **Gemini API**. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. Default model is `gemini-4-hydrogen` with MEDIUM thinking for interactive tool calls. If the model isn't available to your API key, set `GEMINI_MODEL=gemini-3.8-flash` as a fallback. Free-tier rate limits and paid-tier token pricing are determined by Google, not by this application.
+Open `http://localhost:3456`, launch **Compass**, and select **Gemini API**. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. Default model is `gemini-4-hydrogen` with MEDIUM thinking for interactive tool calls. Google intermittently returns HTTP 503 or stalls for multiple models; the server automatically uses `gemini-2.5-flash` **only** when the preferred model remains unavailable after bounded retries or reaches an 18-second interactive deadline, and visibly labels that fallback in the answer. You can change or disable this by setting `GEMINI_FALLBACK_MODEL` (to disable, set it to the same value as `GEMINI_MODEL`). Free-tier rate limits and paid-tier token pricing are determined by Google, not by this application.
 
 Only the fictional study-planning data, demo timetable, assignments, finance data and illustrative room lookup can be fetched by the model. Scheduling conflict checks remain deterministic and every proposed study session requires user confirmation. No university account authentication, campus system integration, actual email sending or cloud persistence is implemented. Gemini responses are not streamed token by token in this first integration.
 
@@ -83,4 +83,4 @@ System font, size-specific tracking, translucent chrome with `backdrop-filter`, 
 
 ## Not done yet
 
-Real Moodle/AC integration, auth, a live LLM, push notifications, and verified room/building data.
+Real Moodle/AC integration, student authentication, push notifications, and verified room/building data. The demo does have an optional real Gemini API agent with read-only/proposal-only tools, but **does not** have official live academic data access.

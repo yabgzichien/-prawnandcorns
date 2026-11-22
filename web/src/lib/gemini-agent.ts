@@ -8,6 +8,7 @@ export type GeminiAgentOutput = {
   tools: { id: string; tool: string; input: string; status: "done"; output: string }[];
   cards: AgentCard[];
   model: string;
+  fallbackFrom?: string;
 };
 
 const TOOL_DECLARATIONS = [
@@ -32,6 +33,7 @@ export async function runGeminiToolLoop(options: {
   prompt: string;
   apiKey: string;
   model?: string;
+  timeoutMs?: number;
   executeTool: GeminiToolExecution;
   fetcher?: typeof fetch;
   signal?: AbortSignal;
@@ -46,25 +48,47 @@ export async function runGeminiToolLoop(options: {
   const contents: Message[] = [{ role: "user", parts: [{ text: prompt }] }];
   const tools: GeminiAgentOutput["tools"] = [];
   const cards: AgentCard[] = [];
+  const generationConfig = model.startsWith("gemini-2.5-")
+    ? { maxOutputTokens: 8192 }
+    : { thinkingConfig: { thinkingLevel: "MEDIUM" }, maxOutputTokens: 8192 };
+  // Bound the entire model/tool loop, rather than granting a fresh long timeout
+  // to every function call and making a short interaction take several minutes.
+  const deadline = AbortSignal.timeout(options.timeoutMs ?? 60_000);
+  const combinedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
 
   // Strict limits prevent runaway agent loops and unpredictable billing.
   for (let turn = 0; turn < 4; turn++) {
-    const response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const init: RequestInit = {
       method: "POST",
       headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
       body: JSON.stringify({
         contents,
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTIONS }] },
         tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-        // Hydrogen defaults to HIGH thinking, which is wasteful for short interactive
-        // tool-selection turns. MEDIUM balances response time and reasoning cost.
-        // Reasoning tokens share this output budget; 900 tokens may truncate the reply.
-        generationConfig: { thinkingConfig: { thinkingLevel: "MEDIUM" }, maxOutputTokens: 8192 },
+        // Hydrogen uses MEDIUM; Gemini 2.5 falls back without an unsupported thinkingLevel.
+        generationConfig,
       }),
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(22_000)]) : AbortSignal.timeout(22_000),
+      // A reasoning model can spend more than 22 seconds on a first tool decision.
+      // The previous short deadline generated a misleading generic 502.
+      signal: combinedSignal,
       cache: "no-store",
-    });
-    if (!response.ok) throw new Error(`Gemini request failed (HTTP ${response.status}). Check API key, model access, quota and billing.`);
+    };
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (init.signal?.aborted) throw init.signal.reason ?? new DOMException("Request cancelled", "AbortError");
+      response = await fetcher(url, init);
+      if (response.status !== 503 || attempt === 2) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, 500 * (2 ** attempt)));
+    }
+    if (!response) throw new Error("Gemini did not return a response.");
+    if (!response.ok) {
+      const statusInfo = response.status === 503 ? "Google service unavailable. Try again later or use Demo mode."
+        : response.status === 429 ? "Request quota exceeded. Review the Google AI Studio usage dashboard."
+          : response.status === 400 ? "Invalid request or incompatible model settings."
+            : "Check model access, key permissions and billing.";
+      throw new Error(`Gemini request failed (HTTP ${response.status}). ${statusInfo}`);
+    }
     const payload: unknown = await response.json();
     if (!payload || typeof payload !== "object" || !("candidates" in payload) || !Array.isArray(payload.candidates)) {
       throw new Error("Gemini returned an unexpected response.");
@@ -94,4 +118,20 @@ export async function runGeminiToolLoop(options: {
     contents.push({ role: "user", parts: responses });
   }
   throw new Error("Gemini reached the maximum tool iterations.");
+}
+
+/** Both the primary and fallback models have access only to the same proposal/read-only tools. */
+export async function runGeminiWithFallback(options: Parameters<typeof runGeminiToolLoop>[0] & { fallbackModel?: string }): Promise<GeminiAgentOutput> {
+  const primary = options.model || "gemini-4-hydrogen";
+  try {
+    return await runGeminiToolLoop({ ...options, model: primary, timeoutMs: options.timeoutMs ?? 18_000 });
+  } catch (error) {
+    if (!options.fallbackModel || options.fallbackModel === primary ||
+        !(error instanceof Error) ||
+        (!/^Gemini request failed \(HTTP 503\)/.test(error.message) && error.name !== "TimeoutError") || options.signal?.aborted) {
+      throw error;
+    }
+    const result = await runGeminiToolLoop({ ...options, model: options.fallbackModel, timeoutMs: 35_000 });
+    return { ...result, fallbackFrom: primary };
+  }
 }

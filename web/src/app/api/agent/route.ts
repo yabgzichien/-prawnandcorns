@@ -1,4 +1,4 @@
-import { runGeminiToolLoop } from "@/lib/gemini-agent";
+import { runGeminiWithFallback } from "@/lib/gemini-agent";
 import { executeDemoTool, sanitizeDemoContext } from "@/lib/gemini-tools";
 
 export const runtime = "nodejs";
@@ -6,10 +6,11 @@ export const dynamic = "force-dynamic";
 
 const headers = { "Cache-Control": "no-store" };
 const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-4-hydrogen";
+const FALLBACK_MODEL = () => process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-2.5-flash";
 const configured = () => Boolean(process.env.GEMINI_API_KEY?.trim());
 
 export function GET() {
-  return Response.json({ configured: configured(), model: MODEL(), data: "fictional_demo" }, { headers });
+  return Response.json({ configured: configured(), model: MODEL(), fallbackModel: FALLBACK_MODEL(), data: "fictional_demo" }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -37,14 +38,17 @@ export async function POST(request: Request) {
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     if (prompt.length < 1 || prompt.length > 1200) return Response.json({ error: "Enter a question of at most 1200 characters." }, { status: 400, headers });
     const context = sanitizeDemoContext(body.context);
-    const result = await runGeminiToolLoop({
-      prompt, apiKey: process.env.GEMINI_API_KEY!, model: MODEL(),
+    const result = await runGeminiWithFallback({
+      prompt, apiKey: process.env.GEMINI_API_KEY!, model: MODEL(), fallbackModel: FALLBACK_MODEL(),
       signal: request.signal,
       executeTool: (name, args) => executeDemoTool(name, args, prompt, context),
     });
     return Response.json({ ...result, saved: false, mode: "gemini", data: "fictional_demo" }, { headers });
   } catch (error) {
     if (error instanceof SyntaxError) return Response.json({ error: "Invalid JSON." }, { status: 400, headers });
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      return Response.json({ error: "Gemini did not respond before the request timeout. Please retry or select Demo mode." }, { status: 504, headers });
+    }
     const message = error instanceof Error ? error.message : "Gemini could not complete the request.";
     // Keep upstream responses, credentials, and stack traces away from the browser.
     const safe = /^(Gemini request failed \(HTTP \d+\)|Gemini returned|Gemini did not|Gemini exceeded|Gemini reached|Invalid Gemini|Enter a question|Gemini API key)/.test(message)

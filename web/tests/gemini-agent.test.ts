@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runGeminiToolLoop, type GeminiToolResult } from "../src/lib/gemini-agent.ts";
+import { runGeminiToolLoop, runGeminiWithFallback, type GeminiToolResult } from "../src/lib/gemini-agent.ts";
 
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
@@ -84,4 +84,69 @@ test("defaults to Gemini 4 Hydrogen with medium thinking and adequate tool-call 
   assert.deepEqual(config.thinkingConfig, { thinkingLevel: "MEDIUM" });
   assert.ok(Number(config.maxOutputTokens) >= 4096);
   assert.equal("temperature" in config, false);
+});
+
+test("legacy Gemini 2.5 can use the fallback without incompatible thinking levels", async () => {
+  let requestBody: Record<string, unknown> = {};
+  const fetcher: typeof fetch = async (_url, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return ok({ candidates: [{ content: { role: "model", parts: [{ text: "Fictional demo only." }] } }] });
+  };
+  await runGeminiToolLoop({ prompt: "Explain my demo plan", apiKey: "test", model: "gemini-2.5-flash", fetcher, executeTool: async () => ({ value: {}, summary: "" }) });
+  const config = requestBody.generationConfig as Record<string, unknown>;
+  assert.equal("thinkingConfig" in config, false);
+});
+
+test("retries a temporary Gemini 503 only a bounded number of times", async () => {
+  let count = 0;
+  const fetcher: typeof fetch = async () => {
+    count++;
+    return count === 1 ? new Response("{}", { status: 503 })
+      : ok({ candidates: [{ content: { role: "model", parts: [{ text: "Recovered" }] } }] });
+  };
+  const result = await runGeminiToolLoop({ prompt: "hello", apiKey: "test", fetcher, executeTool: async () => ({ value: {}, summary: "" }) });
+  assert.equal(count, 2);
+  assert.equal(result.text, "Recovered");
+});
+
+test("fallback is explicit and only triggered when the preferred model is unavailable", async () => {
+  const seen: string[] = [];
+  const fetcher: typeof fetch = async (url) => {
+    seen.push(String(url));
+    return String(url).includes("gemini-4-hydrogen")
+      ? new Response("{}", { status: 503 })
+      : ok({ candidates: [{ content: { role: "model", parts: [{ text: "Fictional response from fallback." }] } }] });
+  };
+  const answer = await runGeminiWithFallback({
+    prompt: "Can you help?", apiKey: "test", model: "gemini-4-hydrogen", fallbackModel: "gemini-2.5-flash", fetcher,
+    executeTool: async () => ({ value: {}, summary: "" }),
+  });
+  assert.equal(answer.model, "gemini-2.5-flash");
+  assert.equal(answer.fallbackFrom, "gemini-4-hydrogen");
+  assert.equal(seen.filter((url) => url.includes("gemini-4-hydrogen")).length, 3);
+});
+
+test("does not silently fall back on authentication or quota failures", async () => {
+  let calls = 0;
+  const fetcher: typeof fetch = async () => { calls++; return new Response("{}", { status: 429 }); };
+  await assert.rejects(() => runGeminiWithFallback({ prompt: "hello", apiKey: "test", model: "gemini-4-hydrogen", fallbackModel: "gemini-2.5-flash", fetcher,
+    executeTool: async () => ({ value: {}, summary: "" }),
+  }), /HTTP 429/);
+  assert.equal(calls, 1);
+});
+
+test("uses an explicitly labelled fallback when the primary model times out", async () => {
+  const attempts: string[] = [];
+  const fetcher: typeof fetch = async (url) => {
+    attempts.push(String(url));
+    if (String(url).includes("gemini-4-hydrogen")) throw new DOMException("Google did not respond", "TimeoutError");
+    return ok({ candidates: [{ content: { role: "model", parts: [{ text: "The fallback is working." }] } }] });
+  };
+  const result = await runGeminiWithFallback({
+    prompt: "hello", apiKey: "test", model: "gemini-4-hydrogen", fallbackModel: "gemini-2.5-flash", fetcher,
+    executeTool: async () => ({ value: {}, summary: "" }),
+  });
+  assert.equal(result.model, "gemini-2.5-flash");
+  assert.equal(result.fallbackFrom, "gemini-4-hydrogen");
+  assert.equal(attempts.length, 2);
 });
