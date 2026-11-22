@@ -1,6 +1,6 @@
 # XMUM Compass — fictional-data competition prototype
 
-A student dashboard and AI-assistant prototype for current and incoming XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **Client-side demo only, no backend or real LLM.**
+A student dashboard and AI-assistant prototype for current and incoming XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **A server-side Gemini tool-calling integration is available when configured; default fictional demo still works without an API key.**
 
 ```bash
 npm install
@@ -9,6 +9,22 @@ npm run build
 npm run lint
 npm test
 ```
+
+### Gemini API setup (local)
+
+The server uses Google Gemini `generateContent` with declared, read-only/demo-only tools. The API key **never enters the browser**. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/apikey), then from the `web/` folder:
+
+```bash
+cp .env.example .env.local
+# Open .env.local locally and paste your key into GEMINI_API_KEY=...
+npm run dev -- -p 3456
+```
+
+Open `http://localhost:3456`, launch **Compass**, and select **Gemini API**. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. Default model is `gemini-3.8-flash`; set `GEMINI_MODEL` to a model your account supports.
+
+Only the fictional study-planning data, demo timetable, assignments, finance data and illustrative room lookup can be fetched by the model. Scheduling conflict checks remain deterministic and every proposed study session requires user confirmation. No university account authentication, campus system integration, actual email sending or cloud persistence is implemented. Gemini responses are not streamed token by token in this first integration.
+
+**Important before any public Vercel deployment:** Gemini calls are restricted to localhost by default (`GEMINI_ENABLE_REMOTE=false`). Do not enable remote calls until the team adds proper user authentication, abuse protection and persistent server-side rate limiting. A client-side API-key restriction alone is not sufficient.
 
 ## What's in it
 
@@ -38,9 +54,9 @@ Press **Reset demo** (sidebar / More) between runs — layout, ticked assignment
 7. "I like robotics and photography — which clubs fit?"
 8. "Help me plan my week. I have a meeting on Wednesday evening." → review the assumed 18:00–21:00 block, edit study sessions, **Confirm & save**, then reload Home
 
-The agent is a scripted mock: everything goes through `runAgent()` in `src/lib/agent.ts`, which yields an event stream (`plan`, `step`, `tool`, `text`, `card`). Replace that one function with a streaming route that runs a real LLM tool-calling loop; the UI doesn't change. The tools in that file are the tool spec to implement.
+**Demo mode** remains a scripted mock via `runAgent()` in `src/lib/agent.ts`. **Gemini mode**, when the server has a key, calls `src/app/api/agent/route.ts` and `src/lib/gemini-agent.ts` for a bounded tool-calling loop. Both display actions in the existing UI, but only Gemini mode uses a real model. The Gemini route calls `src/lib/gemini-tools.ts`, which allows only whitelisted fictional-data tools.
 
-Study proposals go through pure scheduling logic in `src/lib/planning.ts` and fictional-data mapping in `src/lib/planning-demo.ts`. The demo selects two imminent deadlines plus one high-weight assignment, prefers study windows within two days of each deadline, and lists omitted tasks for review. The app checks classes, deadlines, study hours, existing sessions and manual edits. Confirming writes only to this browser, never to university systems. Neither the time planning nor the rest of the assistant is driven by a real LLM yet; do not claim otherwise in the competition demo.
+Study proposals go through pure scheduling logic in `src/lib/planning.ts` and fictional-data mapping in `src/lib/planning-demo.ts`. The demo selects two imminent deadlines plus one high-weight assignment, prefers study windows within two days of each deadline, and lists omitted tasks for review. The app checks classes, deadlines, study hours, existing sessions and manual edits. Confirming writes only to this browser, never to university systems. **Gemini understands the request and chooses tools; it does not calculate authoritative time conflicts or save automatically.**
 
 ## Data rules (competition PNC rule)
 

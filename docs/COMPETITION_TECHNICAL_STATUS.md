@@ -7,7 +7,7 @@
 | Area | Current implementation | Honest limitation |
 | --- | --- | --- |
 | Web UX | Next.js 16 frontend with Dashboard, Timetable, Assignments, Map, Courses, Clubs, Finance and Mail | Existing design belongs to the team's UI workstream; do not redesign unilaterally |
-| Assistant | Scripted, keyword-based demonstration with visible plan, tool events and response cards | **Not a live LLM** and not autonomous tool-calling |
+| Assistant | Rule-based Demo mode and server-side Gemini model with bounded function/tool calling when an API key is configured | Live Gemini access has **not** been verified without a local key; no real university integrations |
 | Scheduling MVP | Pure deterministic study-plan generation, conflict/deadline validation and explicit review/confirm/reject | Uses fictional academic data and a fixed demo clock |
 | Persistence | Confirmed study sessions in localStorage, visible after refresh on Home; removal/reset available | Device/browser only, no sync, accounts or backend database |
 | University integrations | Mock Moodle/academic data and contacts/campus content for a fictional student | No authorized API integration, no real student records |
@@ -37,7 +37,7 @@
 
 ## Remaining technical work, in order
 
-1. **Model choice and ownership:** Agree who owns Gemini key/deployment billing and which model/provider; assess rate limits, privacy and prompt injection. Prototype server-only tool calling on a bounded planning endpoint.
+1. **Model choice and ownership:** Gemini API has been chosen. Add a valid Gemini Developer API key securely to `web/.env.local` and run a real API test; confirm who owns billing and rate limits. The server route and tool boundary exist but live provider access is currently unverified.
 2. **Database:** Add Neon only when there is a genuine need for multi-device persistent accounts, and agree on authentication/data retention first. Browser-local demo persistence remains appropriate for current judging scope.
 3. **Integration permissions:** Obtain explicit authorization before exploring Moodle/AC; otherwise keep demo data and clearly name it.
 4. **Frontend integration:** Coordinate confirmed data contracts and small component interfaces with Jinquan and the UI/UX team before modifying main navigation, home hierarchy or design system.
@@ -45,10 +45,17 @@
 
 ## Verification evidence (22 November 2026)
 
-- **10/10** pure planner and confirmation tests passed using `npm test`.
+- **14/14** combined planner and Gemini protocol tests passed using `npm test` (including 10 scheduling/persistence tests and 4 mocked Gemini tool-calling tests).
 - TypeScript (`npx tsc --noEmit`), ESLint (`npm run lint`) and production build (`npm run build`) passed.
 - Production server HTTP smoke test: Home `/`, `/assignments`, and `/map` returned **200**.
 - **Still unverified:** the exact end-to-end clickable interaction in Chrome/Safari, localStorage across real browser reload, narrow mobile layout, and accessibility keyboard testing. These need a team manual QA pass; a successful build does not establish them.
+- **New Gemini integration:** protocol tests use a mock transport, not real Gemini. There is no local Gemini key in this checkout. Demo mode can be previewed now; a successful live Gemini tool-call request needs a key in `web/.env.local` followed by a server restart. The server refuses remote Gemini POST by default until production protections are added.
+
+## Gemini connector boundaries (22 November 2026)
+
+`web/src/app/api/agent/route.ts` is the sole browser-visible endpoint. The provider key goes in the server's `.env.local`, not client JavaScript. `gemini-agent.ts` implements a bounded model tool-call loop; `gemini-tools.ts` exposes a static allowlist of read-only fictional-data tools and a proposal-only scheduling tool. The browser still performs final confirmation, and no real-world calendar, Moodle or AC operations are available.
+
+The GET status endpoint reports configuration without exposing the key. If no key is configured, POST returns 503 and the UI visibly defaults to the existing scripted Demo assistant. Tests with a mocked provider transport verify tool calls, allowlisting, card rendering contracts and secret-safe upstream error responses. **Live model response, quota and provider compatibility remain unverified**, and the exact UI flow needs real-device review before competition presentation.
 
 ## Official evaluation breakdown
 

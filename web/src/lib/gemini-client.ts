@@ -1,0 +1,33 @@
+import type { AgentContext, AgentEvent, AgentCard } from "./agent";
+
+/** The client never talks directly to Google. Only this same-origin route is called. */
+export async function* runGeminiAgent(prompt: string, context: AgentContext, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
+  yield { type: "plan", steps: ["Ask Gemini to choose safe demo-data tools", "Run read-only tools and verify deterministic scheduling", "Present an answer and request approval before saving"] };
+  yield { type: "step", index: 0 };
+  const response = await fetch("/api/agent", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ prompt, context: { submitted: context.submitted, studySessions: context.studySessions } }),
+    signal, cache: "no-store",
+  });
+  const payload: unknown = await response.json().catch(() => ({}));
+  const result = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : `Gemini request failed (${response.status}).`);
+  if (result.mode !== "gemini" || typeof result.text !== "string") throw new Error("Unexpected Gemini server response.");
+
+  yield { type: "step", index: 1 };
+  const rows = Array.isArray(result.tools) ? result.tools : [];
+  for (const entry of rows) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    if (typeof row.tool === "string" && typeof row.id === "string") yield {
+      type: "tool", id: row.id, tool: row.tool, input: "fictional demo data", status: "done", output: typeof row.output === "string" ? row.output : undefined,
+    };
+  }
+  yield { type: "text", text: result.text };
+  for (const card of Array.isArray(result.cards) ? result.cards as AgentCard[] : []) {
+    if (card && card.kind === "study-plan") yield { type: "card", card };
+  }
+  yield { type: "step", index: 2 };
+  yield { type: "done" };
+}

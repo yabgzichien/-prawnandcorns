@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, Check, ChevronDown, Loader2, Shield, Sparkles, Square, X } from "lucide-react";
 import { runAgent, SUGGESTIONS, type AgentCard, type AgentEvent } from "@/lib/agent";
+import { runGeminiAgent } from "@/lib/gemini-client";
 import { useApp, type WidgetPref } from "@/lib/state";
 import { Sheet } from "@/components/ui/Sheet";
 import { SPRING, SPRING_FAST } from "@/lib/hooks";
@@ -27,12 +28,30 @@ export function AgentPanel() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
+  const [geminiConfigured, setGeminiConfigured] = useState<"checking" | "ready" | "missing">("checking");
+  const [model, setModel] = useState("gemini-3.8-flash");
+  const [mode, setMode] = useState<"gemini" | "demo">("demo");
   const abort = useRef<AbortController | null>(null);
   const idRef = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   const handled = useRef<number>(0);
   const ctxRef = useRef({ widgets, submitted, studySessions });
   useEffect(() => { ctxRef.current = { widgets, submitted, studySessions }; });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/agent", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: { configured?: boolean; model?: string }) => {
+        if (!active) return;
+        const ready = data.configured === true;
+        setGeminiConfigured(ready ? "ready" : "missing");
+        setMode(ready ? "gemini" : "demo");
+        if (typeof data.model === "string") setModel(data.model);
+      })
+      .catch(() => { if (active) { setGeminiConfigured("missing"); setMode("demo"); } });
+    return () => { active = false; };
+  }, []);
 
   const patchAgent = useCallback((id: number, fn: (m: AgentMsg) => AgentMsg) => {
     setMsgs((all) => all.map((m) => (m.id === id && m.role === "agent" ? fn(m) : m)));
@@ -50,7 +69,10 @@ export function AgentPanel() {
     setInput("");
     setRunning(true);
     try {
-      for await (const ev of runAgent(text, ctxRef.current, ac.signal) as AsyncGenerator<AgentEvent>) {
+      const generator = mode === "gemini" && geminiConfigured === "ready"
+        ? runGeminiAgent(text, ctxRef.current, ac.signal)
+        : runAgent(text, ctxRef.current, ac.signal);
+      for await (const ev of generator as AsyncGenerator<AgentEvent>) {
         if (ac.signal.aborted) break;
         switch (ev.type) {
           case "plan": patchAgent(aid, (m) => ({ ...m, plan: ev.steps })); break;
@@ -64,13 +86,14 @@ export function AgentPanel() {
           case "done": patchAgent(aid, (m) => ({ ...m, done: true, step: m.plan.length })); break;
         }
       }
-    } catch {
-      patchAgent(aid, (m) => ({ ...m, text: m.text || "Something went wrong on my side. Nothing was changed — please try again.", done: true }));
+    } catch (error) {
+      const message = error instanceof Error && !ac.signal.aborted ? error.message : "Request cancelled.";
+      patchAgent(aid, (m) => ({ ...m, text: `Unable to complete this request: ${message} Nothing was saved.`, done: true }));
     } finally {
       if (abort.current === ac) { setRunning(false); abort.current = null; }
       patchAgent(aid, (m) => ({ ...m, done: true }));
     }
-  }, [patchAgent, setWidgets]);
+  }, [patchAgent, setWidgets, mode, geminiConfigured]);
 
   // Prompts handed over from elsewhere (Home ask bar, chips, ⌘K)
   useEffect(() => {
@@ -95,11 +118,18 @@ export function AgentPanel() {
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-fg"><Sparkles size={19} strokeWidth={2.4} /></span>
         <div className="min-w-0 flex-1">
           <h2 className="t-headline">Compass</h2>
-          <p className="t-caption flex items-center gap-1"><Shield size={12} /> Reads demo data · asks before sending anything</p>
+          <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} · demo-data tools` : "Rule-based demo · fictional data"}</p>
         </div>
         {msgs.length > 0 && <button onClick={() => { stop(); setMsgs([]); }} className="press btn btn-sm btn-plain">Clear</button>}
         <button onClick={closeAgent} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>
       </header>
+
+      <div className="flex items-center gap-2 px-5 pb-3 text-[0.8rem]" role="group" aria-label="Assistant model mode">
+        <button type="button" onClick={() => setMode("gemini")} disabled={geminiConfigured !== "ready" || running} aria-pressed={mode === "gemini"} className={`press rounded-full px-3 py-1.5 font-semibold ${mode === "gemini" ? "bg-accent text-accent-fg" : "bg-surface-2 text-label-2"} disabled:cursor-not-allowed disabled:opacity-40`}>Gemini API</button>
+        <button type="button" onClick={() => setMode("demo")} disabled={running} aria-pressed={mode === "demo"} className={`press rounded-full px-3 py-1.5 font-semibold ${mode === "demo" ? "bg-accent text-accent-fg" : "bg-surface-2 text-label-2"}`}>Demo</button>
+        {geminiConfigured === "missing" && <span className="t-caption">Gemini needs a server API key</span>}
+        {geminiConfigured === "checking" && <span className="t-caption">Checking model…</span>}
+      </div>
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-5 pb-4" aria-live="polite">
         {msgs.length === 0 ? (

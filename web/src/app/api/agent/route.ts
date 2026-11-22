@@ -1,0 +1,54 @@
+import { runGeminiToolLoop } from "@/lib/gemini-agent";
+import { executeDemoTool, sanitizeDemoContext } from "@/lib/gemini-tools";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const headers = { "Cache-Control": "no-store" };
+const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+const configured = () => Boolean(process.env.GEMINI_API_KEY?.trim());
+
+export function GET() {
+  return Response.json({ configured: configured(), model: MODEL(), data: "fictional_demo" }, { headers });
+}
+
+export async function POST(request: Request) {
+  const host = new URL(request.url).hostname;
+  if (process.env.GEMINI_ENABLE_REMOTE !== "true" && !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) {
+    return Response.json({ error: "Remote Gemini requests are disabled for this local-only prototype." }, { status: 403, headers });
+  }
+  if (!configured()) return Response.json({ error: "Gemini API key not configured. Use Demo mode or set GEMINI_API_KEY in web/.env.local." }, { status: 503, headers });
+  if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "JSON required." }, { status: 415, headers });
+  if (Number(request.headers.get("content-length") || 0) > 16_384) return Response.json({ error: "Request too large." }, { status: 413, headers });
+  // Basic same-origin protection for the locally hosted demo. Production still requires authentication and rate limits.
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).host !== new URL(request.url).host) return Response.json({ error: "Cross-origin requests are not allowed." }, { status: 403, headers });
+    } catch {
+      return Response.json({ error: "Invalid request origin." }, { status: 403, headers });
+    }
+  }
+
+  try {
+    const raw: unknown = await request.json();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return Response.json({ error: "Invalid request." }, { status: 400, headers });
+    const body = raw as Record<string, unknown>;
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    if (prompt.length < 1 || prompt.length > 1200) return Response.json({ error: "Enter a question of at most 1200 characters." }, { status: 400, headers });
+    const context = sanitizeDemoContext(body.context);
+    const result = await runGeminiToolLoop({
+      prompt, apiKey: process.env.GEMINI_API_KEY!, model: MODEL(),
+      signal: request.signal,
+      executeTool: (name, args) => executeDemoTool(name, args, prompt, context),
+    });
+    return Response.json({ ...result, saved: false, mode: "gemini", data: "fictional_demo" }, { headers });
+  } catch (error) {
+    if (error instanceof SyntaxError) return Response.json({ error: "Invalid JSON." }, { status: 400, headers });
+    const message = error instanceof Error ? error.message : "Gemini could not complete the request.";
+    // Keep upstream responses, credentials, and stack traces away from the browser.
+    const safe = /^(Gemini request failed \(HTTP \d+\)|Gemini returned|Gemini did not|Gemini exceeded|Gemini reached|Invalid Gemini|Enter a question|Gemini API key)/.test(message)
+      ? message : "Unable to complete the AI request. Try again or switch to Demo mode.";
+    return Response.json({ error: safe }, { status: 502, headers });
+  }
+}
