@@ -226,7 +226,9 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
       </div>}
       {saveError && <p className="mt-3 text-[0.8rem] text-red" role="alert">{saveError}</p>}
       <p className="t-caption mt-3">Review the times before confirming. Saving affects this browser only, not Moodle or your university timetable.</p>
-      <div ref={actionsRef} className="mt-4 border-t border-sep pt-3" aria-label="Study plan review actions">
+      {/* Keep decision buttons in sight while scrolling a long proposal. The
+          Compass message list is the scroll container; the composer remains below. */}
+      <div ref={actionsRef} className="sticky bottom-0 z-10 -mx-3.5 mt-4 border-t border-sep bg-surface px-3.5 pb-3 pt-3 shadow-[0_-6px_18px_-12px_rgba(0,0,0,0.3)]" aria-label="Study plan review actions">
         <p className="mb-2 text-[0.82rem] font-semibold">Ready to decide?</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           {sessions.length > 0 && <button type="button" disabled={issues.length > 0} className="press btn btn-primary min-h-11 flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-40" onClick={() => {
