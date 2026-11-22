@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowRight, Check, Copy, ExternalLink, MapPin, Pencil, Undo2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowDown, ArrowRight, Check, Copy, ExternalLink, MapPin, Pencil, Undo2 } from "lucide-react";
 import type { AgentCard } from "@/lib/agent";
 import { COURSE_BY_ID } from "@/lib/data/academics";
 import { dueLabel, atDay, dayShort, dateShort, timeOf } from "@/lib/time";
@@ -166,6 +166,7 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
   const [sessions, setSessions] = useState<StudySession[]>(card.proposal.sessions);
   const [status, setStatus] = useState<"review" | "saved" | "rejected">("review");
   const [saveError, setSaveError] = useState("");
+  const actionsRef = useRef<HTMLDivElement>(null);
   const issues = validateStudySessions(
     sessions, demoTasks(submitted), [...demoClassBlocks(), ...card.proposal.blocked], studySessions, asMalaysiaIso(DEMO_NOW.getTime()),
   );
@@ -184,7 +185,12 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
     <section className="rounded-2xl bg-surface p-3.5" aria-label="Review proposed study plan">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div><h3 className="text-[0.95rem] font-semibold">Proposed study plan</h3><p className="t-caption">Demo data · Malaysia time (UTC+8)</p></div>
-        <Pill tone="orange">Not saved</Pill>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Pill tone="orange">Not saved</Pill>
+          <button type="button" className="press inline-flex items-center gap-1 text-[0.76rem] font-semibold text-accent underline-offset-2 hover:underline" onClick={() => actionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })}>
+            <ArrowDown size={13} aria-hidden /> Review actions
+          </button>
+        </div>
       </div>
       {card.proposal.assumptions.map((assumption) => <p key={assumption} className="mb-3 rounded-lg bg-orange-soft px-3 py-2 text-[0.8rem] text-orange">Assumption: {assumption}</p>)}
       {sessions.length > 0 && <ol className="space-y-3">
@@ -220,13 +226,17 @@ function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan"
       </div>}
       {saveError && <p className="mt-3 text-[0.8rem] text-red" role="alert">{saveError}</p>}
       <p className="t-caption mt-3">Review the times before confirming. Saving affects this browser only, not Moodle or your university timetable.</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {sessions.length > 0 && <button type="button" disabled={issues.length > 0} className="press btn btn-sm btn-primary disabled:cursor-not-allowed disabled:opacity-40" onClick={() => {
-          const result = confirmStudyPlan(sessions, card.proposal.blocked);
-          if (result.ok) { setStatus("saved"); showToast("Study plan saved to Home"); }
-          else setSaveError(result.error || "Could not save this plan.");
-        }}><Check size={14} /> Confirm & save</button>}
-        <button type="button" className="press btn btn-sm btn-plain" onClick={() => setStatus("rejected")}>Reject plan</button>
+      <div ref={actionsRef} className="mt-4 border-t border-sep pt-3" aria-label="Study plan review actions">
+        <p className="mb-2 text-[0.82rem] font-semibold">Ready to decide?</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {sessions.length > 0 && <button type="button" disabled={issues.length > 0} className="press btn btn-primary min-h-11 flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-40" onClick={() => {
+            const result = confirmStudyPlan(sessions, card.proposal.blocked);
+            if (result.ok) { setStatus("saved"); showToast("Study plan saved to Home"); }
+            else setSaveError(result.error || "Could not save this plan.");
+          }}><Check size={16} /> Confirm & save</button>}
+          <button type="button" className="press btn btn-plain min-h-11 flex-1 justify-center" onClick={() => setStatus("rejected")}>Reject plan</button>
+        </div>
+        {issues.length > 0 && <p className="mt-2 text-[0.78rem] text-red" role="status">Resolve the conflicts above before saving.</p>}
       </div>
     </section>
   );
