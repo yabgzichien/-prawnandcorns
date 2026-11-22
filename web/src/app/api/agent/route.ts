@@ -1,5 +1,6 @@
 import { runGeminiWithFallback } from "@/lib/gemini-agent";
 import { executeDemoTool, sanitizeDemoContext } from "@/lib/gemini-tools";
+import { isAllowedAgentOrigin } from "@/lib/agent-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,14 +22,11 @@ export async function POST(request: Request) {
   if (!configured()) return Response.json({ error: "Gemini API key not configured. Use Demo mode or set GEMINI_API_KEY in web/.env.local." }, { status: 503, headers });
   if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "JSON required." }, { status: 415, headers });
   if (Number(request.headers.get("content-length") || 0) > 16_384) return Response.json({ error: "Request too large." }, { status: 413, headers });
-  // Basic same-origin protection for the locally hosted demo. Production still requires authentication and rate limits.
+  // Next may normalize request.url to localhost even if a local browser uses
+  // 127.0.0.1; allow only matching-port loopback aliases in local preview.
   const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      if (new URL(origin).host !== new URL(request.url).host) return Response.json({ error: "Cross-origin requests are not allowed." }, { status: 403, headers });
-    } catch {
-      return Response.json({ error: "Invalid request origin." }, { status: 403, headers });
-    }
+  if (!isAllowedAgentOrigin(origin, request.url, process.env.GEMINI_ENABLE_REMOTE === "true")) {
+    return Response.json({ error: "Cross-origin requests are not allowed." }, { status: 403, headers });
   }
 
   try {
