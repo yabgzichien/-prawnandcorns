@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarPlus, Check, CheckCircle2, Link2, Loader2, Lock, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import { ASSIGNMENTS, COURSE_BY_ID, type Assignment } from "@/lib/data/academics";
 import { dueLabel, relative, DEMO_NOW, atDay } from "@/lib/time";
@@ -10,6 +10,7 @@ import { useApp } from "@/lib/state";
 import { SPRING } from "@/lib/hooks";
 import { Item, PageHeader, Pill, Segmented, Stagger, toneClass } from "@/components/ui/kit";
 import { Sheet } from "@/components/ui/Sheet";
+import { runDemoConnection } from "@/lib/demo-connection";
 
 type Filter = "open" | "done" | "all";
 
@@ -38,7 +39,7 @@ export function AssignmentsView() {
 
   return (
     <div>
-      <PageHeader eyebrow="From Moodle" title="Assignments" sub={`${openCount} open assignments. Deadlines from all courses, ordered by what's due first.`}
+      <PageHeader eyebrow="Fictional coursework" title="Assignments" sub={`${openCount} open example assignments, ordered by deadline. No Moodle account is connected.`}
         action={<button onClick={() => { download("xmum-deadlines.ics", deadlinesICS()); showToast("Deadlines exported with reminders"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
 
       {/* Moodle connection */}
@@ -47,16 +48,16 @@ export function AssignmentsView() {
           {moodle === "connected" ? <CheckCircle2 size={22} /> : <Link2 size={22} />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="t-headline">{moodle === "connected" ? "Moodle connected" : "Connect Moodle"}</p>
-          <p className="t-sub">{moodle === "connected" ? `Last synced ${synced}, read-only` : "Sync your real deadlines. You sign in on Moodle itself; Compass only reads dates."}</p>
+          <p className="t-headline">{moodle === "connected" ? "Demo connection enabled" : "Preview Moodle connection"}</p>
+          <p className="t-sub">{moodle === "connected" ? `Sample data refreshed ${synced}. No Moodle data was fetched.` : "Try a simulated connection using example assignments. No sign-in or Moodle access occurs."}</p>
         </div>
         {moodle === "connected" ? (
           <div className="flex gap-2">
-            <button onClick={() => { setSynced("just now"); showToast("Synced (demo)"); }} className="press btn btn-sm btn-plain"><RefreshCw size={14} /> Sync</button>
+            <button onClick={() => { setSynced("just now"); showToast("Demo data refreshed locally"); }} className="press btn btn-sm btn-plain"><RefreshCw size={14} /> Refresh demo</button>
             <button onClick={() => setMoodle("disconnected")} className="press btn btn-sm btn-plain"><Unplug size={14} /> Disconnect</button>
           </div>
         ) : (
-          <button onClick={() => setSheet(true)} className="press btn btn-primary">Connect</button>
+          <button onClick={() => setSheet(true)} className="press btn btn-primary">Try demo</button>
         )}
       </section>
 
@@ -99,36 +100,43 @@ export function AssignmentsView() {
       </Stagger>
       <p className="t-caption mt-6 px-1">Checking off an item here only marks it on this page — it doesn&rsquo;t submit anything on Moodle.</p>
 
-      <MoodleSheet open={sheet} onClose={() => setSheet(false)} onConnected={() => { setMoodle("connected"); setSynced("just now"); showToast("Moodle connected (demo)"); }} />
+      <MoodleSheet open={sheet} onClose={() => setSheet(false)} onConnected={() => { setMoodle("connected"); setSynced("just now"); showToast("Demo connection enabled (no Moodle access)"); }} />
     </div>
   );
 }
 
 function MoodleSheet({ open, onClose, onConnected }: { open: boolean; onClose: () => void; onConnected: () => void }) {
   const [phase, setPhase] = useState<"intro" | "auth" | "sync" | "done">("intro");
+  const cancelWalkthrough = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelWalkthrough.current?.(), []);
   const go = () => {
+    cancelWalkthrough.current?.();
     setPhase("auth");
-    setTimeout(() => setPhase("sync"), 1300);
-    setTimeout(() => { setPhase("done"); onConnected(); }, 2700);
+    cancelWalkthrough.current = runDemoConnection(setPhase, onConnected);
   };
-  const close = () => { onClose(); setTimeout(() => setPhase("intro"), 400); };
+  const close = () => {
+    cancelWalkthrough.current?.();
+    cancelWalkthrough.current = null;
+    setPhase("intro");
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={close} label="Connect Moodle" modalOnDesktop>
+    <Sheet open={open} onClose={close} label="Preview Moodle connection" modalOnDesktop>
       <div className="px-6 pb-8 pt-3 lg:pt-6">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent"><Link2 size={26} /></span>
-        <h2 className="t-title mt-4 !text-[1.6rem]">Connect Moodle</h2>
-        <p className="t-sub mt-2">Compass reads assignment names, courses and due dates so your deadlines live in one place.</p>
+        <h2 className="t-title mt-4 !text-[1.6rem]">Preview Moodle connection</h2>
+        <p className="t-sub mt-2">This is a fictional walkthrough. Compass does not sign in, fetch assignments or store Moodle credentials.</p>
         <ul className="mt-5 space-y-3 text-[0.92rem]">
-          {[[ShieldCheck, "You sign in on Moodle’s own page. Compass never sees or stores your password."], [Lock, "Read-only. It can’t submit, edit or delete anything."], [Unplug, "Disconnect any time and the synced data is removed."]].map(([I, t], i) => {
+          {[[ShieldCheck, "No real sign-in occurs in this prototype."], [Lock, "Only example assignments are shown. Nothing is submitted or edited on Moodle."], [Unplug, "You can exit the walkthrough at any time."]].map(([I, t], i) => {
             const Icon = I as typeof Lock;
             return <li key={i} className="flex gap-3"><Icon size={19} className="mt-0.5 shrink-0 text-accent" /><span>{t as string}</span></li>;
           })}
         </ul>
         <div className="mt-7">
-          {phase === "intro" && <button onClick={go} className="press btn btn-primary w-full">Continue to Moodle sign-in</button>}
+          {phase === "intro" && <button onClick={go} className="press btn btn-primary w-full">Start demo walkthrough</button>}
           {phase !== "intro" && (
             <div className="rounded-2xl bg-surface p-4">
-              {[["auth", "Signing in on Moodle (demo)"], ["sync", "Reading your course deadlines"], ["done", "Connected"]].map(([k, label], i) => {
+              {[["auth", "Simulating a sign-in"], ["sync", "Preparing example deadlines"], ["done", "Demo ready"]].map(([k, label], i) => {
                 const order = ["auth", "sync", "done"];
                 const state = order.indexOf(phase) > i ? "done" : order.indexOf(phase) === i ? "active" : "wait";
                 return (

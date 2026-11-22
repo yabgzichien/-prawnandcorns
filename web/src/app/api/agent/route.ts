@@ -1,12 +1,13 @@
 import { runGeminiWithFallback } from "@/lib/gemini-agent";
 import { executeDemoTool, sanitizeDemoContext } from "@/lib/gemini-tools";
 import { isAllowedAgentOrigin } from "@/lib/agent-origin";
+import { readJsonBodyWithinLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const headers = { "Cache-Control": "no-store" };
-const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-4-hydrogen";
+const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const FALLBACK_MODEL = () => process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-2.5-flash";
 const configured = () => Boolean(process.env.GEMINI_API_KEY?.trim());
 
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const raw: unknown = await request.json();
+    const raw: unknown = await readJsonBodyWithinLimit(request, 16_384);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return Response.json({ error: "Invalid request." }, { status: 400, headers });
     const body = raw as Record<string, unknown>;
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
@@ -43,7 +44,9 @@ export async function POST(request: Request) {
     });
     return Response.json({ ...result, saved: false, mode: "gemini", data: "fictional_demo" }, { headers });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return Response.json({ error: "Request too large." }, { status: 413, headers });
     if (error instanceof SyntaxError) return Response.json({ error: "Invalid JSON." }, { status: 400, headers });
+    if (error instanceof TypeError && error.message.includes("encoded data")) return Response.json({ error: "Invalid JSON encoding." }, { status: 400, headers });
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
       return Response.json({ error: "Gemini did not respond before the request timeout. Please retry or select Demo mode." }, { status: 504, headers });
     }

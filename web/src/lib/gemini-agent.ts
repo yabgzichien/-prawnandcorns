@@ -40,7 +40,7 @@ export async function runGeminiToolLoop(options: {
 }): Promise<GeminiAgentOutput> {
   const { prompt, apiKey, executeTool, signal } = options;
   const fetcher = options.fetcher ?? fetch;
-  const model = options.model ?? "gemini-4-hydrogen";
+  const model = options.model ?? "gemini-2.5-flash";
   if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
   if (!/^[a-z0-9][a-z0-9.-]{0,80}$/i.test(model)) throw new Error("Invalid Gemini model identifier.");
   if (!prompt.trim() || prompt.length > 1200) throw new Error("Enter a question of at most 1200 characters.");
@@ -122,7 +122,7 @@ export async function runGeminiToolLoop(options: {
 
 /** Both the primary and fallback models have access only to the same proposal/read-only tools. */
 export async function runGeminiWithFallback(options: Parameters<typeof runGeminiToolLoop>[0] & { fallbackModel?: string }): Promise<GeminiAgentOutput> {
-  const primary = options.model || "gemini-4-hydrogen";
+  const primary = options.model || "gemini-2.5-flash";
   try {
     return await runGeminiToolLoop({ ...options, model: primary, timeoutMs: options.timeoutMs ?? 18_000 });
   } catch (error) {

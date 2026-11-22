@@ -66,7 +66,7 @@ test("Gemini includes a reviewable plan card returned by the deterministic tool"
   assert.equal(result.tools.length, 1);
 });
 
-test("defaults to Gemini 4 Hydrogen with medium thinking and adequate tool-call budget", async () => {
+test("defaults to the faster Gemini 2.5 Flash with a compatible tool-call budget", async () => {
   let sentUrl = "";
   let sentBody: Record<string, unknown> = {};
   const fetcher: typeof fetch = async (url, init) => {
@@ -78,12 +78,24 @@ test("defaults to Gemini 4 Hydrogen with medium thinking and adequate tool-call 
     prompt: "What do I need to do?", apiKey: "test", fetcher,
     executeTool: async () => ({ value: {}, summary: "No data" }),
   });
-  assert.match(sentUrl, /gemini-4-hydrogen:generateContent$/);
-  assert.equal(result.model, "gemini-4-hydrogen");
+  assert.match(sentUrl, /gemini-2.5-flash:generateContent$/);
+  assert.equal(result.model, "gemini-2.5-flash");
   const config = sentBody.generationConfig as Record<string, unknown>;
-  assert.deepEqual(config.thinkingConfig, { thinkingLevel: "MEDIUM" });
+  assert.equal("thinkingConfig" in config, false);
   assert.ok(Number(config.maxOutputTokens) >= 4096);
   assert.equal("temperature" in config, false);
+});
+
+test("Hydrogen remains an explicitly configurable model with medium thinking", async () => {
+  let config: Record<string, unknown> = {};
+  const fetcher: typeof fetch = async (_url, init) => {
+    config = JSON.parse(String(init?.body)).generationConfig;
+    return ok({ candidates: [{ content: { role: "model", parts: [{ text: "Demo response" }] } }] });
+  };
+  const result = await runGeminiToolLoop({ prompt: "Explain", apiKey: "test", model: "gemini-4-hydrogen", fetcher,
+    executeTool: async () => ({ value: {}, summary: "No data" }) });
+  assert.equal(result.model, "gemini-4-hydrogen");
+  assert.deepEqual(config.thinkingConfig, { thinkingLevel: "MEDIUM" });
 });
 
 test("legacy Gemini 2.5 can use the fallback without incompatible thinking levels", async () => {

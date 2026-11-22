@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { asMalaysiaIso, tryConfirmStudyPlan, type BusyBlock, type StudySession } from "./planning";
 import { demoClassBlocks, demoTasks, sanitizeDemoStudySessions } from "./planning-demo";
 import { DEMO_NOW } from "./time";
+import { persistDemoSnapshot } from "./demo-persistence";
 
 export type WidgetId = "next" | "alerts" | "due" | "today" | "fees" | "progress" | "clubs" | "find";
 export type WidgetPref = { id: WidgetId; hidden: boolean };
@@ -123,7 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!state.hydrated) return;
     const p: Persisted = { theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted, moodle: state.moodle, studySessions: state.studySessions };
-    try { localStorage.setItem(KEY, JSON.stringify(p)); } catch {}
+    persistDemoSnapshot(() => localStorage, KEY, p);
   }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.moodle, state.studySessions]);
 
   useEffect(() => {
@@ -151,7 +152,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     confirmStudyPlan: (sessions, blocked) => {
       if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
       const result = tryConfirmStudyPlan(sessions, state.studySessions, demoTasks(state.submitted), demoClassBlocks(), blocked, asMalaysiaIso(DEMO_NOW.getTime()));
-      if (result.ok) dispatch({ type: "studySessions", sessions: result.sessions });
+      if (result.ok) {
+        const snapshot: Persisted = {
+          theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted,
+          moodle: state.moodle, studySessions: result.sessions,
+        };
+        if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) {
+          return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
+        }
+        dispatch({ type: "studySessions", sessions: result.sessions });
+      }
       return result;
     },
     removeStudySession: (id) => dispatch({ type: "studySessions", sessions: state.studySessions.filter((item) => item.id !== id) }),
