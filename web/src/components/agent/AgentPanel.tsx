@@ -23,7 +23,7 @@ function rich(text: string): ReactNode {
 }
 
 export function AgentPanel() {
-  const { agentOpen, closeAgent, agentSeed, widgets, submitted, setWidgets, showToast } = useApp();
+  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, setWidgets, showToast } = useApp();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
@@ -31,8 +31,8 @@ export function AgentPanel() {
   const idRef = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   const handled = useRef<number>(0);
-  const ctxRef = useRef({ widgets, submitted });
-  useEffect(() => { ctxRef.current = { widgets, submitted }; });
+  const ctxRef = useRef({ widgets, submitted, studySessions });
+  useEffect(() => { ctxRef.current = { widgets, submitted, studySessions }; });
 
   const patchAgent = useCallback((id: number, fn: (m: AgentMsg) => AgentMsg) => {
     setMsgs((all) => all.map((m) => (m.id === id && m.role === "agent" ? fn(m) : m)));

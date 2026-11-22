@@ -2,7 +2,7 @@
 
 import { AnimatePresence, LayoutGroup, motion, Reorder, useDragControls } from "motion/react";
 import { useState } from "react";
-import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useApp, WIDGET_META, DEFAULT_WIDGETS, type WidgetPref } from "@/lib/state";
 import { STUDENT } from "@/lib/data/academics";
 import { dayLong, dateShort, DEMO_NOW } from "@/lib/time";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/kit";
 import { WIDGETS } from "./widgets";
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
   const visible = widgets.filter((w) => !w.hidden);
@@ -46,6 +46,26 @@ export function HomeView() {
           ))}
         </div>
       </motion.form>
+
+      {hydrated && studySessions.length > 0 && (
+        <section className="card mb-6 p-5" aria-label="Confirmed study plan">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="t-title">Your study plan</h2>
+            <span className="t-caption">Confirmed · Fictional demo · MYT</span>
+          </div>
+          <ul className="divide-y divide-sep">
+            {[...studySessions].sort((a, b) => a.start.localeCompare(b.start)).map((session) => (
+              <li key={session.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[0.92rem] font-semibold">{session.title}</p>
+                  <p className="t-caption">{session.start.slice(0, 10)} · {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
+                </div>
+                <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <LayoutGroup>
         <motion.div layout className="grid gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>

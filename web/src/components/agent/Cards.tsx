@@ -9,11 +9,16 @@ import { dueLabel, atDay, dayShort, dateShort } from "@/lib/time";
 import { mailtoHref } from "@/lib/email";
 import { Pill, Ring } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
+import { asMalaysiaIso, validateStudySessions, type StudySession } from "@/lib/planning";
+import { demoClassBlocks, demoTasks } from "@/lib/planning-demo";
+import { DEMO_NOW } from "@/lib/time";
 
 const statusTone = { overdue: "red", todo: "orange", progress: "blue", submitted: "green" } as const;
 
 export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentCard; onNavigate: () => void; onUndoLayout?: () => void }) {
   switch (card.kind) {
+    case "study-plan":
+      return <StudyPlanCard card={card} />;
     case "deadlines":
       return (
         <ul className="divide-y divide-sep overflow-hidden rounded-2xl bg-surface">
@@ -154,6 +159,70 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
     case "suggest":
       return null;
   }
+}
+
+function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan" }> }) {
+  const { confirmStudyPlan, studySessions, submitted, showToast } = useApp();
+  const [sessions, setSessions] = useState<StudySession[]>(card.proposal.sessions);
+  const [status, setStatus] = useState<"review" | "saved" | "rejected">("review");
+  const [saveError, setSaveError] = useState("");
+  const issues = validateStudySessions(
+    sessions, demoTasks(submitted), [...demoClassBlocks(), ...card.proposal.blocked], studySessions, asMalaysiaIso(DEMO_NOW.getTime()),
+  );
+  const update = (id: string, field: "start" | "end", local: string) => {
+    setSaveError("");
+    setSessions((current) => current.map((s) => s.id === id ? { ...s, [field]: `${local}:00+08:00` } : s));
+  };
+
+  if (status !== "review") {
+    return <div className="rounded-2xl bg-surface p-4 text-[0.9rem] font-medium" role="status">
+      {status === "saved" ? "Study sessions confirmed and saved in this browser. Check your Home dashboard." : "Plan rejected. Nothing was saved."}
+    </div>;
+  }
+
+  return (
+    <section className="rounded-2xl bg-surface p-3.5" aria-label="Review proposed study plan">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div><h3 className="text-[0.95rem] font-semibold">Proposed study plan</h3><p className="t-caption">Demo data · Malaysia time (UTC+8)</p></div>
+        <Pill tone="orange">Not saved</Pill>
+      </div>
+      {card.proposal.assumptions.map((assumption) => <p key={assumption} className="mb-3 rounded-lg bg-orange-soft px-3 py-2 text-[0.8rem] text-orange">Assumption: {assumption}</p>)}
+      {sessions.length > 0 && <ol className="space-y-3">
+        {sessions.map((session) => <li key={session.id} className="rounded-xl bg-surface-2 p-3">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <p className="text-[0.9rem] font-semibold">{session.title}</p>
+            <button type="button" onClick={() => setSessions((all) => all.filter((s) => s.id !== session.id))} className="press text-[0.78rem] font-semibold text-label-2 underline-offset-2 hover:underline" aria-label={`Remove ${session.title}`}>Remove</button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="text-[0.76rem] font-medium text-label-2">Start
+              <input type="datetime-local" step={300} value={session.start.slice(0, 16)} onChange={(e) => update(session.id, "start", e.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-sep bg-surface px-2 py-2 text-[0.82rem] text-label" />
+            </label>
+            <label className="text-[0.76rem] font-medium text-label-2">End
+              <input type="datetime-local" step={300} value={session.end.slice(0, 16)} onChange={(e) => update(session.id, "end", e.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-sep bg-surface px-2 py-2 text-[0.82rem] text-label" />
+            </label>
+          </div>
+        </li>)}
+      </ol>}
+      {card.proposal.skipped.length > 0 && <div className="mt-3 rounded-lg bg-orange-soft px-3 py-2 text-[0.82rem] text-orange">
+        <p className="font-semibold">Could not schedule:</p>
+        <ul className="list-inside list-disc">{card.proposal.skipped.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+      </div>}
+      {issues.length > 0 && <div className="mt-3 rounded-lg bg-red-soft px-3 py-2 text-[0.8rem] text-red" role="alert">
+        {issues.slice(0, 3).map((issue, i) => <p key={i}>{issue}</p>)}
+        {issues.length > 3 && <p>And {issues.length - 3} more conflicts.</p>}
+      </div>}
+      {saveError && <p className="mt-3 text-[0.8rem] text-red" role="alert">{saveError}</p>}
+      <p className="t-caption mt-3">Review the times before confirming. Saving affects this browser only, not Moodle or your university timetable.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sessions.length > 0 && <button type="button" disabled={issues.length > 0} className="press btn btn-sm btn-primary disabled:cursor-not-allowed disabled:opacity-40" onClick={() => {
+          const result = confirmStudyPlan(sessions, card.proposal.blocked);
+          if (result.ok) { setStatus("saved"); showToast("Study plan saved to Home"); }
+          else setSaveError(result.error || "Could not save this plan.");
+        }}><Check size={14} /> Confirm & save</button>}
+        <button type="button" className="press btn btn-sm btn-plain" onClick={() => setStatus("rejected")}>Reject plan</button>
+      </div>
+    </section>
+  );
 }
 
 function EmailCard({ card, onNavigate }: { card: Extract<AgentCard, { kind: "email" }>; onNavigate: () => void }) {

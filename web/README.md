@@ -1,11 +1,13 @@
-# XMUM Compass — front-end prototype
+# XMUM Compass — fictional-data competition prototype
 
-A student "super-app" for new XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **Front-end only, no backend.**
+A student dashboard and AI-assistant prototype for current and incoming XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **Client-side demo only, no backend or real LLM.**
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
 npm run build
+npm run lint
+npm test
 ```
 
 ## What's in it
@@ -21,10 +23,11 @@ npm run build
 | `/finance` | Tuition progress, schedule, history |
 | `/mail` | Pick the right office from a plain-language need, draft an email — never sends |
 | ⌘K / **Ask** | Agent panel: visible plan → tool calls → answer → action cards |
+| Study planner | Deterministic conflict-checked proposal → editable review → confirm or reject → browser-local Home plan |
 
 ## Agent demo script
 
-Press **Reset demo** (sidebar / More) between runs — layout, ticked assignments and joined clubs persist in localStorage and change the answers.
+Press **Reset demo** (sidebar / More) between runs — layout, ticked assignments, joined clubs and confirmed study sessions persist in localStorage and change the answers.
 
 1. "What's due this week?"
 2. "Is my 2pm class still on?"
@@ -33,8 +36,11 @@ Press **Reset demo** (sidebar / More) between runs — layout, ticked assignment
 5. "Add a finance widget and hide clubs" → dashboard changes, **Undo** available
 6. "When is my next class?" · "Which GE courses should I take?" · "How much do I owe?"
 7. "I like robotics and photography — which clubs fit?"
+8. "Help me plan my week. I have a meeting on Wednesday evening." → review the assumed 18:00–21:00 block, edit study sessions, **Confirm & save**, then reload Home
 
 The agent is a scripted mock: everything goes through `runAgent()` in `src/lib/agent.ts`, which yields an event stream (`plan`, `step`, `tool`, `text`, `card`). Replace that one function with a streaming route that runs a real LLM tool-calling loop; the UI doesn't change. The tools in that file are the tool spec to implement.
+
+Study proposals go through pure scheduling logic in `src/lib/planning.ts` and fictional-data mapping in `src/lib/planning-demo.ts`. The demo selects two imminent deadlines plus one high-weight assignment, prefers study windows within two days of each deadline, and lists omitted tasks for review. The app checks classes, deadlines, study hours, existing sessions and manual edits. Confirming writes only to this browser, never to university systems. Neither the time planning nor the rest of the assistant is driven by a real LLM yet; do not claim otherwise in the competition demo.
 
 ## Data rules (competition PNC rule)
 

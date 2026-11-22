@@ -5,6 +5,8 @@ import { DEMO_NOW, dateShort, dayLong, dayShort, dueLabel, relative, timeOf, atD
 import { WIDGET_META, type WidgetId, type WidgetPref } from "./state";
 import { TODAY_IDX, upcomingClasses } from "./schedule";
 import { composeEmail, extractNeed, routeDepartment, type Draft } from "./email";
+import { demoStudyProposal } from "./planning-demo";
+import type { StudyProposal, StudySession } from "./planning";
 
 /* ───────────────────────────────────────────────────────────
    Agent runtime (front-end mock).
@@ -15,6 +17,7 @@ import { composeEmail, extractNeed, routeDepartment, type Draft } from "./email"
    ─────────────────────────────────────────────────────────── */
 
 export type AgentCard =
+  | { kind: "study-plan"; proposal: StudyProposal }
   | { kind: "deadlines"; items: Assignment[] }
   | { kind: "class"; session: ClassSession; notice?: Notice; makeup?: ClassSession; next?: ClassSession }
   | { kind: "schedule"; label: string; items: ClassSession[] }
@@ -34,9 +37,10 @@ export type AgentEvent =
   | { type: "card"; card: AgentCard }
   | { type: "done" };
 
-export type AgentContext = { widgets: WidgetPref[]; submitted: string[] };
+export type AgentContext = { widgets: WidgetPref[]; submitted: string[]; studySessions: StudySession[] };
 
 export const SUGGESTIONS = [
+  "Help me plan my week around my deadlines",
   "What's due this week?",
   "Is my 2pm class still on?",
   "Where is A3-G01?",
@@ -78,10 +82,11 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string): Intent {
   const t = raw.toLowerCase();
+  if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
   const aliasHit = Object.values(WIDGET_META).some((m) => m.aliases.some((a) => t.includes(a)));
   if (has(t, /\b(widget|widgets|dashboard|home ?screen|layout|personali[sz]e|customi[sz]e)\b/) ||
       (aliasHit && has(t, /\b(add|show|hide|remove|move|put|only|pin|reorder|first|top)\b/) && !has(t, /\b(email|mail|draft)\b/) && !has(t, /\bwhere\b/))) return "layout";
@@ -116,6 +121,24 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
 
   try {
     switch (intent) {
+      case "study": {
+        yield { type: "plan", steps: ["Read fictional deadlines and timetable", "Find free study windows and check conflicts", "Ask you to review and confirm the proposed sessions"] };
+        yield { type: "step", index: 0 };
+        const result = yield* tool("demo.study_plan", "fictional classes, deadlines and saved sessions", () => {
+          const proposal = demoStudyProposal(prompt, ctx.submitted, ctx.studySessions);
+          return { value: proposal, output: `${proposal.sessions.length} possible study blocks; ${proposal.skipped.length} unscheduled` };
+        }, signal);
+        yield { type: "step", index: 1 };
+        yield* tool("schedule.check_conflicts", "09:00–21:00 MYT; deadlines; existing commitments", () => ({ value: true, output: "Validated using application logic (not the AI model)" }), signal);
+        yield { type: "step", index: 2 };
+        yield* say(result.sessions.length
+          ? `I found **${result.sessions.length} possible study sessions** from the fictional timetable. Review or change the times below before saving. **Nothing has been saved yet.** This is a rule-based demo planner, not a live LLM.`
+          : result.assumptions.length && !result.skipped.length
+            ? "I need a clearer meeting time before I can safely propose a study plan. Please specify the weekday and whether it's in the evening. Nothing was saved."
+            : "I couldn't find a feasible study slot before the deadlines in the fictional timetable. Nothing was saved.", signal);
+        yield { type: "card", card: { kind: "study-plan", proposal: result } };
+        break;
+      }
       case "deadlines": {
         yield { type: "plan", steps: ["Check Moodle sync status", "Read assignments due 23–29 Nov", "Rank by urgency and weight"] };
         yield { type: "step", index: 0 };
