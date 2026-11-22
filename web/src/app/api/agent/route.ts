@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const headers = { "Cache-Control": "no-store" };
-const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-4-hydrogen";
 const configured = () => Boolean(process.env.GEMINI_API_KEY?.trim());
 
 export function GET() {

@@ -29,7 +29,7 @@ export function AgentPanel() {
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState<"checking" | "ready" | "missing">("checking");
-  const [model, setModel] = useState("gemini-3.8-flash");
+  const [model, setModel] = useState("gemini-4-hydrogen");
   const [mode, setMode] = useState<"gemini" | "demo">("demo");
   const abort = useRef<AbortController | null>(null);
   const idRef = useRef(0);

@@ -65,3 +65,23 @@ test("Gemini includes a reviewable plan card returned by the deterministic tool"
   assert.equal(result.cards[0]?.kind, "study-plan");
   assert.equal(result.tools.length, 1);
 });
+
+test("defaults to Gemini 4 Hydrogen with medium thinking and adequate tool-call budget", async () => {
+  let sentUrl = "";
+  let sentBody: Record<string, unknown> = {};
+  const fetcher: typeof fetch = async (url, init) => {
+    sentUrl = String(url);
+    sentBody = JSON.parse(String(init?.body));
+    return ok({ candidates: [{ content: { role: "model", parts: [{ text: "This is a fictional demo." }] } }] });
+  };
+  const result = await runGeminiToolLoop({
+    prompt: "What do I need to do?", apiKey: "test", fetcher,
+    executeTool: async () => ({ value: {}, summary: "No data" }),
+  });
+  assert.match(sentUrl, /gemini-4-hydrogen:generateContent$/);
+  assert.equal(result.model, "gemini-4-hydrogen");
+  const config = sentBody.generationConfig as Record<string, unknown>;
+  assert.deepEqual(config.thinkingConfig, { thinkingLevel: "MEDIUM" });
+  assert.ok(Number(config.maxOutputTokens) >= 4096);
+  assert.equal("temperature" in config, false);
+});

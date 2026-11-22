@@ -38,7 +38,7 @@ export async function runGeminiToolLoop(options: {
 }): Promise<GeminiAgentOutput> {
   const { prompt, apiKey, executeTool, signal } = options;
   const fetcher = options.fetcher ?? fetch;
-  const model = options.model ?? "gemini-3.8-flash";
+  const model = options.model ?? "gemini-4-hydrogen";
   if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
   if (!/^[a-z0-9][a-z0-9.-]{0,80}$/i.test(model)) throw new Error("Invalid Gemini model identifier.");
   if (!prompt.trim() || prompt.length > 1200) throw new Error("Enter a question of at most 1200 characters.");
@@ -56,7 +56,10 @@ export async function runGeminiToolLoop(options: {
         contents,
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTIONS }] },
         tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
+        // Hydrogen defaults to HIGH thinking, which is wasteful for short interactive
+        // tool-selection turns. MEDIUM balances response time and reasoning cost.
+        // Reasoning tokens share this output budget; 900 tokens may truncate the reply.
+        generationConfig: { thinkingConfig: { thinkingLevel: "MEDIUM" }, maxOutputTokens: 8192 },
       }),
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(22_000)]) : AbortSignal.timeout(22_000),
       cache: "no-store",

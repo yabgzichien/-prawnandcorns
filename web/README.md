@@ -20,7 +20,7 @@ cp .env.example .env.local
 npm run dev -- -p 3456
 ```
 
-Open `http://localhost:3456`, launch **Compass**, and select **Gemini API**. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. Default model is `gemini-3.8-flash`; set `GEMINI_MODEL` to a model your account supports.
+Open `http://localhost:3456`, launch **Compass**, and select **Gemini API**. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. Default model is `gemini-4-hydrogen` with MEDIUM thinking for interactive tool calls. If the model isn't available to your API key, set `GEMINI_MODEL=gemini-3.8-flash` as a fallback. Free-tier rate limits and paid-tier token pricing are determined by Google, not by this application.
 
 Only the fictional study-planning data, demo timetable, assignments, finance data and illustrative room lookup can be fetched by the model. Scheduling conflict checks remain deterministic and every proposed study session requires user confirmation. No university account authentication, campus system integration, actual email sending or cloud persistence is implemented. Gemini responses are not streamed token by token in this first integration.
 
