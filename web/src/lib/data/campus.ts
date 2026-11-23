@@ -1,4 +1,4 @@
-import { GEO, type EN } from "./campus-geo";
+import { GEO, type EN } from "./campus-geo.ts";
 
 // Building footprints come from OpenStreetMap (© OpenStreetMap contributors, ODbL).
 // What each block is used for, and every room label below, is DEMO data — approximate, not an official directory.

@@ -1,4 +1,4 @@
-import { atDay } from "../time";
+import { atDay } from "../time.ts";
 
 // ──────────────────────────────────────────────────────────
 // ALL DATA IN THIS FILE IS INVENTED FOR THE DEMO.
