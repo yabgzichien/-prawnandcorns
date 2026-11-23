@@ -10,8 +10,10 @@ import { mailtoHref } from "@/lib/email";
 import { Pill, Ring } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
 import { asMalaysiaIso, validateStudySessions, type StudySession } from "@/lib/planning";
-import { demoClassBlocks, demoTasks } from "@/lib/planning-demo";
 import { DEMO_NOW } from "@/lib/time";
+import { useCampus } from "@/lib/sync/CampusProvider";
+import { classBlocksFrom, tasksFrom } from "@/lib/planning-demo";
+import { UpdatesCard } from "./UpdatesCard";
 
 const statusTone = { overdue: "red", todo: "orange", progress: "blue", submitted: "green" } as const;
 
@@ -19,6 +21,8 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
   switch (card.kind) {
     case "study-plan":
       return <StudyPlanCard card={card} />;
+    case "updates":
+      return <UpdatesCard card={card} />;
     case "deadlines":
       return (
         <ul className="divide-y divide-sep overflow-hidden rounded-2xl bg-surface">
@@ -163,12 +167,13 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
 
 function StudyPlanCard({ card }: { card: Extract<AgentCard, { kind: "study-plan" }> }) {
   const { confirmStudyPlan, studySessions, submitted, showToast } = useApp();
+  const { data } = useCampus();
   const [sessions, setSessions] = useState<StudySession[]>(card.proposal.sessions);
   const [status, setStatus] = useState<"review" | "saved" | "rejected">("review");
   const [saveError, setSaveError] = useState("");
   const actionsRef = useRef<HTMLDivElement>(null);
   const issues = validateStudySessions(
-    sessions, demoTasks(submitted), [...demoClassBlocks(), ...card.proposal.blocked], studySessions, asMalaysiaIso(DEMO_NOW.getTime()),
+    sessions, tasksFrom(data.assignments, submitted), [...classBlocksFrom(data.classes), ...card.proposal.blocked], studySessions, asMalaysiaIso(DEMO_NOW.getTime()),
   );
   const update = (id: string, field: "start" | "end", local: string) => {
     setSaveError("");

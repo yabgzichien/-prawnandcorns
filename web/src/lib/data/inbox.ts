@@ -46,7 +46,7 @@ export const EMAIL_LAB6_EXTENDED: InboxMessage = {
   body: "Hi everyone,\n\nSeveral of you asked for more time on Lab 6: Loops & Arrays. The deadline is now Fri 27 Nov, 23:59. Nothing else about the lab has changed.\n\nDr. Lim",
   expected: [
     {
-      type: "deadline", confidence: "high", targetId: "a1",
+      type: "deadline", confidence: "high", targetId: "a1", courseCode: "CST1101",
       summary: "Lab 6: Loops & Arrays is now due Fri 27 Nov, 23:59",
       quote: "The deadline is now Fri 27 Nov, 23:59.",
       newDate: "2026-11-27T23:59:00+08:00",
@@ -79,7 +79,7 @@ export const EMAIL_NEWSLETTER: InboxMessage = {
   date: "2026-11-23T13:35:00+08:00",
   body: "Hello,\n\nThis week on campus: the canteen has added three new noodle dishes, the library has extended its Saturday opening hours, and the lake walk is open again after resurfacing.\n\nCampus Weekly Digest",
   expected: [
-    { type: "no_action", confidence: "high", summary: "Newsletter with no personal action", quote: "This week on campus: the canteen has added three new noodle dishes." },
+    { type: "no_action", confidence: "high", summary: "Newsletter with no personal action", quote: "This week on campus: the canteen has added three new noodle dishes" },
   ],
 };
 
@@ -104,7 +104,7 @@ export const EMAIL_QUIZ_AMBIGUOUS: InboxMessage = {
   body: "Hello class,\n\nBecause of the lab schedule, the quiz is moved to next week. I will confirm the exact day once the lab times are final.\n\nDr. Ooi",
   expected: [
     {
-      type: "deadline", confidence: "low", targetId: "a2",
+      type: "deadline", confidence: "low", targetId: "a2", courseCode: "CST1103",
       summary: "Quiz 3: Boolean Algebra is moved to next week, day not given",
       quote: "the quiz is moved to next week",
       reason: "The email gives no exact date.",

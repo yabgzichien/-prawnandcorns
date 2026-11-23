@@ -1,40 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CONNECTORS, clearMailCache } from "../src/lib/connectors/connectors.ts";
-import type { ConnectorEnv } from "../src/lib/connectors/types.ts";
 import { describeChange } from "../src/lib/sync/describe.ts";
 import { diffSnapshots, mergePending } from "../src/lib/sync/diff.ts";
-import { syncAll } from "../src/lib/sync/engine.ts";
 import { sanitizeSyncState } from "../src/lib/sync/store.ts";
 import type { Snapshot } from "../src/lib/sync/types.ts";
-import { mockRespond } from "../src/lib/world/mock-http.ts";
-import { acNotices, acTimetable, financeAccount, financeInstalments, mailList, mailMessage, moodleActionEvents, moodleAnnouncements, moodleAssignments, moodleCourses } from "../src/lib/world/payloads.ts";
-import type { SystemId } from "../src/lib/world/types.ts";
-
-process.env.COMPASS_MOCK_DELAY_MS = "0";
-
-/** Routes connector URLs straight into the mock handlers, with no network. */
-const localFetch: typeof fetch = async (input, init) => {
-  const url = new URL(String(input), "http://localhost");
-  const request = new Request(url, { headers: init?.headers });
-  const p = url.pathname;
-  if (p === "/api/mock/moodle") {
-    const fn = url.searchParams.get("wsfunction");
-    const build = fn === "core_enrol_get_users_courses" ? moodleCourses : fn === "mod_assign_get_assignments" ? moodleAssignments : fn === "mod_forum_get_forum_discussions" ? moodleAnnouncements : moodleActionEvents;
-    return mockRespond(request, "moodle", build);
-  }
-  if (p === "/api/mock/ac/timetable") return mockRespond(request, "ac", acTimetable);
-  if (p === "/api/mock/ac/notices") return mockRespond(request, "ac", acNotices);
-  if (p === "/api/mock/finance/account") return mockRespond(request, "finance", financeAccount);
-  if (p === "/api/mock/finance/instalments") return mockRespond(request, "finance", financeInstalments);
-  if (p === "/api/mock/mail/messages") return mockRespond(request, "mail", mailList);
-  const id = decodeURIComponent(p.split("/").pop() ?? "");
-  return mockRespond(request, "mail", (w) => mailMessage(w, id));
-};
-
-const ALL: SystemId[] = ["moodle", "ac", "finance", "mail"];
-const env = (events: string[] = [], over: Partial<ConnectorEnv> = {}): ConnectorEnv => ({ fetcher: localFetch, events, outageSeen: [], custom: [], now: () => "2026-11-23T13:20:00+08:00", ...over });
-const sync = (events: string[], previous: Snapshot | null, connected = ALL, over: Partial<ConnectorEnv> = {}) => syncAll({ connected, previous, env: env(events, over) });
+import { ALL, env, sync } from "./campus-helpers.ts";
 
 test("the first sync sets a quiet baseline with no changes", async () => {
   clearMailCache();

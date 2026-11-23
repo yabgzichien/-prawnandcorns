@@ -3,9 +3,11 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, Check, ChevronDown, Loader2, Shield, Sparkles, Square, X } from "lucide-react";
-import { runAgent, SUGGESTIONS, type AgentCard, type AgentEvent } from "@/lib/agent";
+import { runAgent, SUGGESTIONS, type AgentCard, type AgentContext, type AgentEvent } from "@/lib/agent";
 import { runGeminiAgent } from "@/lib/gemini-client";
 import { useApp, type WidgetPref } from "@/lib/state";
+import { useCampus } from "@/lib/sync/CampusProvider";
+import { DEMO_NOW } from "@/lib/time";
 import { Sheet } from "@/components/ui/Sheet";
 import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
@@ -37,7 +39,8 @@ function AgentText({ value }: { value: string }) {
 }
 
 export function AgentPanel() {
-  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, setWidgets, showToast } = useApp();
+  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, reminders, personalEvents, setWidgets, showToast } = useApp();
+  const campus = useCampus();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
@@ -48,8 +51,17 @@ export function AgentPanel() {
   const idRef = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   const handled = useRef<number>(0);
-  const ctxRef = useRef({ widgets, submitted, studySessions });
-  useEffect(() => { ctxRef.current = { widgets, submitted, studySessions }; });
+  const ctxRef = useRef<AgentContext>({ widgets, submitted, studySessions });
+  useEffect(() => {
+    ctxRef.current = {
+      widgets, submitted, studySessions,
+      campus: campus.snapshot ? {
+        data: campus.data, items: campus.snapshot.items, changes: campus.changes,
+        failed: campus.failed.map((f) => ({ system: f.system, message: f.error.message })),
+        plan: { studySessions, reminders, personalEvents }, submitted, now: DEMO_NOW,
+      } : undefined,
+    };
+  });
 
   useEffect(() => {
     let active = true;
@@ -131,7 +143,7 @@ export function AgentPanel() {
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-fg"><Sparkles size={19} strokeWidth={2.4} /></span>
         <div className="min-w-0 flex-1">
           <h2 className="t-headline">Compass</h2>
-          <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} (demo data)` : "Rule-based demo (fictional data)"}</p>
+          <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} (demo data)` : "Offline demo mode (fictional data)"}</p>
         </div>
         {msgs.length > 0 && <button onClick={() => { stop(); setMsgs([]); }} className="press btn btn-sm btn-plain">Clear</button>}
         <button onClick={closeAgent} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>

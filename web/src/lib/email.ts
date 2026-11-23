@@ -56,4 +56,12 @@ export function composeEmail(dept: Department, need: string, tone: Tone = "forma
   return { to: dept, subject, body, tone };
 }
 
+/** A short, polite question to one lecturer. It is only a draft: Compass never sends email. */
+export function composeLecturerEmail(name: string, address: string, question: string): Draft {
+  const person: Department = { id: "lecturer", name, email: address, handles: "Course questions", keywords: [] };
+  const first = name.replace(/\s*\(demo\)\s*$/i, "").trim();
+  const body = `Dear ${first},\n\nI hope you are well. I am ${STUDENT.name} (${STUDENT.id}), in your class this semester.\n\n${sentence(question)} Could you please confirm the exact details when you have a moment?\n\nThank you.\n\nKind regards,\n${STUDENT.name}\n${STUDENT.id}, ${STUDENT.programme}`;
+  return { to: person, subject: `Question about your recent message (${STUDENT.id})`, body, tone: "formal" };
+}
+
 export const mailtoHref = (d: Draft) => `mailto:${d.to.email}?subject=${encodeURIComponent(d.subject)}&body=${encodeURIComponent(d.body)}`;

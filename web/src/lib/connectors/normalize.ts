@@ -105,6 +105,6 @@ type MailList = ReturnType<typeof mailList>;
 export function normalizeMail(input: { list: MailList; bodies: ReadonlyMap<string, string> }): CampusItem[] {
   return input.list.messages.map((m): NoticeItem => ({
     id: `mail:notice:${m.id}`, source: "mail", kind: "notice",
-    sender: m.from, subject: m.subject, date: m.date, text: input.bodies.get(m.id) ?? m.preview,
+    sender: m.from, address: m.address, subject: m.subject, date: m.date, text: input.bodies.get(m.id) ?? m.preview,
   }));
 }

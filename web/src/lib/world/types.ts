@@ -23,6 +23,8 @@ export type ExtractedFact = {
   /** The exact sentence (or phrase) from the message this fact came from. */
   quote: string;
   confidence: Confidence;
+  /** Course code the message is about, for example CST1103, when it names one. */
+  courseCode?: string;
   /** Raw id of the class or assignment the fact is about, when there is one. */
   targetId?: string;
   newDate?: string; // ISO with +08:00
