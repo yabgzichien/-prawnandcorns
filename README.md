@@ -8,7 +8,7 @@ Built for the XMUM AI Agent Innovation Competition 2026. The project is currentl
 
 ## The idea
 
-New students have to keep track of classes, assignments, meetings and other responsibilities across different places. XMUM Student Companion aims to bring the information they need into one dashboard and help them decide what to do next.
+XMUM students, including both current and incoming students, have to keep track of classes, assignments, meetings and other responsibilities across different places. XMUM Student Companion aims to bring the information they need into one dashboard and help them decide what to do next.
 
 The AI acts as a personal assistant: it gathers relevant information, suggests priorities and plans, and helps carry out confirmed actions. Students remain in control of their schedules and decisions.
 
