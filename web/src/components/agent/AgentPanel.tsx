@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowUp, Check, ChevronDown, Loader2, Shield, Sparkles, Square, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { ArrowUp, Check, ChevronDown, Loader2, Mic, MicOff, Shield, Sparkles, Square, X } from "lucide-react";
 import { runAgent, SUGGESTIONS, type AgentCard, type AgentEvent } from "@/lib/agent";
 import { runGeminiAgent } from "@/lib/gemini-client";
 import { useApp, type WidgetPref } from "@/lib/state";
@@ -11,11 +11,17 @@ import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
 import { STUDENT } from "@/lib/data/academics";
 import { parseAgentText } from "@/lib/agent-presentation";
+import { appendTranscript, createDictationSession, speechRecognitionConstructor, type DictationSession } from "@/lib/voice-dictation";
 
 type ToolRow = { id: string; tool: string; input: string; status: "running" | "done"; output?: string };
 type AgentMsg = { id: number; role: "agent"; plan: string[]; step: number; tools: ToolRow[]; text: string; cards: AgentCard[]; done: boolean };
 type UserMsg = { id: number; role: "user"; text: string };
 type Msg = UserMsg | AgentMsg;
+type DictationState = "idle" | "starting" | "listening" | "stopping";
+
+const noSpeechSubscription = () => () => {};
+const browserHasSpeechRecognition = () => Boolean(speechRecognitionConstructor(window));
+const serverHasSpeechRecognition = () => false;
 
 /** Inline emphasis only. Content is always React text, never injected HTML. */
 function rich(text: string): ReactNode {
@@ -41,15 +47,128 @@ export function AgentPanel() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
+  const [dictationState, setDictation] = useState<DictationState>("idle");
+  const supportsDictation = useSyncExternalStore(noSpeechSubscription, browserHasSpeechRecognition, serverHasSpeechRecognition);
+  const dictation = supportsDictation ? dictationState : "unsupported";
+  const [dictationInterim, setDictationInterim] = useState("");
+  const [dictationMessage, setDictationMessage] = useState<string | null>(null);
+  const [dictationError, setDictationError] = useState<string | null>(null);
   const [geminiConfigured, setGeminiConfigured] = useState<"checking" | "ready" | "missing">("checking");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [mode, setMode] = useState<"gemini" | "demo">("demo");
   const abort = useRef<AbortController | null>(null);
+  const speech = useRef<DictationSession | null>(null);
+  const speechHasFinal = useRef(false);
+  const speechHadError = useRef(false);
+  const speechStopWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageInput = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   const handled = useRef<number>(0);
   const ctxRef = useRef({ widgets, submitted, studySessions });
   useEffect(() => { ctxRef.current = { widgets, submitted, studySessions }; });
+
+  useEffect(() => {
+    return () => {
+      speech.current?.cancel();
+      if (speechStopWatchdog.current) clearTimeout(speechStopWatchdog.current);
+    };
+  }, []);
+
+  const cancelDictation = useCallback(() => {
+    speech.current?.cancel();
+    speech.current = null;
+    if (speechStopWatchdog.current) clearTimeout(speechStopWatchdog.current);
+    speechStopWatchdog.current = null;
+    setDictationInterim("");
+    setDictation("idle");
+  }, []);
+
+  // The assistant stays mounted while hidden, so explicitly release the mic
+  // rather than relying on unmount cleanup when a sheet is dismissed.
+  useEffect(() => {
+    if (!agentOpen) {
+      // Close the microphone promptly even when another part of the app
+      // dismisses the panel. Defer UI cleanup to avoid cascading renders.
+      speech.current?.cancel();
+      speech.current = null;
+      if (speechStopWatchdog.current) clearTimeout(speechStopWatchdog.current);
+      speechStopWatchdog.current = null;
+      let active = true;
+      queueMicrotask(() => {
+        if (!active) return;
+        setDictation("idle");
+        setDictationInterim("");
+        setDictationError(null);
+        setDictationMessage(null);
+      });
+      return () => { active = false; };
+    }
+  }, [agentOpen]);
+
+  const toggleDictation = () => {
+    if (dictation === "starting" || dictation === "listening") {
+      const session = speech.current;
+      if (!session) return;
+      setDictation("stopping");
+      // Some browser engines may not emit an end event after stop().
+      speechStopWatchdog.current = setTimeout(() => {
+        if (speech.current !== session) return;
+        cancelDictation();
+        setDictationError("Speech recognition did not finish. Try again or type your question.");
+        messageInput.current?.focus();
+      }, 5_000);
+      session.stop();
+      return;
+    }
+    if (dictation !== "idle" || running) return;
+    const Recognition = speechRecognitionConstructor(window);
+    if (!Recognition) {
+      setDictationError("Voice recognition is unavailable in this browser. You can still type your message.");
+      return;
+    }
+
+    setDictationMessage(null);
+    setDictationError(null);
+    setDictationInterim("");
+    speechHasFinal.current = false;
+    speechHadError.current = false;
+    setDictation("starting");
+    let session: DictationSession;
+    try {
+      session = createDictationSession(Recognition, navigator.language || "en-MY", {
+        onStart: () => setDictation((current) => current === "stopping" ? current : "listening"),
+        onInterim: setDictationInterim,
+        onFinal: (spoken) => {
+          speechHasFinal.current = true;
+          setInput((current) => appendTranscript(current, spoken));
+          setDictationMessage("Transcript added. Check the wording before sending.");
+        },
+        onError: (message) => {
+          speechHadError.current = true;
+          setDictationError(message);
+        },
+        onEnd: () => {
+          if (speech.current !== session) return;
+          speech.current = null;
+          if (speechStopWatchdog.current) clearTimeout(speechStopWatchdog.current);
+          speechStopWatchdog.current = null;
+          setDictation("idle");
+          setDictationInterim("");
+          if (!speechHasFinal.current && !speechHadError.current) {
+            setDictationMessage("No words were recognized. You can try again or type your message.");
+          }
+          messageInput.current?.focus();
+        },
+      });
+    } catch {
+      setDictation("idle");
+      setDictationError("This browser could not open its speech recognition service. You can retry or type instead.");
+      return;
+    }
+    speech.current = session;
+    session.start();
+  };
 
   useEffect(() => {
     let active = true;
@@ -73,6 +192,9 @@ export function AgentPanel() {
   const run = useCallback(async (prompt: string) => {
     const text = prompt.trim();
     if (!text) return;
+    cancelDictation();
+    setDictationMessage(null);
+    setDictationError(null);
     abort.current?.abort();
     const ac = new AbortController();
     abort.current = ac;
@@ -106,7 +228,7 @@ export function AgentPanel() {
       if (abort.current === ac) { setRunning(false); abort.current = null; }
       patchAgent(aid, (m) => ({ ...m, done: true }));
     }
-  }, [patchAgent, setWidgets, mode, geminiConfigured]);
+  }, [patchAgent, setWidgets, mode, geminiConfigured, cancelDictation]);
 
   // Prompts handed over from elsewhere (Home ask bar, chips, ⌘K)
   useEffect(() => {
@@ -123,10 +245,17 @@ export function AgentPanel() {
 
   const stop = () => { abort.current?.abort(); setRunning(false); };
 
+  const dismiss = () => {
+    cancelDictation();
+    setDictationError(null);
+    setDictationMessage(null);
+    closeAgent();
+  };
+
   const undoLayout = (before: WidgetPref[]) => { setWidgets(before); showToast("Dashboard restored"); };
 
   return (
-    <Sheet open={agentOpen} onClose={closeAgent} label="Compass assistant">
+    <Sheet open={agentOpen} onClose={dismiss} label="Compass assistant">
       <header className="flex shrink-0 items-center gap-3 px-5 pb-3 pt-3 lg:pt-5">
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-fg"><Sparkles size={19} strokeWidth={2.4} /></span>
         <div className="min-w-0 flex-1">
@@ -134,7 +263,7 @@ export function AgentPanel() {
           <p className="t-caption flex items-center gap-1"><Shield size={12} /> {mode === "gemini" && geminiConfigured === "ready" ? `${model} (demo data)` : "Rule-based demo (fictional data)"}</p>
         </div>
         {msgs.length > 0 && <button onClick={() => { stop(); setMsgs([]); }} className="press btn btn-sm btn-plain">Clear</button>}
-        <button onClick={closeAgent} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>
+        <button onClick={dismiss} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>
       </header>
 
       <div className="flex items-center gap-2 px-5 pb-3 text-[0.8rem]" role="group" aria-label="Assistant model mode">
@@ -162,7 +291,7 @@ export function AgentPanel() {
             {msgs.map((m) => m.role === "user" ? (
               <motion.div key={m.id} initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={SPRING_FAST} className="ml-10 self-end rounded-[20px] rounded-br-md bg-accent px-4 py-2.5 text-[0.95rem] text-accent-fg">{m.text}</motion.div>
             ) : (
-              <AgentBubble key={m.id} m={m} onNavigate={closeAgent} onUndo={undoLayout} onSuggest={run} />
+              <AgentBubble key={m.id} m={m} onNavigate={dismiss} onUndo={undoLayout} onSuggest={run} />
             ))}
           </div>
         )}
@@ -170,13 +299,32 @@ export function AgentPanel() {
 
       <form onSubmit={(e) => { e.preventDefault(); void run(input); }} className="shrink-0 border-t border-sep p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-2 rounded-full bg-surface py-1.5 pl-5 pr-1.5 shadow-sm ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about classes, fees, rooms…" aria-label="Message Compass" autoFocus className="min-w-0 flex-1 bg-transparent py-2 text-[1rem] outline-none placeholder:text-label-3" />
+          <input ref={messageInput} value={input} onChange={(e) => { setInput(e.target.value); setDictationMessage(null); }} readOnly={dictation === "starting" || dictation === "listening" || dictation === "stopping"} placeholder="Ask about classes, fees, rooms…" aria-label="Message Compass" aria-describedby="voice-dictation-hint" autoFocus className="min-w-0 flex-1 bg-transparent py-2 text-[1rem] outline-none placeholder:text-label-3" />
+          <button
+            type="button"
+            onClick={toggleDictation}
+            disabled={running || dictation === "unsupported" || dictation === "stopping"}
+            aria-label={dictation === "listening" || dictation === "starting" || dictation === "stopping" ? "Stop voice dictation" : dictation === "unsupported" ? "Voice dictation unavailable" : "Start voice dictation"}
+            aria-pressed={dictation === "starting" || dictation === "listening" || dictation === "stopping"}
+            title={dictation === "unsupported" ? "Voice recognition isn't supported in this browser" : dictation === "listening" || dictation === "starting" ? "Stop listening" : "Dictate a message"}
+            className={`press grid h-10 w-10 shrink-0 place-items-center rounded-full disabled:opacity-40 ${dictation === "listening" || dictation === "starting" || dictation === "stopping" ? "bg-red-soft text-red" : "bg-surface-2 text-label"}`}
+          >
+            {dictation === "unsupported" ? <MicOff size={19} /> : dictation === "stopping" ? <Loader2 size={18} className="animate-spin" /> : dictation === "starting" || dictation === "listening" ? <Square size={15} fill="currentColor" /> : <Mic size={19} />}
+          </button>
           {running ? (
             <button type="button" onClick={stop} aria-label="Stop" className="press grid h-10 w-10 place-items-center rounded-full bg-label text-bg"><Square size={14} fill="currentColor" /></button>
           ) : (
-            <button type="submit" aria-label="Send" disabled={!input.trim()} className="press grid h-10 w-10 place-items-center rounded-full bg-accent text-accent-fg disabled:opacity-30"><ArrowUp size={19} strokeWidth={2.6} /></button>
+            <button type="submit" aria-label="Send" disabled={!input.trim() || dictation === "starting" || dictation === "listening" || dictation === "stopping"} className="press grid h-10 w-10 place-items-center rounded-full bg-accent text-accent-fg disabled:opacity-30"><ArrowUp size={19} strokeWidth={2.6} /></button>
           )}
         </div>
+        {dictationError && <p role="alert" className="mt-2 px-2 text-[0.77rem] text-red">{dictationError}</p>}
+        <p id="voice-dictation-hint" role="status" className="mt-2 px-2 text-[0.74rem] leading-relaxed text-label-2">
+          {dictation === "unsupported" ? "Voice dictation is not supported in this browser. You can still type your message."
+            : dictation === "starting" ? "Requesting microphone access..."
+            : dictation === "listening" ? `Listening${dictationInterim ? `: ${dictationInterim}` : ". Speak now, then press Stop."}`
+            : dictation === "stopping" ? "Finishing your transcript..."
+            : dictationMessage ?? "Voice dictation uses your browser's speech service, which may process audio online. Review the text before pressing Send."}
+        </p>
       </form>
     </Sheet>
   );
