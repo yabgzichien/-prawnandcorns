@@ -49,7 +49,7 @@ test("console event reaches Compass, the offline agent proposes fixes, approval 
   await page.getByRole("button", { name: "Review", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Compass assistant" });
   await expect(dialog.getByRole("heading", { name: "Proposed updates" })).toBeVisible({ timeout: 15000 });
-  await expect(dialog.getByText("get_recent_changes")).toBeVisible();
+  await expect(dialog.getByText(/You have 2 new updates/)).toBeVisible();
   await expect(dialog.getByText(/Moodle moved the Lab 6|Deadline for Lab 6/).first()).toBeVisible();
   await expect(dialog.getByText("Not saved").first()).toBeVisible();
 
@@ -58,13 +58,21 @@ test("console event reaches Compass, the offline agent proposes fixes, approval 
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("xmum-compass:v1") ?? "{}"));
   expect(after.studySessions.map((s: { start: string }) => s.start)).not.toEqual(before);
   expect(after.reminders).toHaveLength(1);
-  await expect(page.getByRole("status").filter({ hasText: /updates from/ })).toHaveCount(0); // reviewed updates stop showing as new
+  // Reviewed updates stop showing as new. Check the stored state, and the banner once the panel is closed
+  // (the banner hides itself while the assistant is open, so it would pass for the wrong reason).
+  const ack = await page.evaluate(() => JSON.parse(localStorage.getItem("compass:acknowledged:v1") ?? "[]"));
+  expect(ack).toHaveLength(2);
 
   await dialog.getByRole("button", { name: "Undo" }).first().click();
   await expect(dialog.getByRole("button", { name: /Approve selected/ })).toBeVisible();
   const restored = await page.evaluate(() => JSON.parse(localStorage.getItem("xmum-compass:v1") ?? "{}"));
   expect(restored.studySessions.map((s: { start: string }) => s.start)).toEqual(before);
   expect(restored.reminders).toHaveLength(0);
+  const ackAfterUndo = await page.evaluate(() => JSON.parse(localStorage.getItem("compass:acknowledged:v1") ?? "[]"));
+  expect(ackAfterUndo).toHaveLength(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("status").filter({ hasText: /2 updates from Moodle and Email/ })).toBeVisible(); // back, because Undo un-reviews them
   expect(errors).toEqual([]);
 });
 

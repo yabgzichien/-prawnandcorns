@@ -299,3 +299,20 @@ test("get_recent_changes, detect_conflicts and propose_updates all run with no A
   assert.equal(out.card?.kind, "updates");
   assert.ok(findSlot({ id: "a1", title: "Lab", due: "2026-11-27T23:59:00+08:00", status: "todo", weight: 3 }, ctx));
 });
+
+/* ───────── the review prompt must not steal phrases that used to reach other answers ───────── */
+
+import { isSyncReviewPrompt, SYNC_REVIEW_PROMPT } from "../src/lib/sync/review.ts";
+
+test("only review requests go to the sync review, and existing questions keep their routes", () => {
+  for (const yes of [SYNC_REVIEW_PROMPT, "What changed?", "what's changed since yesterday", "What's new?", "Show me my latest updates", "check recent campus changes", "Review new updates"]) {
+    assert.equal(isSyncReviewPrompt(yes), true, yes);
+  }
+  const before = [
+    "Help me plan my week around my deadlines", "What's due this week?", "Is my 2pm class still on?", "Where is A3-G01?",
+    "Draft an email to Finance about my fee instalment", "Add a finance widget and hide clubs", "I like robotics and photography, which clubs fit?",
+    "Is my class cancelled today?", "check my class changes", "show changes to my timetable", "Has my room changed?", "Show only deadlines and fees",
+    "How much do I owe?", "Make my dashboard show updates first", "any deadline changes?", "update my widgets",
+  ];
+  for (const no of before) assert.equal(isSyncReviewPrompt(no), false, no);
+});
