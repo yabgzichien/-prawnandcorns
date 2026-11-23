@@ -100,7 +100,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
             now: () => new Date().toISOString(),
           },
         });
-        const seen = new Set(prev.outageSeen);
+        // An outage only counts as seen while its event is still active, so resetting the scenario re-arms it.
+        const active = new Set(getTriggeredEvents());
+        const seen = new Set(prev.outageSeen.filter((id) => active.has(id)));
         for (const f of out.failed) if (f.error.outageEvent) seen.add(f.error.outageEvent);
         commit({
           snapshot: out.snapshot,

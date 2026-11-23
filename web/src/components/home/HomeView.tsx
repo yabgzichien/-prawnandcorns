@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useApp, WIDGET_META, DEFAULT_WIDGETS, type WidgetPref } from "@/lib/state";
 import { STUDENT } from "@/lib/data/academics";
-import { dayLong, dateShort, DEMO_NOW } from "@/lib/time";
+import { dayLong, dayShort, dateShort, timeOf, DEMO_NOW } from "@/lib/time";
 import { SPRING } from "@/lib/hooks";
 import { SUGGESTIONS } from "@/lib/agent";
 import { Sheet } from "@/components/ui/Sheet";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/kit";
 import { WIDGETS } from "./widgets";
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession, reminders, personalEvents, removeReminder, removeEvent } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
   const visible = widgets.filter((w) => !w.hidden);
@@ -61,6 +61,29 @@ export function HomeView() {
                   <p className="t-caption">{session.start.slice(0, 10)}, {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
                 </div>
                 <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {hydrated && (reminders.length > 0 || personalEvents.length > 0) && (
+        <section className="card mb-6 p-5" aria-label="Reminders and calendar entries">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="t-title">Reminders and calendar</h2>
+            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
+          </div>
+          <ul className="divide-y divide-sep">
+            {[
+              ...reminders.map((r) => ({ key: `r-${r.id}`, kind: "Reminder", title: r.title, at: r.at, when: `${dayShort(new Date(r.at))} ${dateShort(new Date(r.at))}, ${timeOf(new Date(r.at))}`, remove: () => removeReminder(r.id) })),
+              ...personalEvents.map((e) => ({ key: `e-${e.id}`, kind: "Calendar", title: e.title, at: e.start, when: `${dayShort(new Date(e.start))} ${dateShort(new Date(e.start))}, ${timeOf(new Date(e.start))} to ${timeOf(new Date(e.end))}${e.place ? `, ${e.place}` : ""}`, remove: () => removeEvent(e.id) })),
+            ].sort((a, b) => a.at.localeCompare(b.at)).map((item) => (
+              <li key={item.key} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="break-words text-[0.92rem] font-semibold">{item.title}</p>
+                  <p className="t-caption">{item.kind}, {item.when}</p>
+                </div>
+                <button type="button" onClick={item.remove} aria-label={`Remove ${item.kind.toLowerCase()}: ${item.title}`} className="press btn btn-sm btn-plain shrink-0"><X size={15} /> Remove</button>
               </li>
             ))}
           </ul>

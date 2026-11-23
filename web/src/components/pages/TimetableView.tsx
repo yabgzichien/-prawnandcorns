@@ -12,7 +12,7 @@ import { Item, PageHeader, Pill, Segmented, Stagger, toneClass } from "@/compone
 import { useApp } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const HOURS = Array.from({ length: 11 }, (_, i) => 8 + i);
 
 export function TimetableView() {
@@ -20,6 +20,8 @@ export function TimetableView() {
   const [day, setDay] = useState(TODAY_IDX);
   const { showToast } = useApp();
   const { data } = useCampus();
+  // A Saturday make-up class adds a Saturday to the week. Otherwise it stays Monday to Friday.
+  const DAYS = data.classes.some((c) => c.day >= 5) ? [...WEEKDAYS, "Sat"] : WEEKDAYS;
   const list = classesOn(day, data.classes);
   const changed = data.classes.filter((c) => c.status !== "normal").length;
 
@@ -83,24 +85,24 @@ export function TimetableView() {
           })}
         </Stagger>
       ) : (
-        <WeekGrid classes={data.classes} />
+        <WeekGrid classes={data.classes} days={DAYS} />
       )}
     </div>
   );
 }
 
-function WeekGrid({ classes }: { classes: readonly ClassSession[] }) {
+function WeekGrid({ classes, days: DAYS }: { classes: readonly ClassSession[]; days: string[] }) {
   const rowH = 56;
   return (
     <div className="card overflow-x-auto">
       <div className="min-w-[720px] p-4">
-        <div className="grid" style={{ gridTemplateColumns: "48px repeat(5, 1fr)" }}>
+        <div className="grid" style={{ gridTemplateColumns: `48px repeat(${DAYS.length}, 1fr)` }}>
           <div />
           {DAYS.map((d, i) => (
             <div key={d} className="pb-3 text-center"><p className="t-eyebrow">{d}</p><p className="tnum text-[1.15rem] font-bold" style={{ color: i === TODAY_IDX ? "var(--accent)" : undefined }}>{dateShort(atDay(i, "00:00")).split(" ")[0]}</p></div>
           ))}
         </div>
-        <div className="relative grid" style={{ gridTemplateColumns: "48px repeat(5, 1fr)", height: HOURS.length * rowH }}>
+        <div className="relative grid" style={{ gridTemplateColumns: `48px repeat(${DAYS.length}, 1fr)`, height: HOURS.length * rowH }}>
           <div className="relative">
             {HOURS.map((h, i) => <span key={h} className="tnum t-caption absolute right-2 -translate-y-1/2" style={{ top: i * rowH }}>{String(h).padStart(2, "0")}:00</span>)}
           </div>

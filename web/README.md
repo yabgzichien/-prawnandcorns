@@ -101,3 +101,7 @@ Real Moodle/AC integration, student authentication, push notifications, and veri
 - The white background towers in the aerial photo are Sunsuria City, off campus, and are not modelled.
 
 Deep links for QA: `/map?view=3d&perf=0&mode=day&cam=LY3:2.4:128` (place : distance scale : turn°). `perf=0` skips the frame-rate probe, which otherwise drops to lite or back to 2D on slow or hidden panes.
+
+## Campus connectors (demo)
+
+Compass reads four invented campus systems (Moodle, Academic Centre, Finance Office, university email) through read-only connectors, notices what changed, and proposes fixes to the student's own plan for approval. The presenter console is at `/demo`. See `docs/CAMPUS_CONNECTORS_DEMO.md` for how it works and a stage script.
