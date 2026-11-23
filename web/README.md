@@ -14,6 +14,8 @@ npm run test:e2e  # optional browser QA; first run: npx playwright install chrom
 
 Voice Dictation in the Compass message composer is a progressive enhancement. It uses the browser's `SpeechRecognition` or `webkitSpeechRecognition` implementation, when available, to turn one spoken question into editable text. It never automatically submits a recognized transcript; the student must still press **Send**. The browser may process speech through a vendor-operated online service, and Compass itself does not store raw recordings. See [`../docs/ux/VOICE_DICTATION_MVP.md`](../docs/ux/VOICE_DICTATION_MVP.md) for implementation details, privacy notes and manual device checks.
 
+If the browser reports a speech recognition network error, Gemini is not necessarily affected. Compass offers a separate, opt-in **on-device English speech** check where the browser implements it; the user must approve any language pack installation. Otherwise, Mac keyboard Dictation or typing into the same field is a reliable alternative. The app never silently uploads microphone recordings to its own backend.
+
 ### Gemini API setup (local)
 
 The server uses Google Gemini `generateContent` with declared, read-only/demo-only tools. The API key **never enters the browser**. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/apikey), then from the `web/` folder:

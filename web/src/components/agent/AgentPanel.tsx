@@ -11,16 +11,22 @@ import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
 import { STUDENT } from "@/lib/data/academics";
 import { parseAgentText } from "@/lib/agent-presentation";
-import { appendTranscript, createDictationSession, speechRecognitionConstructor, type DictationSession } from "@/lib/voice-dictation";
+import {
+  appendTranscript, checkOnDeviceSpeech, createDictationSession, installOnDeviceSpeech,
+  speechRecognitionConstructor, supportsOnDeviceSpeech, type DictationSession,
+} from "@/lib/voice-dictation";
 
 type ToolRow = { id: string; tool: string; input: string; status: "running" | "done"; output?: string };
 type AgentMsg = { id: number; role: "agent"; plan: string[]; step: number; tools: ToolRow[]; text: string; cards: AgentCard[]; done: boolean };
 type UserMsg = { id: number; role: "user"; text: string };
 type Msg = UserMsg | AgentMsg;
 type DictationState = "idle" | "starting" | "listening" | "stopping";
+type LocalSpeechStatus = "hidden" | "checking" | "downloadable" | "installing" | "ready" | "unavailable";
+const LOCAL_SPEECH_LANGUAGE = "en-US";
 
 const noSpeechSubscription = () => () => {};
 const browserHasSpeechRecognition = () => Boolean(speechRecognitionConstructor(window));
+const browserHasOnDeviceSpeech = () => supportsOnDeviceSpeech(speechRecognitionConstructor(window));
 const serverHasSpeechRecognition = () => false;
 
 /** Inline emphasis only. Content is always React text, never injected HTML. */
@@ -49,7 +55,11 @@ export function AgentPanel() {
   const [running, setRunning] = useState(false);
   const [dictationState, setDictation] = useState<DictationState>("idle");
   const supportsDictation = useSyncExternalStore(noSpeechSubscription, browserHasSpeechRecognition, serverHasSpeechRecognition);
+  const supportsLocalSpeech = useSyncExternalStore(noSpeechSubscription, browserHasOnDeviceSpeech, serverHasSpeechRecognition);
   const dictation = supportsDictation ? dictationState : "unsupported";
+  const [speechMode, setSpeechMode] = useState<"browser" | "on-device">("browser");
+  const [localSpeechStatus, setLocalSpeechStatus] = useState<LocalSpeechStatus>("hidden");
+  const [dictationErrorCode, setDictationErrorCode] = useState<string | null>(null);
   const [dictationInterim, setDictationInterim] = useState("");
   const [dictationMessage, setDictationMessage] = useState<string | null>(null);
   const [dictationError, setDictationError] = useState<string | null>(null);
@@ -61,6 +71,7 @@ export function AgentPanel() {
   const speechHasFinal = useRef(false);
   const speechHadError = useRef(false);
   const speechStopWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onDeviceRequest = useRef(0);
   const messageInput = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
@@ -88,6 +99,7 @@ export function AgentPanel() {
   // rather than relying on unmount cleanup when a sheet is dismissed.
   useEffect(() => {
     if (!agentOpen) {
+      onDeviceRequest.current++;
       // Close the microphone promptly even when another part of the app
       // dismisses the panel. Defer UI cleanup to avoid cascading renders.
       speech.current?.cancel();
@@ -100,11 +112,47 @@ export function AgentPanel() {
         setDictation("idle");
         setDictationInterim("");
         setDictationError(null);
+        setDictationErrorCode(null);
         setDictationMessage(null);
       });
       return () => { active = false; };
     }
   }, [agentOpen]);
+
+  const tryOnDeviceSpeech = async () => {
+    const id = ++onDeviceRequest.current;
+    setLocalSpeechStatus("checking");
+    const result = await checkOnDeviceSpeech(speechRecognitionConstructor(window), LOCAL_SPEECH_LANGUAGE);
+    if (onDeviceRequest.current !== id) return;
+    if (result === "available") {
+      setSpeechMode("on-device");
+      setLocalSpeechStatus("ready");
+      setDictationError(null);
+      setDictationErrorCode(null);
+      setDictationMessage("On-device English recognition is ready. Tap the microphone again. Your audio will be processed on this device.");
+    } else if (result === "downloadable" || result === "downloading") {
+      setLocalSpeechStatus("downloadable");
+    } else {
+      setLocalSpeechStatus("unavailable");
+    }
+  };
+
+  const installLocalSpeech = async () => {
+    const id = ++onDeviceRequest.current;
+    setLocalSpeechStatus("installing");
+    const installed = await installOnDeviceSpeech(speechRecognitionConstructor(window), LOCAL_SPEECH_LANGUAGE);
+    if (onDeviceRequest.current !== id) return;
+    if (installed) {
+      setSpeechMode("on-device");
+      setLocalSpeechStatus("ready");
+      setDictationError(null);
+      setDictationErrorCode(null);
+      setDictationMessage("English language pack is ready. Tap the microphone again to dictate on this device.");
+    } else {
+      setLocalSpeechStatus("unavailable");
+      setDictationMessage("The browser could not install an on-device speech language pack. You can use your keyboard's dictation or try another browser.");
+    }
+  };
 
   const toggleDictation = () => {
     if (dictation === "starting" || dictation === "listening") {
@@ -130,13 +178,14 @@ export function AgentPanel() {
 
     setDictationMessage(null);
     setDictationError(null);
+    setDictationErrorCode(null);
     setDictationInterim("");
     speechHasFinal.current = false;
     speechHadError.current = false;
     setDictation("starting");
     let session: DictationSession;
     try {
-      session = createDictationSession(Recognition, navigator.language || "en-MY", {
+      session = createDictationSession(Recognition, speechMode === "on-device" ? LOCAL_SPEECH_LANGUAGE : navigator.language || "en-MY", {
         onStart: () => setDictation((current) => current === "stopping" ? current : "listening"),
         onInterim: setDictationInterim,
         onFinal: (spoken) => {
@@ -144,9 +193,12 @@ export function AgentPanel() {
           setInput((current) => appendTranscript(current, spoken));
           setDictationMessage("Transcript added. Check the wording before sending.");
         },
-        onError: (message) => {
+        onError: (message, code) => {
           speechHadError.current = true;
-          setDictationError(message);
+          setDictationError(code === "network" && speechMode === "on-device"
+            ? "On-device recognition could not start. Try the browser service or type instead."
+            : message);
+          setDictationErrorCode(code ?? null);
         },
         onEnd: () => {
           if (speech.current !== session) return;
@@ -160,7 +212,7 @@ export function AgentPanel() {
           }
           messageInput.current?.focus();
         },
-      });
+      }, { processLocally: speechMode === "on-device" });
     } catch {
       setDictation("idle");
       setDictationError("This browser could not open its speech recognition service. You can retry or type instead.");
@@ -318,12 +370,32 @@ export function AgentPanel() {
           )}
         </div>
         {dictationError && <p role="alert" className="mt-2 px-2 text-[0.77rem] text-red">{dictationError}</p>}
+        {dictationErrorCode === "network" && speechMode === "browser" && (
+          <div className="mt-2 space-y-2 rounded-xl bg-surface-2 px-3 py-2.5 text-[0.77rem] text-label-2">
+            <p>This is the browser&apos;s speech connection, not the Gemini API. You can still type or use the device&apos;s built-in keyboard dictation.</p>
+            {supportsLocalSpeech && (localSpeechStatus === "hidden" || localSpeechStatus === "checking") && (
+              <button type="button" onClick={() => void tryOnDeviceSpeech()} disabled={localSpeechStatus === "checking"} className="press btn btn-sm btn-plain">
+                {localSpeechStatus === "checking" ? "Checking on-device speech..." : "Try on-device speech (English)"}
+              </button>
+            )}
+            {localSpeechStatus === "downloadable" && (
+              <button type="button" onClick={() => void installLocalSpeech()} className="press btn btn-sm btn-plain">Install English speech pack</button>
+            )}
+            {localSpeechStatus === "installing" && <p role="status">Installing the browser&apos;s English speech pack...</p>}
+            {localSpeechStatus === "unavailable" && <p>On-device English recognition is unavailable in this browser. Try Safari or your keyboard&apos;s dictation feature.</p>}
+          </div>
+        )}
+        {speechMode === "on-device" && (
+          <p className="mt-2 px-2 text-[0.74rem] text-label-2">On-device English recognition selected. <button type="button" onClick={() => { cancelDictation(); setSpeechMode("browser"); setLocalSpeechStatus("hidden"); setDictationError(null); setDictationErrorCode(null); setDictationMessage("Browser speech service selected. Tap the microphone to try again."); }} className="press font-semibold text-accent underline">Use browser speech instead</button></p>
+        )}
         <p id="voice-dictation-hint" role="status" className="mt-2 px-2 text-[0.74rem] leading-relaxed text-label-2">
           {dictation === "unsupported" ? "Voice dictation is not supported in this browser. You can still type your message."
             : dictation === "starting" ? "Requesting microphone access..."
             : dictation === "listening" ? `Listening${dictationInterim ? `: ${dictationInterim}` : ". Speak now, then press Stop."}`
             : dictation === "stopping" ? "Finishing your transcript..."
-            : dictationMessage ?? "Voice dictation uses your browser's speech service, which may process audio online. Review the text before pressing Send."}
+            : dictationMessage ?? (speechMode === "on-device"
+              ? "On-device English speech selected. Review the recognized text before pressing Send."
+              : "Voice dictation uses your browser's speech service, which may process audio online. Review the text before pressing Send.")}
         </p>
       </form>
     </Sheet>

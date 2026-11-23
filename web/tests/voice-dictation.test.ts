@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  appendTranscript, createDictationSession, dictationErrorMessage,
+  appendTranscript, checkOnDeviceSpeech, createDictationSession, dictationErrorMessage,
+  installOnDeviceSpeech, supportsOnDeviceSpeech,
   speechRecognitionConstructor, type BrowserSpeechRecognition, type DictationResultEvent,
 } from "../src/lib/voice-dictation.ts";
 
 class MockRecognition implements BrowserSpeechRecognition {
   static last: MockRecognition;
   lang = "";
+  processLocally?: boolean;
   continuous = true;
   interimResults = false;
   maxAlternatives = 0;
@@ -96,4 +98,45 @@ test("permission and microphone failures get actionable messages", () => {
   assert.equal(mock.events.some((event) => event.includes("permission was denied")), true);
   mock.recognition.end();
   assert.equal(mock.events.filter((event) => event === "ended").length, 1);
+});
+
+test("network errors identify the browser speech service, not Gemini", () => {
+  const message = dictationErrorMessage("network")!;
+  assert.match(message, /browser's speech recognition service/i);
+  assert.match(message, /Gemini is unaffected/i);
+});
+
+test("local speech checks do not silently install language packs", async () => {
+  const requests: unknown[] = [];
+  class OnDeviceRecognition extends MockRecognition {
+    static available = async (options: unknown) => { requests.push(options); return "downloadable" as const; };
+    static install = async (options: unknown) => { requests.push(options); return true; };
+  }
+  OnDeviceRecognition.prototype.processLocally = false;
+  assert.equal(supportsOnDeviceSpeech(OnDeviceRecognition), true);
+  assert.equal(await checkOnDeviceSpeech(OnDeviceRecognition, "en-US"), "downloadable");
+  assert.equal(requests.length, 1, "Language pack must not install during availability check");
+  assert.deepEqual(requests[0], { langs: ["en-US"], processLocally: true, quality: "dictation" });
+  assert.equal(await installOnDeviceSpeech(OnDeviceRecognition, "en-US"), true);
+  assert.equal(requests.length, 2);
+
+  const mock = setup();
+  mock.session.cancel();
+  const onDevice = createDictationSession(OnDeviceRecognition, "en-US", {
+    onStart: () => {}, onFinal: () => {}, onInterim: () => {}, onError: () => {}, onEnd: () => {},
+  }, { processLocally: true });
+  assert.equal(MockRecognition.last.processLocally, true);
+  onDevice.cancel();
+});
+
+test("unsupported or blocked on-device speech falls back to typing", async () => {
+  assert.equal(supportsOnDeviceSpeech(MockRecognition), false);
+  assert.equal(await checkOnDeviceSpeech(MockRecognition, "en-US"), "unsupported");
+  assert.equal(await installOnDeviceSpeech(MockRecognition, "en-US"), false);
+  class BlockedSpeech extends MockRecognition {
+    static available = async () => { throw new Error("NotAllowedError"); };
+  }
+  BlockedSpeech.prototype.processLocally = false;
+  assert.equal(await checkOnDeviceSpeech(BlockedSpeech, "en-US"), "unsupported");
+  assert.equal(await installOnDeviceSpeech(BlockedSpeech, "en-US"), false);
 });

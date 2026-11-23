@@ -20,6 +20,8 @@ No voice transcript is automatically submitted. Stopping a recording attempts to
 - No new backend endpoint, API key, audio upload implementation, audio recording file, speech synthesis, background listening or wake word.
 - If unsupported, show a disabled microphone button and let the student type as normal.
 - Error states include permission denied, no microphone, no speech, network problems, language not supported, failed startup and a stopped engine that never finishes.
+- Browser speech `network` errors mean the **speech recognition service** failed to communicate, not that Gemini has failed. Users can keep typing, use their OS keyboard dictation or try a different browser.
+- In browsers implementing `SpeechRecognition.available()` and `processLocally`, a network error offers an optional on-device English (US) speech check. Only after the user explicitly clicks **Install English speech pack** does Compass ask the browser to install a language pack, when one is needed. Availability and installation are browser-controlled and may be denied or unavailable. Once ready, `processLocally = true` is set before starting recognition. Do not claim it works in all browsers.
 - Keep the UI within 320 CSS px. Status and errors must be available to keyboard and screen-reader users.
 
 ## Privacy and limitations
@@ -28,10 +30,15 @@ Compass does not store audio. However, browser speech recognition may send audio
 
 Browser compatibility varies, especially across Safari, Chromium and different mobile versions. Recognition may need connectivity and microphone access. Support detection checks for the API, not a guarantee that a microphone or recognition service is usable. Never claim that speech recognition is always offline or that all speech stays on-device.
 
+### Mac fallback when the browser speech service fails
+
+Enable **System Settings > Keyboard > Dictation**, focus the Compass message field, then use the Mac's configured dictation shortcut or microphone key. Review the inserted text and press Send manually. This uses the operating system's text-input service instead of Compass's Web Speech API. It does not require a new server integration.
+
 ## Tests and acceptance
 
 - `web/tests/voice-dictation.test.ts`: native/prefixed API detection, transcript merging, interim/final behavior, duplicate final protection, cancellation and errors.
 - `web/tests-e2e/voice-dictation.spec.ts`: mocked browser speech engine, real input/edit/send interaction, privacy guard (no auto-send), denial and unsupported states, cancellation on close, and 320px overflow check.
+- Network-recovery regression verifies that on-device availability checking does not silently install a language pack; installation requires a separate click, and the next recognition session sets `processLocally = true` for English (US). Unavailable packs preserve manual typing.
 - Regression: `cd web && npm test && npm run test:e2e && npm run lint && npm run build`.
 
 ### Manual device acceptance still needed
