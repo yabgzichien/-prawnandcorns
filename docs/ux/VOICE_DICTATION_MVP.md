@@ -50,3 +50,5 @@ Enable **System Settings > Keyboard > Dictation**, focus the Compass message fie
 - [ ] VoiceOver and keyboard: button names, live transcript announcements, accessible errors and focus.
 
 **Release boundary:** Do not treat mocked E2E tests as proof that physical microphone recognition works. This branch is not authorized for deployment or remote API enablement.
+
+The Compass assistant also offers a separate Gemini model selector (Flash or Hydrogen) when a server key is configured. Dictation only fills the question field; selecting a model or transcribing audio never auto-sends a Gemini request.

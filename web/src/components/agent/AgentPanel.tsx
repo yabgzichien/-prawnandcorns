@@ -11,6 +11,7 @@ import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
 import { STUDENT } from "@/lib/data/academics";
 import { parseAgentText } from "@/lib/agent-presentation";
+import { GEMINI_MODEL_CHOICES, isSelectableGeminiModel, type SelectableGeminiModel } from "@/lib/gemini-model-selection";
 import {
   appendTranscript, checkOnDeviceSpeech, createDictationSession, installOnDeviceSpeech,
   speechRecognitionConstructor, supportsOnDeviceSpeech, type DictationSession,
@@ -64,7 +65,7 @@ export function AgentPanel() {
   const [dictationMessage, setDictationMessage] = useState<string | null>(null);
   const [dictationError, setDictationError] = useState<string | null>(null);
   const [geminiConfigured, setGeminiConfigured] = useState<"checking" | "ready" | "missing">("checking");
-  const [model, setModel] = useState("gemini-2.5-flash");
+  const [model, setModel] = useState<SelectableGeminiModel>("gemini-2.5-flash");
   const [mode, setMode] = useState<"gemini" | "demo">("demo");
   const abort = useRef<AbortController | null>(null);
   const speech = useRef<DictationSession | null>(null);
@@ -231,7 +232,7 @@ export function AgentPanel() {
         const ready = data.configured === true;
         setGeminiConfigured(ready ? "ready" : "missing");
         setMode(ready ? "gemini" : "demo");
-        if (typeof data.model === "string") setModel(data.model);
+        if (isSelectableGeminiModel(data.model)) setModel(data.model);
       })
       .catch(() => { if (active) { setGeminiConfigured("missing"); setMode("demo"); } });
     return () => { active = false; };
@@ -257,7 +258,7 @@ export function AgentPanel() {
     setRunning(true);
     try {
       const generator = mode === "gemini" && geminiConfigured === "ready"
-        ? runGeminiAgent(text, ctxRef.current, ac.signal)
+        ? runGeminiAgent(text, ctxRef.current, ac.signal, model)
         : runAgent(text, ctxRef.current, ac.signal);
       for await (const ev of generator as AsyncGenerator<AgentEvent>) {
         if (ac.signal.aborted) break;
@@ -280,7 +281,7 @@ export function AgentPanel() {
       if (abort.current === ac) { setRunning(false); abort.current = null; }
       patchAgent(aid, (m) => ({ ...m, done: true }));
     }
-  }, [patchAgent, setWidgets, mode, geminiConfigured, cancelDictation]);
+  }, [patchAgent, setWidgets, mode, geminiConfigured, cancelDictation, model]);
 
   // Prompts handed over from elsewhere (Home ask bar, chips, ⌘K)
   useEffect(() => {
@@ -318,12 +319,28 @@ export function AgentPanel() {
         <button onClick={dismiss} aria-label="Close assistant" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={17} /></button>
       </header>
 
-      <div className="flex items-center gap-2 px-5 pb-3 text-[0.8rem]" role="group" aria-label="Assistant model mode">
+      <div className="flex flex-wrap items-center gap-2 px-5 pb-3 text-[0.8rem]" role="group" aria-label="Assistant model mode">
         <button type="button" onClick={() => setMode("gemini")} disabled={geminiConfigured !== "ready" || running} aria-pressed={mode === "gemini"} className={`press rounded-full px-3 py-1.5 font-semibold ${mode === "gemini" ? "bg-accent text-accent-fg" : "bg-surface-2 text-label-2"} disabled:cursor-not-allowed disabled:opacity-40`}>Gemini API</button>
         <button type="button" onClick={() => setMode("demo")} disabled={running} aria-pressed={mode === "demo"} className={`press rounded-full px-3 py-1.5 font-semibold ${mode === "demo" ? "bg-accent text-accent-fg" : "bg-surface-2 text-label-2"}`}>Demo</button>
         {geminiConfigured === "missing" && <span className="t-caption">Gemini needs a server API key</span>}
         {geminiConfigured === "checking" && <span className="t-caption">Checking model…</span>}
       </div>
+      {geminiConfigured === "ready" && mode === "gemini" && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 px-5 pb-3 text-[0.8rem]">
+          <label htmlFor="compass-gemini-model" className="font-medium text-label-2">Gemini model</label>
+          <select
+            id="compass-gemini-model"
+            aria-label="Gemini model"
+            value={model}
+            disabled={running}
+            onChange={(event) => { if (isSelectableGeminiModel(event.target.value)) setModel(event.target.value); }}
+            className="min-w-0 max-w-full rounded-xl bg-surface-2 px-3 py-2 text-[0.8rem] font-semibold text-label ring-1 ring-sep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+          >
+            {GEMINI_MODEL_CHOICES.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
+          </select>
+          <span className="t-caption">Hydrogen may take longer and requires model access.</span>
+        </div>
+      )}
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-5 pb-4" aria-live="polite">
         {msgs.length === 0 ? (
