@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // ported verbatim from the XMUM Orientation 3D map; kept as-is so it stays a faithful replica
+    "src/components/map3d/**",
   ]),
 ]);
 

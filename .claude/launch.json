@@ -1,6 +1,16 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "compass", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "dev"], "port": 3000 }
+    {
+      "name": "compass",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    }
   ]
 }
