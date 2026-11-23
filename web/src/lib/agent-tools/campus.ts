@@ -25,6 +25,8 @@ export type CampusToolContext = {
   plan: PlanState;
   submitted: string[];
   now: Date;
+  /** Browser only: which scenario events each system had seen. Sent to the server as ids. */
+  asOf?: Partial<Record<SystemId, string[]>>;
 };
 
 export type CampusToolResult = { value: unknown; summary: string; card?: AgentCard };
@@ -40,8 +42,13 @@ export function fixContext(ctx: CampusToolContext): FixContext {
   };
 }
 
-export function getRecentChanges(ctx: CampusToolContext): CampusToolResult {
-  const changes = ctx.changes.map((c) => ({ id: c.id, system: SYSTEM_LABEL[c.system], kind: c.itemKind, type: c.type, summary: describeChange(c), ...(c.itemKind === "notice" ? { noticeId: c.itemId } : {}) }));
+/**
+ * `forModel` keeps text written by outside senders (email subjects, sender names) out of the sentence the
+ * model sees. The model reads an email only through read_notice, where it is wrapped and labelled.
+ */
+export function getRecentChanges(ctx: CampusToolContext, options: { forModel?: boolean } = {}): CampusToolResult {
+  const sentence = (c: Change) => options.forModel && c.itemKind === "notice" && c.system === "mail" ? `A new email arrived (source: Email). Use read_notice to read it.` : describeChange(c);
+  const changes = ctx.changes.map((c) => ({ id: c.id, system: SYSTEM_LABEL[c.system], kind: c.itemKind, type: c.type, summary: sentence(c), ...(c.itemKind === "notice" ? { noticeId: c.itemId } : {}) }));
   const unavailable = ctx.failed.map((f) => ({ system: SYSTEM_LABEL[f.system], message: f.message, note: "Data from this system is from an earlier read. Say so, and suggest trying again later." }));
   return {
     value: { source: "latest_sync", changes, unavailable, reviewedAlready: "Changes the student has already reviewed are not listed." },

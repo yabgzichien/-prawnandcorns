@@ -58,7 +58,7 @@ export function AgentPanel() {
       campus: campus.snapshot ? {
         data: campus.data, items: campus.snapshot.items, changes: campus.changes,
         failed: campus.failed.map((f) => ({ system: f.system, message: f.error.message })),
-        plan: { studySessions, reminders, personalEvents }, submitted, now: DEMO_NOW,
+        plan: { studySessions, reminders, personalEvents }, submitted, now: DEMO_NOW, asOf: campus.snapshot.asOf,
       } : undefined,
     };
   });
@@ -93,23 +93,33 @@ export function AgentPanel() {
     setMsgs((m) => [...m, { id: uid, role: "user", text }, { id: aid, role: "agent", plan: [], step: -1, tools: [], text: "", cards: [], done: false }]);
     setInput("");
     setRunning(true);
-    try {
-      const generator = mode === "gemini" && geminiConfigured === "ready"
-        ? runGeminiAgent(text, ctxRef.current, ac.signal)
-        : runAgent(text, ctxRef.current, ac.signal);
-      for await (const ev of generator as AsyncGenerator<AgentEvent>) {
+    const useGemini = mode === "gemini" && geminiConfigured === "ready";
+    const consume = async (generator: AsyncGenerator<AgentEvent>, prefix = "") => {
+      for await (const ev of generator) {
         if (ac.signal.aborted) break;
         switch (ev.type) {
           case "plan": patchAgent(aid, (m) => ({ ...m, plan: ev.steps })); break;
           case "step": patchAgent(aid, (m) => ({ ...m, step: ev.index })); break;
           case "tool": patchAgent(aid, (m) => ({ ...m, tools: m.tools.some((t) => t.id === ev.id) ? m.tools.map((t) => (t.id === ev.id ? { ...t, status: ev.status, output: ev.output } : t)) : [...m.tools, { id: ev.id, tool: ev.tool, input: ev.input, status: ev.status, output: ev.output }] })); break;
-          case "text": patchAgent(aid, (m) => ({ ...m, text: ev.text })); break;
+          case "text": patchAgent(aid, (m) => ({ ...m, text: prefix + ev.text })); break;
           case "card":
             if (ev.card.kind === "layout") setWidgets(ev.card.after); // applied immediately, always undoable
             patchAgent(aid, (m) => ({ ...m, cards: [...m.cards, ev.card] }));
             break;
           case "done": patchAgent(aid, (m) => ({ ...m, done: true, step: m.plan.length })); break;
         }
+      }
+    };
+    try {
+      try {
+        await consume(useGemini ? runGeminiAgent(text, ctxRef.current, ac.signal) : runAgent(text, ctxRef.current, ac.signal));
+      } catch (error) {
+        if (!useGemini || ac.signal.aborted) throw error;
+        // The demo must never depend on the internet. When Gemini is unavailable, the same question is answered
+        // by the offline scripted agent, and the answer says so.
+        const why = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 140) : "no answer";
+        patchAgent(aid, (m) => ({ ...m, plan: [], step: -1, tools: [], text: "", cards: [], done: false }));
+        await consume(runAgent(text, ctxRef.current, ac.signal), `**Offline demo mode:** Gemini was unavailable (${why}). This answer comes from the built-in demo agent.\n\n`);
       }
     } catch (error) {
       const message = error instanceof Error && !ac.signal.aborted ? error.message : "Request cancelled.";

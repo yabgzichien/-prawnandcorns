@@ -1,5 +1,6 @@
 import type { AgentContext, AgentEvent, AgentCard } from "./agent";
 import { presentGeminiAnswer } from "./agent-presentation";
+import { campusRequest } from "./agent-tools/request";
 
 /** The client never talks directly to Google. Only this same-origin route is called. */
 export async function* runGeminiAgent(prompt: string, context: AgentContext, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
@@ -8,7 +9,7 @@ export async function* runGeminiAgent(prompt: string, context: AgentContext, sig
   const response = await fetch("/api/agent", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt, context: { submitted: context.submitted, studySessions: context.studySessions } }),
+    body: JSON.stringify({ prompt, context: campusRequest(context) }),
     signal, cache: "no-store",
   });
   const payload: unknown = await response.json().catch(() => ({}));
@@ -31,7 +32,7 @@ export async function* runGeminiAgent(prompt: string, context: AgentContext, sig
     text: presentGeminiAnswer(result.text, cards, typeof result.model === "string" ? result.model : "Gemini", typeof result.fallbackFrom === "string" ? result.fallbackFrom : undefined),
   };
   for (const card of cards) {
-    if (card && card.kind === "study-plan") yield { type: "card", card };
+    if (card && (card.kind === "study-plan" || card.kind === "updates" || card.kind === "email")) yield { type: "card", card };
   }
   yield { type: "step", index: 2 };
   yield { type: "done" };

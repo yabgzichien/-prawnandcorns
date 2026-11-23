@@ -1,10 +1,14 @@
 import { runGeminiWithFallback } from "@/lib/gemini-agent";
-import { executeDemoTool, sanitizeDemoContext } from "@/lib/gemini-tools";
+import { createDemoExecutor, sanitizeDemoContext } from "@/lib/gemini-tools";
 import { isAllowedAgentOrigin } from "@/lib/agent-origin";
 import { readJsonBodyWithinLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+// Study sessions, reminders, change ids and event ids are the only things the browser sends. They fit well inside this.
+const MAX_BODY = 40_000;
 
 const headers = { "Cache-Control": "no-store" };
 const MODEL = () => process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
@@ -22,7 +26,7 @@ export async function POST(request: Request) {
   }
   if (!configured()) return Response.json({ error: "Gemini API key not configured. Use Demo mode or set GEMINI_API_KEY in web/.env.local." }, { status: 503, headers });
   if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "JSON required." }, { status: 415, headers });
-  if (Number(request.headers.get("content-length") || 0) > 16_384) return Response.json({ error: "Request too large." }, { status: 413, headers });
+  if (Number(request.headers.get("content-length") || 0) > MAX_BODY) return Response.json({ error: "Request too large." }, { status: 413, headers });
   // Next may normalize request.url to localhost even if a local browser uses
   // 127.0.0.1; allow only matching-port loopback aliases in local preview.
   const origin = request.headers.get("origin");
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const raw: unknown = await readJsonBodyWithinLimit(request, 16_384);
+    const raw: unknown = await readJsonBodyWithinLimit(request, MAX_BODY);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return Response.json({ error: "Invalid request." }, { status: 400, headers });
     const body = raw as Record<string, unknown>;
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
@@ -40,7 +44,7 @@ export async function POST(request: Request) {
     const result = await runGeminiWithFallback({
       prompt, apiKey: process.env.GEMINI_API_KEY!, model: MODEL(), fallbackModel: FALLBACK_MODEL(),
       signal: request.signal,
-      executeTool: (name, args) => executeDemoTool(name, args, prompt, context),
+      executeTool: createDemoExecutor({ prompt, context, apiKey: process.env.GEMINI_API_KEY!, model: MODEL(), signal: request.signal }),
     });
     return Response.json({ ...result, saved: false, mode: "gemini", data: "fictional_demo" }, { headers });
   } catch (error) {

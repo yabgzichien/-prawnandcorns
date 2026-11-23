@@ -1,3 +1,4 @@
+import { campusRequest } from "../src/lib/agent-tools/request.ts";
 import { clearMailCache } from "../src/lib/connectors/connectors.ts";
 import type { ConnectorEnv } from "../src/lib/connectors/types.ts";
 import type { CampusToolContext } from "../src/lib/agent-tools/campus.ts";
@@ -61,4 +62,17 @@ export async function contextAfter(events: string[], plan: PlanState = EMPTY_PLA
     failed: out.failed.map((f) => ({ system: f.system, message: f.error.message })),
     plan, submitted: [], now: DEMO_NOW,
   };
+}
+
+/** What the browser's agent panel would send to the server for the same state. Ids only, plus capped custom emails. */
+export async function clientRequest(events: string[], plan: PlanState = EMPTY_PLAN, over: Partial<ConnectorEnv> = {}) {
+  clearMailCache();
+  const base = (await sync([], null)).snapshot;
+  const out = await sync(events, base, ALL, over);
+  const changes = mergePending([], out.changes);
+  const ctx: CampusToolContext = {
+    data: campusDataFrom(out.snapshot.items, out.snapshot.account, ALL), items: out.snapshot.items, changes,
+    failed: out.failed.map((f) => ({ system: f.system, message: f.error.message })), plan, submitted: [], now: DEMO_NOW, asOf: out.snapshot.asOf,
+  };
+  return { ctx, body: campusRequest({ submitted: [], studySessions: plan.studySessions, campus: ctx }) };
 }
