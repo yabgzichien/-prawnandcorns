@@ -15,7 +15,7 @@ npm run build
 | `/` Today | Customisable dashboard (drag to reorder, toggles) with an AI ask bar as the front door |
 | `/timetable` | Day + week views; cancelled / room-changed / make-up classes flagged; `.ics` export |
 | `/assignments` | Moodle-style deadlines, simulated "Connect Moodle" flow (no credential fields), `.ics` export |
-| `/map` | Own SVG campus map built from OpenStreetMap footprints: room search, floors, today's route pins, pan/zoom with momentum |
+| `/map` | Campus map with a **2D / 3D** switch. 2D is our own SVG map from OpenStreetMap footprints (room search, floors, today's route pins, momentum pan/zoom). 3D is the XMUM Orientation 3D campus (see below) with fly-to, pins, time of day and names |
 | `/courses` | This semester, core outlook, General Education requirement groups |
 | `/clubs` | ECA clubs + events, join toggles |
 | `/finance` | Tuition progress, schedule, history |
@@ -62,3 +62,15 @@ System font, size-specific tracking, translucent chrome with `backdrop-filter`, 
 ## Not done yet
 
 Real Moodle/AC integration, auth, a live LLM, push notifications, and verified room/building data.
+
+## 3D map — where it comes from
+
+`src/components/map3d/` is ported from the team's **XMUM Orientation** 3D map (`xmumorientation/XMUM_Orientation`, `src/components/map3d`): ground, A-row, B1, track and courts, lake, statue, gate, lakefront venue, atmosphere and effects. The funfair, tennis game, concert show and Supabase/staff markers were removed. That repo has no LICENSE file, so confirm with its owners before publishing this publicly. Disclose it in the competition submission as reused code.
+
+`src/components/map3d/dorms3d.tsx` is new: Lingyun towers LY1–LY9, the central hall LY3, Block D (D1–D5) and Canteen D6, built on the OpenStreetMap outlines in `dorms.ts`.
+- LY towers follow the official XMUM Accommodation Photobook and the team's aerial photo: cross-plan, about 20 storeys, five-storey brick podium, white shafts with slim windows, stepped crown, terracotta hip roofs on open red frames.
+- Block D follows the photobook's exterior photo: seven storeys of white bands and red brick bays, black balcony rails, tile eaves, brick stair cores.
+- **Not verified against a photo:** Canteen D6 (round footprint with a cone roof is a guess) and its exact look (LY3 is a cafeteria, from the team). Floor counts are estimates from photos.
+- The white background towers in the aerial photo are Sunsuria City, off campus, and are not modelled.
+
+Deep links for QA: `/map?view=3d&perf=0&mode=day&cam=LY3:2.4:128` (place : distance scale : turn°). `perf=0` skips the frame-rate probe, which otherwise drops to lite or back to 2D on slow or hidden panes.
