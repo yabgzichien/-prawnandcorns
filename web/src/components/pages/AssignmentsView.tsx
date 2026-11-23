@@ -47,9 +47,9 @@ export function AssignmentsView() {
         <span className="grid h-11 w-11 place-items-center rounded-xl" style={{ background: moodle === "connected" ? "var(--green-soft)" : "var(--orange-soft)", color: moodle === "connected" ? "var(--green)" : "var(--orange)" }}>
           {moodle === "connected" ? <CheckCircle2 size={22} /> : <Link2 size={22} />}
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="t-headline">{moodle === "connected" ? "Demo connection enabled" : "Preview Moodle connection"}</p>
-          <p className="t-sub">{moodle === "connected" ? `Sample data refreshed ${synced}. No Moodle data was fetched.` : "Try a simulated connection using example assignments. No sign-in or Moodle access occurs."}</p>
+        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+          <p className="t-headline break-words">{moodle === "connected" ? "Demo connection enabled" : "Preview Moodle connection"}</p>
+          <p className="t-sub break-words">{moodle === "connected" ? `Sample data refreshed ${synced}. No Moodle data was fetched.` : "Try a simulated connection using example assignments. No sign-in or Moodle access occurs."}</p>
         </div>
         {moodle === "connected" ? (
           <div className="flex gap-2">
@@ -73,19 +73,19 @@ export function AssignmentsView() {
                 const course = COURSE_BY_ID[a.courseId];
                 return (
                   <li key={a.id}>
-                    <button onClick={() => toggleSubmitted(a.id)} aria-pressed={done} disabled={a.status === "submitted"} className="press-row flex w-full items-center gap-4 px-4 py-3.5 text-left">
+                    <button onClick={() => toggleSubmitted(a.id)} aria-pressed={done} disabled={a.status === "submitted"} className="press-row flex w-full flex-wrap items-center gap-4 px-4 py-3.5 text-left">
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 transition-colors" style={{ borderColor: done ? "var(--green)" : "var(--label-3)", background: done ? "var(--green)" : "transparent" }}>
                         <AnimatePresence>{done && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={SPRING}><Check size={16} color="#fff" strokeWidth={3.5} /></motion.span>}</AnimatePresence>
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={`block truncate text-[1rem] font-semibold tracking-[-0.012em] ${done ? "text-label-3 line-through" : ""}`}>{a.title}</span>
+                        <span className={`block break-words text-[1rem] font-semibold tracking-[-0.012em] ${done ? "text-label-3 line-through" : ""}`}>{a.title}</span>
                         <span className="t-caption mt-0.5 flex flex-wrap items-center gap-x-2">
                           <span className={`inline-flex items-center gap-1.5 ${toneClass[course.tone].fg} font-semibold`}><span className={`h-1.5 w-1.5 rounded-full ${toneClass[course.tone].dot}`} />{course.code}</span>
                           <span>{a.type}</span><span>{a.weight}%</span>
                           {a.note && <span className="text-red">{a.note}</span>}
                         </span>
                       </span>
-                      <span className="shrink-0 text-right">
+                      <span className="min-w-0 max-w-full text-right">
                         <span className="tnum block text-[0.88rem] font-semibold" style={{ color: a.status === "overdue" && !done ? "var(--red)" : undefined }}>{a.status === "overdue" && !done ? "Overdue" : dueLabel(new Date(a.due))}</span>
                         <span className="t-caption">{done ? "Submitted" : relative(new Date(a.due))}</span>
                       </span>

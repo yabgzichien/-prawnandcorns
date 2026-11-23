@@ -41,9 +41,11 @@
 2. **Database:** Add Neon only when there is a genuine need for multi-device persistent accounts, and agree on authentication/data retention first. Browser-local demo persistence remains appropriate for current judging scope.
 3. **Integration permissions:** Obtain explicit authorization before exploring Moodle/AC; otherwise keep demo data and clearly name it.
 4. **Frontend integration:** Coordinate confirmed data contracts and small component interfaces with Jinquan and the UI/UX team before modifying main navigation, home hierarchy or design system.
-5. **QA and evidence:** Test Chrome and Safari desktop/mobile sizes, invalid inputs, slow operations, reload/reset, screenshots and a live demo rehearsal. Capture test outcomes for the technical and presentation criteria.
+5. **QA and evidence:** Headless Chromium E2E tests are now part of the project and cover 320px, simulated 200% text scaling, planning, persistence, cancellation and dialog focus. Real Safari/iPhone validation, visual screenshots review, slow-operation rehearsal and a live demo run remain.
 
 ## Verification evidence (23 November 2026)
+
+**Follow-up E2E verification later on 23 November 2026:** 10/10 project-owned Playwright tests passed in headless Chromium 159, plus 39/39 unit tests, TypeScript, lint, build and copy-style checks. The tests cover desktop keyboard assistant access, cross-origin rejection, all eight pages at 320px and 200% simulated text size, study-plan confirm/reload/remove/reject, simulated browser storage failure, cancellation of a pending Moodle demo, theme persistence and modal focus restoration. See `docs/RELEASE_READINESS_AUDIT_2026-11-23.md` for the scope and browser limitations. Real Safari/VoiceOver remains unverified.
 
 - **20/20** combined planner and Gemini protocol tests passed using `npm test` (including deterministic planner tests, model selection, bounded retries, timeout fallback and authentication/quota failure handling).
 - TypeScript (`npx tsc --noEmit`), ESLint (`npm run lint`) and production build (`npm run build`) passed.

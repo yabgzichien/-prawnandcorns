@@ -18,13 +18,13 @@ export function FinanceView() {
       <PageHeader eyebrow="Semester 1" title="Finance" sub="What you owe, when, and what you've already paid. Figures here are invented for the demo." />
       <Stagger className="space-y-6">
         <Item>
-          <section className="card grid gap-6 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <section className="card grid min-w-0 grid-cols-1 gap-6 p-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
             <Ring value={FINANCE.paid / FINANCE.tuitionTotal} size={104} stroke={11} tone="var(--green)">
               <span className="text-center leading-tight"><span className="tnum block text-[1.4rem] font-bold tracking-[-0.03em]">{Math.round((FINANCE.paid / FINANCE.tuitionTotal) * 100)}%</span><span className="t-caption">paid</span></span>
             </Ring>
-            <div>
+            <div className="min-w-0">
               <p className="t-eyebrow">Tuition outstanding</p>
-              <p className="tnum t-display mt-1 !text-[2.6rem]">{money(outstanding)}</p>
+              <p className="tnum t-display mt-1 break-words !text-[clamp(1.25rem,6vw,2.6rem)] sm:!text-[2.6rem]">{money(outstanding)}</p>
               <p className="t-sub mt-1">Next instalment due <strong className="text-label">{dateShort(new Date(next.due))}</strong>, {relative(new Date(next.due))}</p>
             </div>
             <div className="flex flex-col gap-2">

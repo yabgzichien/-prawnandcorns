@@ -9,6 +9,7 @@ npm run build
 npm run lint
 npm test
 npm run check:copy
+npm run test:e2e  # optional browser QA; first run: npx playwright install chromium
 ```
 
 ### Gemini API setup (local)

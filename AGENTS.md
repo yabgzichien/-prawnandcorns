@@ -21,6 +21,7 @@ Keep the existing generated `web/AGENTS.md` Next.js instructions intact and read
 ## Verification and safety
 
 - Run `cd web && npm run check:copy && npm test && npm run lint && npm run build` before proposing a merge.
+- For UI, responsive or interaction changes, also run `cd web && npm run test:e2e` after `npx playwright install chromium` and document which browser was actually exercised.
 - Report actual test results and unverified browser/device checks separately.
 - Never expose or commit `.env.local` or API keys. Do not push, merge, deploy or enable remote Gemini access without explicit authorization.
 - Do not change the original competition handbook just to enforce our product's copy style: it is a supplied source document.

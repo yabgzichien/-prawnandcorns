@@ -15,13 +15,13 @@ export function CoursesView() {
 
       <Stagger className="space-y-8">
         <Item>
-          <div className="mb-3 flex items-end justify-between px-1">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2 px-1">
             <h2 className="t-headline">This semester</h2>
             <p className="t-caption">{COURSES.length} courses, {credits} credits</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             {COURSES.map((c) => (
-              <article key={c.id} className="card p-5">
+              <article key={c.id} className="card min-w-0 p-5">
                 <div className="flex items-center justify-between">
                   <span className={`inline-flex items-center gap-2 text-[0.8rem] font-bold tracking-wide ${toneClass[c.tone].fg}`}><span className={`h-2 w-2 rounded-full ${toneClass[c.tone].dot}`} />{c.code}</span>
                   <Pill tone={c.kind === "Core" ? "blue" : "teal"}>{c.kind}, {c.credits} cr</Pill>
@@ -39,11 +39,11 @@ export function CoursesView() {
           <ol className="card divide-y divide-sep">
             {CORE_PLAN.map((p) => (
               <li key={p.sem} className="flex flex-col gap-3 p-5 sm:flex-row sm:gap-8">
-                <div className="w-40 shrink-0">
+                <div className="min-w-0 sm:w-40 sm:shrink-0">
                   <p className="font-semibold tracking-[-0.01em]">{p.sem}</p>
                   <Pill tone={p.status === "current" ? "green" : p.status === "next" ? "blue" : "purple"} className="mt-1">{p.status === "current" ? "In progress" : p.status === "next" ? "Next" : "Later"}</Pill>
                 </div>
-                <ul className="grid flex-1 gap-x-6 gap-y-1.5 text-[0.93rem] sm:grid-cols-2">{p.items.map((i) => <li key={i} className="text-label-2">{i}</li>)}</ul>
+                <ul className="grid min-w-0 flex-1 grid-cols-1 gap-x-6 gap-y-1.5 text-[0.93rem] sm:grid-cols-2">{p.items.map((i) => <li key={i} className="break-words text-label-2">{i}</li>)}</ul>
               </li>
             ))}
           </ol>
@@ -51,13 +51,13 @@ export function CoursesView() {
         </Item>
 
         <Item>
-          <div className="mb-3 flex items-end justify-between px-1">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2 px-1">
             <h2 className="t-headline">General Education</h2>
             <button onClick={() => openAgent("Which GE courses should I take next semester?")} className="press text-[0.85rem] font-semibold text-accent">Ask Compass</button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             {GE_GROUPS.map((g) => (
-              <article key={g.id} className="card flex gap-4 p-5">
+              <article key={g.id} className="card flex min-w-0 flex-wrap gap-4 p-5">
                 <Ring value={g.done / g.need} size={60} stroke={7} tone={g.done >= g.need ? "var(--green)" : "var(--accent)"}><span className="tnum text-[0.8rem] font-bold">{g.done}/{g.need}</span></Ring>
                 <div className="min-w-0">
                   <h3 className="font-semibold tracking-[-0.01em]">{g.title}</h3>

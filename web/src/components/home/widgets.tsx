@@ -23,13 +23,13 @@ function NextWidget() {
   const room = ROOM_BY_CODE[next.room];
   const cancelledToday = classesOn(TODAY_IDX).filter((c) => c.status === "cancelled");
   return (
-    <div className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-end">
-      <div>
-        <p className="t-eyebrow mb-3">Up next ({relative(start)})</p>
-        <div className="flex items-start gap-3">
+    <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <div className="min-w-0">
+        <p className="t-eyebrow mb-3 break-words">Up next ({relative(start)})</p>
+        <div className="flex min-w-0 items-start gap-3">
           <span className={`mt-2 h-12 w-1.5 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
-          <div>
-            <h2 className="t-title !text-[1.9rem]">{course.title}</h2>
+          <div className="min-w-0">
+            <h2 className="t-title break-words !text-[1.9rem]">{course.title}</h2>
             <p className="t-sub mt-1">{next.kind}, {timeOf(start)}–{timeOf(end)}, {next.room}{room ? `, ${PLACE_BY_ID[room.place].name}` : ""}</p>
           </div>
         </div>
@@ -110,14 +110,14 @@ function TodayWidget() {
           const past = sessionDate(c).end < DEMO_NOW;
           const cancelled = c.status === "cancelled";
           return (
-            <li key={c.id} className="flex items-center gap-3 py-2" style={{ opacity: past ? 0.5 : 1 }}>
-              <span className="tnum w-11 shrink-0 text-[0.85rem] font-semibold text-label-2">{c.start}</span>
+            <li key={c.id} className="flex min-w-0 flex-wrap items-center gap-3 py-2" style={{ opacity: past ? 0.5 : 1 }}>
+              <span className="tnum min-w-0 shrink-0 text-[0.85rem] font-semibold text-label-2">{c.start}</span>
               <span className={`h-9 w-1 shrink-0 rounded-full ${cancelled ? "bg-red" : toneClass[course.tone].dot}`} aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${cancelled ? "text-label-3 line-through" : ""}`}>{course.code}, {c.kind}</span>
                 <span className="t-caption block">{c.room}</span>
               </span>
-              {cancelled && <Pill tone="red">Cancelled</Pill>}
+              {cancelled && <span className="min-w-0 basis-full sm:basis-auto"><Pill tone="red">Cancelled</Pill></span>}
             </li>
           );
         })}

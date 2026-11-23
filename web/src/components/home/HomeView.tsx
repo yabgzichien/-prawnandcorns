@@ -23,7 +23,7 @@ export function HomeView() {
       <header className="pb-6 pt-1">
         <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)}, {STUDENT.semester}</p>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="t-display">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
+          <h1 className="t-display break-words max-[360px]:!text-[clamp(1.6rem,4.6vw,3.25rem)]">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
           <button onClick={() => setCustomise(true)} className="press btn btn-plain"><SlidersHorizontal size={17} /> Customise</button>
         </div>
       </header>
@@ -68,7 +68,7 @@ export function HomeView() {
       )}
 
       <LayoutGroup>
-        <motion.div layout className="grid gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>
+        <motion.div layout className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>
           <AnimatePresence mode="popLayout" initial={false}>
             {visible.map((w, i) => {
               const def = WIDGETS[w.id];
@@ -81,7 +81,7 @@ export function HomeView() {
                   exit={{ opacity: 0, scale: 0.94 }}
                   transition={{ ...SPRING, delay: i < 8 ? i * 0.03 : 0 }}
                   aria-label={WIDGET_META[w.id].title}
-                  className={`card p-5 ${def.span === 2 ? "md:col-span-2" : ""} ${def.hero ? "sm:p-6" : ""}`}
+                  className={`card min-w-0 p-5 ${def.span === 2 ? "md:col-span-2" : ""} ${def.hero ? "sm:p-6" : ""}`}
                 >
                   {def.render()}
                 </motion.section>
