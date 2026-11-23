@@ -27,7 +27,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
               <Pill tone={statusTone[a.status]}>{a.status === "progress" ? "In progress" : a.status === "todo" ? "To do" : a.status === "overdue" ? "Overdue" : "Done"}</Pill>
             </li>
           ))}
-          <li><Link href="/assignments" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Open Assignments <ArrowRight size={16} /></Link></li>
+          <li><Link href="/hub?section=assignments" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Open Assignments <ArrowRight size={16} /></Link></li>
         </ul>
       );
 
@@ -48,7 +48,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
           {card.makeup && (
             <div className="border-t border-sep bg-green-soft px-3.5 py-2.5">
               <p className="text-[0.85rem] font-semibold text-green">Make-up · {dayShort(atDay(card.makeup.day, card.makeup.start))} {dateShort(atDay(card.makeup.day, card.makeup.start))}, {card.makeup.start} · {card.makeup.room}</p>
-              <Link href={`/map?focus=${card.makeup.room}`} onClick={onNavigate} className="mt-1 inline-flex items-center gap-1 text-[0.85rem] font-semibold text-green underline-offset-2 hover:underline"><MapPin size={14} /> Show {card.makeup.room} on map</Link>
+              <Link href={`/hub?section=map&focus=${card.makeup.room}`} onClick={onNavigate} className="mt-1 inline-flex items-center gap-1 text-[0.85rem] font-semibold text-green underline-offset-2 hover:underline"><MapPin size={14} /> Show {card.makeup.room} on map</Link>
             </div>
           )}
           {card.next && cancelled && (
@@ -88,7 +88,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
             <p className="font-semibold tracking-[-0.01em]">{card.room.code}</p>
             <p className="t-caption truncate">{card.place.name} · {card.room.floor}</p>
           </div>
-          <Link href={`/map?focus=${card.room.code}`} onClick={onNavigate} className="press btn btn-sm btn-primary">Show on map</Link>
+          <Link href={`/hub?section=map&focus=${card.room.code}`} onClick={onNavigate} className="press btn btn-sm btn-primary">Show on map</Link>
         </div>
       );
 
@@ -122,7 +122,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
               <Pill tone="green">Recruiting</Pill>
             </li>
           ))}
-          <li><Link href="/clubs" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Browse all clubs <ArrowRight size={16} /></Link></li>
+          <li><Link href="/hub?section=clubs" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Browse all clubs <ArrowRight size={16} /></Link></li>
         </ul>
       );
 
@@ -134,7 +134,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
             <p className="font-semibold tracking-[-0.01em]">{card.label}</p>
             <p className="t-caption">RM {card.due.toLocaleString("en-MY")} · due {dateShort(new Date(card.dueIso))}</p>
           </div>
-          <Link href="/finance" onClick={onNavigate} className="press btn btn-sm btn-tint">Finance</Link>
+          <Link href="/hub?section=finance" onClick={onNavigate} className="press btn btn-sm btn-tint">Finance</Link>
         </div>
       );
 
@@ -147,7 +147,7 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
               <p className="t-caption mt-0.5">{g.options.join(" · ")}</p>
             </li>
           ))}
-          <li><Link href="/courses" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Open Courses <ArrowRight size={16} /></Link></li>
+          <li><Link href="/hub?section=courses" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Open Courses <ArrowRight size={16} /></Link></li>
         </ul>
       );
 

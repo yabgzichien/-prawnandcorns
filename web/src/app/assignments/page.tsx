@@ -1,3 +1,2 @@
-import { AssignmentsView } from "@/components/pages/AssignmentsView";
-export const metadata = { title: "Assignments · XMUM Compass" };
-export default function Page() { return <AssignmentsView />; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/hub?section=assignments"); }
