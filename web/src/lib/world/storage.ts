@@ -29,6 +29,11 @@ function announce() {
   try { if (typeof window !== "undefined") window.dispatchEvent(new Event(SCENARIO_CHANGED)); } catch {}
 }
 
+/** Parses a stored JSON list (as a string) into valid event ids. Used where only the raw text is available. */
+export function cleanLocalList(text: string): string[] {
+  try { const parsed: unknown = JSON.parse(text); return Array.isArray(parsed) ? cleanEventIds(parsed) : []; } catch { return []; }
+}
+
 export function getTriggeredEvents(storage: StorageLike | null = store()): string[] {
   return cleanEventIds(readList(storage, SCENARIO_KEY));
 }

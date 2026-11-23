@@ -1,5 +1,5 @@
-import { DEPARTMENTS, type Department } from "./data/life";
-import { STUDENT } from "./data/academics";
+import { DEPARTMENTS, type Department } from "./data/life.ts";
+import { STUDENT } from "./data/academics.ts";
 
 export type Tone = "formal" | "brief";
 export type Draft = { to: Department; subject: string; body: string; tone: Tone };

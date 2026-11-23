@@ -2,11 +2,14 @@
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { AppProvider } from "@/lib/state";
+import { CampusProvider } from "@/lib/sync/CampusProvider";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
-      <AppProvider>{children}</AppProvider>
+      <CampusProvider>
+        <AppProvider>{children}</AppProvider>
+      </CampusProvider>
     </MotionConfig>
   );
 }

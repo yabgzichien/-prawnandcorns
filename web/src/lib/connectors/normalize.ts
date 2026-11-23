@@ -94,6 +94,7 @@ export function normalizeFinance(input: { account: FinAccount; instalments: FinI
   const items = input.instalments.instalments.map((i): FeeItem => ({
     id: `finance:fee:${i.id}`, source: "finance", kind: "fee",
     description: i.description, amount: i.amount, currency: input.instalments.currency, due: i.dueDate, status: i.status,
+    ...(i.paidOn ? { paidOn: i.paidOn } : {}),
   }));
   return { items, account: { currency: input.account.currency, total: input.account.totalFees, paid: input.account.amountPaid, outstanding: input.account.amountOutstanding } };
 }

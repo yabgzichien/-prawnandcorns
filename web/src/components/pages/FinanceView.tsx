@@ -2,20 +2,22 @@
 
 import Link from "next/link";
 import { ArrowRight, Check, Mail, Sparkles } from "lucide-react";
-import { FINANCE } from "@/lib/data/life";
 import { dateShort, relative } from "@/lib/time";
 import { useApp } from "@/lib/state";
+import { useCampus } from "@/lib/sync/CampusProvider";
 import { Item, PageHeader, Pill, Ring, Stagger } from "@/components/ui/kit";
 
-const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2 })}`;
+const money = (n: number, currency = "RM") => `${currency} ${n.toLocaleString("en-MY", { minimumFractionDigits: 2 })}`;
 
 export function FinanceView() {
   const { openAgent } = useApp();
-  const next = FINANCE.dues.find((d) => d.status === "upcoming")!;
+  const { data } = useCampus();
+  const FINANCE = data.fees;
+  const next = FINANCE.dues.find((d) => d.status === "upcoming");
   const outstanding = FINANCE.tuitionTotal - FINANCE.paid;
   return (
     <div>
-      <PageHeader eyebrow="Semester 1" title="Finance" sub="What you owe, when, and what you've already paid. Figures here are invented for the demo." />
+      <PageHeader eyebrow="Semester 1" title="Finance" sub={`What you owe, when, and what you've already paid. Figures here are invented for the demo.${FINANCE.live ? " Read from the Finance Office demo connection." : ""}`} />
       <Stagger className="space-y-6">
         <Item>
           <section className="card grid min-w-0 grid-cols-1 gap-6 p-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
@@ -24,8 +26,8 @@ export function FinanceView() {
             </Ring>
             <div className="min-w-0">
               <p className="t-eyebrow">Tuition outstanding</p>
-              <p className="tnum t-display mt-1 break-words !text-[clamp(1.25rem,6vw,2.6rem)] sm:!text-[2.6rem]">{money(outstanding)}</p>
-              <p className="t-sub mt-1">Next instalment due <strong className="text-label">{dateShort(new Date(next.due))}</strong>, {relative(new Date(next.due))}</p>
+              <p className="tnum t-display mt-1 break-words !text-[clamp(1.25rem,6vw,2.6rem)] sm:!text-[2.6rem]">{money(outstanding, FINANCE.currency)}</p>
+              <p className="t-sub mt-1">{next ? <>Next instalment due <strong className="text-label">{dateShort(new Date(next.due))}</strong>, {relative(new Date(next.due))}</> : "No instalment has been posted yet."}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Link href="/mail?dept=finance&need=my%20second%20tuition%20instalment" className="press btn btn-primary"><Mail size={17} /> Email Finance</Link>
@@ -46,20 +48,22 @@ export function FinanceView() {
                   <p className="font-semibold tracking-[-0.01em]">{d.label}</p>
                   <p className="t-caption">{d.status === "paid" ? `Paid ${dateShort(new Date(d.paidOn!))}` : `Due ${dateShort(new Date(d.due))}, ${relative(new Date(d.due))}`}</p>
                 </div>
-                <p className="tnum text-[1.05rem] font-semibold">{money(d.amount)}</p>
+                <p className="tnum text-[1.05rem] font-semibold">{money(d.amount, FINANCE.currency)}</p>
                 <Pill tone={d.status === "paid" ? "green" : d.status === "upcoming" ? "orange" : "purple"} className="hidden sm:inline-flex">{d.status === "paid" ? "Paid" : d.status === "upcoming" ? "Next" : "Later"}</Pill>
               </li>
             ))}
+            {FINANCE.dues.length === 0 && <li className="px-5 py-4 t-sub">Nothing is listed yet.</li>}
           </ol>
         </Item>
 
         <Item>
           <h2 className="t-headline mb-3 px-1">Payment history</h2>
           <ul className="card divide-y divide-sep overflow-hidden">
+            {FINANCE.history.length === 0 && <li className="px-5 py-4 t-sub">No payments are listed yet.</li>}
             {FINANCE.history.map((p) => (
               <li key={p.id} className="flex items-center gap-4 px-5 py-4">
                 <div className="min-w-0 flex-1"><p className="font-semibold tracking-[-0.01em]">{p.label}</p><p className="t-caption">{p.date}, {p.method}</p></div>
-                <p className="tnum font-semibold text-green">{money(p.amount)}</p>
+                <p className="tnum font-semibold text-green">{money(p.amount, FINANCE.currency)}</p>
               </li>
             ))}
           </ul>

@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { asMalaysiaIso, tryConfirmStudyPlan, type BusyBlock, type StudySession } from "./planning";
-import { demoClassBlocks, demoTasks, sanitizeDemoStudySessions } from "./planning-demo";
+import { classBlocksFrom, sanitizeDemoStudySessions, tasksFrom } from "./planning-demo";
+import { useCampus } from "./sync/CampusProvider";
 import { DEMO_NOW } from "./time";
 import { persistDemoSnapshot } from "./demo-persistence";
 
@@ -39,7 +40,6 @@ type State = {
   joined: string[];
   submitted: string[];
   studySessions: StudySession[];
-  moodle: "disconnected" | "connected";
   agentOpen: boolean;
   agentSeed: { prompt: string; nonce: number } | null;
   toast: { id: number; text: string; undo?: () => void } | null;
@@ -52,7 +52,6 @@ const initial: State = {
   joined: [],
   submitted: [],
   studySessions: [],
-  moodle: "disconnected",
   agentOpen: false,
   agentSeed: null,
   toast: null,
@@ -65,7 +64,6 @@ type Action =
   | { type: "toggleClub"; id: string }
   | { type: "toggleSubmitted"; id: string }
   | { type: "studySessions"; sessions: StudySession[] }
-  | { type: "moodle"; value: State["moodle"] }
   | { type: "agent"; open: boolean; seed?: string }
   | { type: "reset" }
   | { type: "toast"; toast: State["toast"] };
@@ -78,7 +76,6 @@ function reducer(s: State, a: Action): State {
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
     case "toggleSubmitted": return { ...s, submitted: s.submitted.includes(a.id) ? s.submitted.filter((x) => x !== a.id) : [...s.submitted, a.id] };
     case "studySessions": return { ...s, studySessions: a.sessions };
-    case "moodle": return { ...s, moodle: a.value };
     case "agent": return { ...s, agentOpen: a.open, agentSeed: a.seed ? { prompt: a.seed, nonce: Date.now() } : a.open ? s.agentSeed : null };
     case "reset": return { ...initial, hydrated: true, theme: s.theme, agentOpen: s.agentOpen };
     case "toast": return { ...s, toast: a.toast };
@@ -86,7 +83,7 @@ function reducer(s: State, a: Action): State {
 }
 
 const KEY = "xmum-compass:v1";
-type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "moodle" | "studySessions">;
+type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions">;
 
 type Ctx = State & {
   setTheme: (t: Theme) => void;
@@ -95,7 +92,6 @@ type Ctx = State & {
   toggleSubmitted: (id: string) => void;
   confirmStudyPlan: (sessions: StudySession[], blocked: BusyBlock[]) => { ok: boolean; error?: string };
   removeStudySession: (id: string) => void;
-  setMoodle: (v: State["moodle"]) => void;
   openAgent: (seed?: string) => void;
   closeAgent: () => void;
   showToast: (text: string, undo?: () => void) => void;
@@ -107,6 +103,7 @@ const AppCtx = createContext<Ctx | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const toastId = useRef(0);
+  const campus = useCampus();
 
   // hydrate from localStorage once (always wrapped: storage can be blocked or throw)
   useEffect(() => {
@@ -123,9 +120,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state.hydrated) return;
-    const p: Persisted = { theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted, moodle: state.moodle, studySessions: state.studySessions };
+    const p: Persisted = { theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted, studySessions: state.studySessions };
     persistDemoSnapshot(() => localStorage, KEY, p);
-  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.moodle, state.studySessions]);
+  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -151,11 +148,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleSubmitted: (id) => dispatch({ type: "toggleSubmitted", id }),
     confirmStudyPlan: (sessions, blocked) => {
       if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
-      const result = tryConfirmStudyPlan(sessions, state.studySessions, demoTasks(state.submitted), demoClassBlocks(), blocked, asMalaysiaIso(DEMO_NOW.getTime()));
+      const result = tryConfirmStudyPlan(sessions, state.studySessions, tasksFrom(campus.data.assignments, state.submitted), classBlocksFrom(campus.data.classes), blocked, asMalaysiaIso(DEMO_NOW.getTime()));
       if (result.ok) {
         const snapshot: Persisted = {
           theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted,
-          moodle: state.moodle, studySessions: result.sessions,
+          studySessions: result.sessions,
         };
         if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) {
           return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
@@ -165,16 +162,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return result;
     },
     removeStudySession: (id) => dispatch({ type: "studySessions", sessions: state.studySessions.filter((item) => item.id !== id) }),
-    setMoodle: (value) => dispatch({ type: "moodle", value }),
     openAgent: (seed) => dispatch({ type: "agent", open: true, seed }),
     closeAgent: () => dispatch({ type: "agent", open: false }),
     showToast,
     resetDemo: () => {
       try { localStorage.removeItem(KEY); } catch {}
+      campus.resetAll();
       dispatch({ type: "reset" });
       showToast("Demo reset to its starting state");
     },
-  }), [state, showToast]);
+  }), [state, showToast, campus]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CalendarPlus, CalendarX2, DoorOpen, MapPin } from "lucide-react";
-import { CLASSES, COURSE_BY_ID, NOTICES } from "@/lib/data/academics";
+import { COURSE_BY_ID, type ClassSession } from "@/lib/data/academics";
 import { PLACE_BY_ID, ROOM_BY_CODE } from "@/lib/data/campus";
 import { atDay, dateShort } from "@/lib/time";
 import { classesOn, TODAY_IDX, statusText } from "@/lib/schedule";
 import { download, timetableICS } from "@/lib/ics";
 import { Item, PageHeader, Pill, Segmented, Stagger, toneClass } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
+import { useCampus } from "@/lib/sync/CampusProvider";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const HOURS = Array.from({ length: 11 }, (_, i) => 8 + i);
@@ -18,20 +19,21 @@ export function TimetableView() {
   const [view, setView] = useState<"day" | "week">("day");
   const [day, setDay] = useState(TODAY_IDX);
   const { showToast } = useApp();
-  const list = classesOn(day);
-  const changed = CLASSES.filter((c) => c.status !== "normal").length;
+  const { data } = useCampus();
+  const list = classesOn(day, data.classes);
+  const changed = data.classes.filter((c) => c.status !== "normal").length;
 
   return (
     <div>
       <PageHeader eyebrow="Semester 1, Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
-        action={<button onClick={() => { download("xmum-timetable.ics", timetableICS()); showToast("Timetable exported to calendar file"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
+        action={<button onClick={() => { download("xmum-timetable.ics", timetableICS(data.classes)); showToast("Timetable exported to calendar file"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Segmented label="View" value={view} onChange={setView} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} />
         {view === "day" && (
           <div className="rail flex min-w-0 max-w-full gap-1.5 overflow-x-auto" role="tablist" aria-label="Day">
             {DAYS.map((d, i) => {
-              const dots = classesOn(i).some((c) => c.status !== "normal");
+              const dots = classesOn(i, data.classes).some((c) => c.status !== "normal");
               return (
                 <button key={d} role="tab" aria-selected={day === i} onClick={() => setDay(i)} className="press relative flex min-h-[56px] w-[58px] shrink-0 flex-col items-center justify-center rounded-2xl text-[0.8rem] font-semibold" style={{ background: day === i ? "var(--accent)" : "var(--surface)", color: day === i ? "var(--accent-fg)" : "var(--label)", boxShadow: "var(--shadow-sm)" }}>
                   <span className="opacity-70">{d}</span>
@@ -52,7 +54,7 @@ export function TimetableView() {
             const t = toneClass[course.tone];
             const cancelled = c.status === "cancelled";
             const room = ROOM_BY_CODE[c.room];
-            const notice = NOTICES.find((n) => n.id === c.noticeId);
+            const notice = data.notices.find((n) => n.id === c.noticeId);
             return (
               <Item key={c.id}>
                 <article className="card flex min-w-0 flex-wrap gap-4 p-4 sm:flex-nowrap sm:p-5">
@@ -81,13 +83,13 @@ export function TimetableView() {
           })}
         </Stagger>
       ) : (
-        <WeekGrid />
+        <WeekGrid classes={data.classes} />
       )}
     </div>
   );
 }
 
-function WeekGrid() {
+function WeekGrid({ classes }: { classes: readonly ClassSession[] }) {
   const rowH = 56;
   return (
     <div className="card overflow-x-auto">
@@ -105,7 +107,7 @@ function WeekGrid() {
           {DAYS.map((d, di) => (
             <div key={d} className="relative border-l border-sep">
               {HOURS.map((h, i) => <div key={h} className="absolute inset-x-0 border-t border-sep" style={{ top: i * rowH }} />)}
-              {classesOn(di).map((c) => {
+              {classesOn(di, classes).map((c) => {
                 const [sh, sm] = c.start.split(":").map(Number);
                 const [eh, em] = c.end.split(":").map(Number);
                 const top = ((sh - 8) * 60 + sm) / 60 * rowH;

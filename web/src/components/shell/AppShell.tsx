@@ -5,17 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, GraduationCap, Home, Mail, MoreHorizontal, Moon, RotateCcw, Sparkles, Sun, Undo2 } from "lucide-react";
+import { BookOpen, GraduationCap, Home, Mail, MoreHorizontal, Moon, Plug, RotateCcw, Sparkles, Sun, Undo2 } from "lucide-react";
 import { useApp } from "@/lib/state";
 import { SPRING, useMediaQuery } from "@/lib/hooks";
 import { Sheet } from "@/components/ui/Sheet";
 import { DemoBadge } from "@/components/ui/kit";
 import { AgentPanel } from "@/components/agent/AgentPanel";
+import { UpdatesBanner } from "./UpdatesBanner";
 
 const NAV = [
   { href: "/", label: "Today", icon: Home },
   { href: "/hub", label: "Student hub", icon: GraduationCap },
   { href: "/mail", label: "Mail assistant", icon: Mail },
+  { href: "/connections", label: "Connections", icon: Plug },
 ] as const;
 
 const TABS = ["/", "/hub", "/mail"];
@@ -43,6 +45,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
   const dark = theme === "dark" || (theme === "system" && prefersDark);
+
+  // The presenter console is its own window: no student navigation, no assistant, no banner.
+  if (path.startsWith("/demo")) return <main id="main">{children}</main>;
 
   return (
     <div className="min-h-dvh lg:pl-[272px]">
@@ -143,6 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </Sheet>
 
+      <UpdatesBanner />
       <AgentPanel />
 
       <AnimatePresence>

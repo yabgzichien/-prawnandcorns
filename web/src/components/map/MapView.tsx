@@ -13,6 +13,7 @@ import { useApp } from "@/lib/state";
 import { PLACE_BY_ID, PLACES, ROOMS, ROOM_BY_CODE, findRoom, placeCenter, placeRadius, searchCampus, type PlaceKind, type Room } from "@/lib/data/campus";
 import { COURSE_BY_ID } from "@/lib/data/academics";
 import { classesOn, TODAY_IDX } from "@/lib/schedule";
+import { useCampus } from "@/lib/sync/CampusProvider";
 import { SPRING, SPRING_FAST, useMediaQuery } from "@/lib/hooks";
 import { Pill } from "@/components/ui/kit";
 
@@ -45,6 +46,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
   const [kinds, setKinds] = useState<Set<PlaceKind>>(new Set(ALL_KINDS));
   const [showRoute, setShowRoute] = useState(true);
   const { showToast, theme } = useApp();
+  const { data: campus } = useCampus();
   const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
   const [view, setView] = useState<"2d" | "3d">(params.get("view") === "3d" ? "3d" : "2d");
   const [visited3d, setVisited3d] = useState(params.get("view") === "3d");
@@ -111,7 +113,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
 
   const results = useMemo(() => (query.trim() ? searchCampus(query, 7) : []), [query]);
 
-  const route = useMemo(() => classesOn(TODAY_IDX).filter((c) => c.status !== "cancelled"), []);
+  const route = useMemo(() => classesOn(TODAY_IDX, campus.classes).filter((c) => c.status !== "cancelled"), [campus.classes]);
   const pins = useMemo(() => {
     const list: { id: string; place: string; at: [number, number]; label: string; tone?: "accent" | "green" | "orange" }[] = [];
     if (showRoute) {

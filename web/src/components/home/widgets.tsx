@@ -4,24 +4,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowRight, CalendarX2, Check, Clock, DoorOpen, MapPin, Search, Wallet } from "lucide-react";
-import { ASSIGNMENTS, COURSE_BY_ID, NOTICES, sessionDate } from "@/lib/data/academics";
-import { CLUBS, EVENTS, FINANCE } from "@/lib/data/life";
+import { COURSE_BY_ID, sessionDate } from "@/lib/data/academics";
+import { CLUBS, EVENTS } from "@/lib/data/life";
 import { PLACE_BY_ID, ROOM_BY_CODE } from "@/lib/data/campus";
 import { DEMO_NOW, dateShort, dueLabel, minutesBetween, relative, timeOf } from "@/lib/time";
 import { classesOn, TODAY_IDX, upcomingClasses } from "@/lib/schedule";
 import { useApp, type WidgetId } from "@/lib/state";
+import { useCampus } from "@/lib/sync/CampusProvider";
 import { CardTitle, Pill, Ring, toneClass } from "@/components/ui/kit";
 
-const money = (n: number) => `RM ${n.toLocaleString("en-MY")}`;
+const money = (n: number, currency = "RM") => `${currency} ${n.toLocaleString("en-MY")}`;
 
 function NextWidget() {
-  const next = upcomingClasses()[0];
+  const { data } = useCampus();
+  const next = upcomingClasses(DEMO_NOW, data.classes)[0];
+  if (!next) return <p className="t-sub">No more classes this week.</p>;
   const course = COURSE_BY_ID[next.courseId];
   const tone = toneClass[course.tone];
   const { start, end } = sessionDate(next);
   const mins = minutesBetween(DEMO_NOW, start);
   const room = ROOM_BY_CODE[next.room];
-  const cancelledToday = classesOn(TODAY_IDX).filter((c) => c.status === "cancelled");
+  const cancelledToday = classesOn(TODAY_IDX, data.classes).filter((c) => c.status === "cancelled");
   return (
     <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
       <div className="min-w-0">
@@ -51,11 +54,13 @@ function NextWidget() {
 }
 
 function AlertsWidget() {
+  const { data } = useCampus();
+  const notices = data.notices.slice(0, 4);
   return (
     <>
-      <CardTitle icon={<AlertTriangle size={18} className="text-orange" />} title="Class changes" action={<Pill tone="orange">{NOTICES.length} new</Pill>} />
+      <CardTitle icon={<AlertTriangle size={18} className="text-orange" />} title="Class changes" action={<Pill tone="orange">{data.notices.length} recent</Pill>} />
       <ul className="-mx-2 divide-y divide-sep">
-        {NOTICES.map((n) => (
+        {notices.map((n) => (
           <li key={n.id} className="flex gap-3 px-2 py-3">
             <span className={`mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg ${n.kind === "cancellation" ? "bg-red-soft text-red" : n.kind === "room" ? "bg-orange-soft text-orange" : "bg-accent-soft text-accent"}`}>
               {n.kind === "cancellation" ? <CalendarX2 size={16} /> : n.kind === "room" ? <DoorOpen size={16} /> : <Clock size={16} />}
@@ -73,7 +78,8 @@ function AlertsWidget() {
 
 function DueWidget() {
   const { submitted, toggleSubmitted } = useApp();
-  const items = ASSIGNMENTS.filter((a) => a.status !== "submitted").sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime()).slice(0, 5);
+  const { data } = useCampus();
+  const items = data.assignments.filter((a) => a.status !== "submitted").sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime()).slice(0, 5);
   return (
     <>
       <CardTitle title="Due soon" action={<Link href="/hub?section=assignments" className="press text-[0.85rem] font-semibold text-accent">All <ArrowRight className="inline" size={14} /></Link>} />
@@ -100,7 +106,8 @@ function DueWidget() {
 }
 
 function TodayWidget() {
-  const list = classesOn(TODAY_IDX);
+  const { data } = useCampus();
+  const list = classesOn(TODAY_IDX, data.classes);
   return (
     <>
       <CardTitle title="Today" action={<span className="t-caption">Mon {dateShort(DEMO_NOW)}</span>} />
@@ -127,7 +134,9 @@ function TodayWidget() {
 }
 
 function FeesWidget() {
-  const next = FINANCE.dues.find((d) => d.status === "upcoming")!;
+  const { data } = useCampus();
+  const FINANCE = data.fees;
+  const next = FINANCE.dues.find((d) => d.status === "upcoming");
   return (
     <>
       <CardTitle icon={<Wallet size={18} className="text-accent" />} title="Fees" action={<Link href="/hub?section=finance" className="press text-[0.85rem] font-semibold text-accent">Details <ArrowRight className="inline" size={14} /></Link>} />
@@ -135,8 +144,8 @@ function FeesWidget() {
         <Ring value={FINANCE.paid / FINANCE.tuitionTotal} size={72} stroke={8} tone="var(--green)"><span className="tnum text-[0.85rem] font-bold">{Math.round((FINANCE.paid / FINANCE.tuitionTotal) * 100)}%</span></Ring>
         <div>
           <p className="t-caption">Next instalment</p>
-          <p className="tnum text-[1.6rem] font-bold leading-tight tracking-[-0.03em]">{money(next.amount)}</p>
-          <p className="t-caption">Due {dateShort(new Date(next.due))}, {relative(new Date(next.due))}</p>
+          <p className="tnum text-[1.6rem] font-bold leading-tight tracking-[-0.03em]">{next ? money(next.amount, FINANCE.currency) : "None posted"}</p>
+          <p className="t-caption">{next ? `Due ${dateShort(new Date(next.due))}, ${relative(new Date(next.due))}` : "Finance has not posted another instalment."}</p>
         </div>
       </div>
     </>

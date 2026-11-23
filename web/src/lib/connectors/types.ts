@@ -39,6 +39,7 @@ export type FeeItem = Base & {
   currency: string;
   due: string;
   status: "paid" | "due" | "overdue";
+  paidOn?: string;
 };
 
 export type NoticeItem = Base & {

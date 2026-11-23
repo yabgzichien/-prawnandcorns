@@ -106,18 +106,19 @@ test("rejecting a plan never creates a saved Home schedule", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Your study plan" })).toHaveCount(0);
 });
 
-test("cancelled Moodle demo does not reconnect after closing", async ({ page }) => {
+test("connecting Moodle asks for consent, never a password, and only connects after Allow", async ({ page }) => {
   await page.goto("/assignments", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Try demo" }).click();
-  await page.getByRole("button", { name: "Start demo walkthrough" }).click();
+  await page.getByRole("button", { name: "Connect Moodle" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect Moodle" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+  await expect(dialog.getByText("Compass would like to read")).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Preview Moodle connection" })).toBeHidden();
-  await page.waitForTimeout(2900);
-  await expect(page.getByText("Demo connection enabled", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Try demo" }).click();
-  await page.getByRole("button", { name: "Start demo walkthrough" }).click();
-  await page.getByRole("button", { name: "Done", exact: true }).click({ timeout: 4500 });
-  await expect(page.getByText("Demo connection enabled", { exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Moodle demo connected", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Connect Moodle" }).click();
+  await dialog.getByRole("button", { name: "Allow" }).click();
+  await expect(page.getByText("Moodle demo connected", { exact: true })).toBeVisible();
 });
 
 test("dark theme selection survives a reload", async ({ page }) => {
