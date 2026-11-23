@@ -89,3 +89,15 @@ System font, size-specific tracking, translucent chrome with `backdrop-filter`, 
 ## Not done yet
 
 Real Moodle/AC integration, student authentication, push notifications, and verified room/building data. The demo does have an optional real Gemini API agent with read-only/proposal-only tools, but **does not** have official live academic data access.
+
+## 3D map — where it comes from
+
+`src/components/map3d/` is ported from the team's **XMUM Orientation** 3D map (`xmumorientation/XMUM_Orientation`, `src/components/map3d`): ground, A-row, B1, track and courts, lake, statue, gate, lakefront venue, atmosphere and effects. The funfair, tennis game, concert show and Supabase/staff markers were removed. That repo has no LICENSE file, so confirm with its owners before publishing this publicly. Disclose it in the competition submission as reused code.
+
+`src/components/map3d/dorms3d.tsx` is new: Lingyun towers LY1–LY9, the central hall LY3, Block D (D1–D5) and Canteen D6, built on the OpenStreetMap outlines in `dorms.ts`.
+- LY towers follow the official XMUM Accommodation Photobook and the team's aerial photo: cross-plan, about 20 storeys, five-storey brick podium, white shafts with slim windows, stepped crown, terracotta hip roofs on open red frames.
+- Block D follows the photobook's exterior photo: seven storeys of white bands and red brick bays, black balcony rails, tile eaves, brick stair cores.
+- **Not verified against a photo:** Canteen D6 (round footprint with a cone roof is a guess) and its exact look (LY3 is a cafeteria, from the team). Floor counts are estimates from photos.
+- The white background towers in the aerial photo are Sunsuria City, off campus, and are not modelled.
+
+Deep links for QA: `/map?view=3d&perf=0&mode=day&cam=LY3:2.4:128` (place : distance scale : turn°). `perf=0` skips the frame-rate probe, which otherwise drops to lite or back to 2D on slow or hidden panes.

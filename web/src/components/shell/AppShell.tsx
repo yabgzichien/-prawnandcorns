@@ -1,10 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, CalendarDays, CheckSquare, GraduationCap, Home, Landmark, Mail, MapPin, MoreHorizontal, Moon, RotateCcw, Sparkles, Sun, Users, Undo2 } from "lucide-react";
+import { BookOpen, GraduationCap, Home, Mail, MoreHorizontal, Moon, RotateCcw, Sparkles, Sun, Undo2 } from "lucide-react";
 import { useApp } from "@/lib/state";
 import { SPRING, useMediaQuery } from "@/lib/hooks";
 import { Sheet } from "@/components/ui/Sheet";
@@ -13,16 +14,11 @@ import { AgentPanel } from "@/components/agent/AgentPanel";
 
 const NAV = [
   { href: "/", label: "Today", icon: Home },
-  { href: "/timetable", label: "Timetable", icon: CalendarDays },
-  { href: "/assignments", label: "Assignments", icon: CheckSquare },
-  { href: "/map", label: "Campus map", icon: MapPin },
-  { href: "/courses", label: "Courses", icon: GraduationCap },
-  { href: "/clubs", label: "Clubs & events", icon: Users },
-  { href: "/finance", label: "Finance", icon: Landmark },
+  { href: "/hub", label: "Student hub", icon: GraduationCap },
   { href: "/mail", label: "Mail assistant", icon: Mail },
 ] as const;
 
-const TABS = ["/", "/timetable", "/assignments", "/map"];
+const TABS = ["/", "/hub", "/mail"];
 
 const active = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
@@ -32,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreAt, setMoreAt] = useState<string | null>(null);
   const more = moreAt === path; // the sheet belongs to the page it was opened on, so navigating closes it
   const setMore = (v: boolean) => setMoreAt(v ? path : null);
-  const fullBleed = path.startsWith("/map");
+  const fullBleed = false;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,13 +51,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar (desktop): a heavier material separates structure from content */}
       <aside className="glass-thick fixed inset-y-3 left-3 z-30 hidden w-[248px] flex-col rounded-[28px] p-3 lg:flex" aria-label="Primary">
         <Link href="/" className="press mb-3 flex items-center gap-3 rounded-2xl px-3 py-3">
-          <span className="grid h-9 w-9 place-items-center rounded-[11px] bg-accent text-accent-fg"><Sparkles size={18} strokeWidth={2.4} /></span>
+          <Image
+            src="/brand/corn-prawn-logo.png"
+            alt="XMUM Compass corn and prawn mascots"
+            width={48}
+            height={48}
+            priority
+            className="h-11 w-11 shrink-0 object-contain"
+          />
           <span className="leading-tight">
             <span className="block text-[1.05rem] font-bold tracking-[-0.02em]">XMUM Compass</span>
             <span className="t-caption">Student super-app</span>
           </span>
         </Link>
-        <nav className="flex flex-1 flex-col gap-0.5">
+        <nav className="flex flex-1 flex-col gap-1">
           {NAV.map(({ href, label, icon: Icon }) => {
             const on = active(path, href);
             return (
@@ -87,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main id="main" className={fullBleed ? "" : "mx-auto w-full max-w-[1120px] px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16 lg:pt-10"}>
+      <main id="main" className={fullBleed ? "" : "mx-auto w-full max-w-[1240px] px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16 lg:pt-10"}>
         {children}
       </main>
 

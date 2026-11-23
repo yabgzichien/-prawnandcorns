@@ -3,13 +3,24 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Building2, Check, Coffee, Compass, Dumbbell, Landmark, Layers, Minus, Plus, Search, Trees, X } from "lucide-react";
+import { BookOpen, Building2, Check, Coffee, Compass, Dumbbell, Landmark, Layers, Minus, Plus, Moon, Search, Sun, Sunset, Trees, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { CampusCanvas, type CanvasHandle } from "./CampusCanvas";
+import { defaultView, viewFor, type Pin3D } from "./Campus3D";
+import { canUseWebGL } from "@/components/map3d/webgl";
+import type { Mode } from "@/components/map3d/atmosphere";
+import { useApp } from "@/lib/state";
 import { PLACE_BY_ID, PLACES, ROOMS, ROOM_BY_CODE, findRoom, placeCenter, placeRadius, searchCampus, type PlaceKind, type Room } from "@/lib/data/campus";
 import { COURSE_BY_ID } from "@/lib/data/academics";
 import { classesOn, TODAY_IDX } from "@/lib/schedule";
 import { SPRING, SPRING_FAST, useMediaQuery } from "@/lib/hooks";
 import { Pill } from "@/components/ui/kit";
+
+// three.js loads only when the 3D view is opened, so the rest of the app stays light.
+const Campus3D = dynamic(() => import("./Campus3D"), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 grid place-items-center text-[0.9rem] font-semibold text-label-2" role="status">Loading 3D campus…</div>,
+});
 
 const KIND_META: Record<PlaceKind, { label: string; icon: typeof Building2; color: string }> = {
   teaching: { label: "Teaching", icon: BookOpen, color: "var(--accent)" },
@@ -18,11 +29,12 @@ const KIND_META: Record<PlaceKind, { label: string; icon: typeof Building2; colo
   food: { label: "Food", icon: Coffee, color: "var(--orange)" },
   landmark: { label: "Landmarks", icon: Landmark, color: "var(--teal)" },
 };
+const NEXT_MODE: Record<Mode, Mode> = { day: "sunset", sunset: "night", night: "day" };
 const ALL_KINDS = Object.keys(KIND_META) as PlaceKind[];
 
 const floorOrder = (f: string) => (f === "Ground" ? 0 : f === "Outdoor" ? 0 : Number(f.replace(/\D/g, "")) || 0);
 
-export function MapView() {
+export function MapView({ embedded = false }: { embedded?: boolean }) {
   const params = useSearchParams();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const canvas = useRef<CanvasHandle>(null);
@@ -32,19 +44,57 @@ export function MapView() {
   const [focusSearch, setFocusSearch] = useState(false);
   const [kinds, setKinds] = useState<Set<PlaceKind>>(new Set(ALL_KINDS));
   const [showRoute, setShowRoute] = useState(true);
+  const { showToast, theme } = useApp();
+  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const [view, setView] = useState<"2d" | "3d">(params.get("view") === "3d" ? "3d" : "2d");
+  const [visited3d, setVisited3d] = useState(params.get("view") === "3d");
+  const [mode3d, setMode3d] = useState<Mode | null>(["day", "sunset", "night"].includes(params.get("mode") ?? "") ? (params.get("mode") as Mode) : null);
+  const [names3d, setNames3d] = useState(false);
+  const [flyNonce, setFlyNonce] = useState(0);
+  const mode: Mode = mode3d ?? (theme === "dark" || (theme === "system" && prefersDark) ? "night" : "day");
+
+  const viewRef = useRef<"2d" | "3d">("2d");
+  useEffect(() => { viewRef.current = view; }, [view]);
+
+  // ?cam=LY3 or ?cam=LY3:1.8:30 (place : distance scale : turn in degrees) opens the 3D map looking at a place
+  const camParam = useMemo(() => {
+    const raw = params.get("cam");
+    if (!raw) return undefined;
+    const [id, sc, az] = raw.split(":");
+    const p = PLACE_BY_ID[id];
+    return p ? viewFor(p, Number(sc) || 1, Number(az) || 0) : undefined;
+  }, [params]);
+
+  // a deep link (?focus= / ?q=) opened straight into 3D starts already looking at its place
+  const deepView = useMemo(() => {
+    const code = params.get("focus") ?? params.get("q");
+    if (!code) return undefined;
+    const r = findRoom(code);
+    const id = r?.place ?? searchCampus(code, 1)[0]?.place.id;
+    return id ? viewFor(PLACE_BY_ID[id]) : undefined;
+  }, [params]);
 
   const inset = useCallback(() => (desktop ? { right: 400, bottom: 0 } : { right: 0, bottom: 300 }), [desktop]);
+
+  // returning to 2D remounts the SVG map at the whole-campus fit: look at the current selection again
+  useEffect(() => {
+    if (view !== "2d" || !selected) return;
+    const t = setTimeout(() => { const p = PLACE_BY_ID[selected]; canvas.current?.focus(placeCenter(p), Math.max(placeRadius(p), 22), inset()); }, 120);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   const choose = useCallback((placeId: string | null, r: Room | null = null, fly = true) => {
     setSelected(placeId);
     setRoom(r);
     if (placeId && fly) {
       const p = PLACE_BY_ID[placeId];
-      canvas.current?.focus(placeCenter(p), Math.max(placeRadius(p), 22), inset());
+      if (viewRef.current === "2d") canvas.current?.focus(placeCenter(p), Math.max(placeRadius(p), 22), inset());
+      else setFlyNonce((n) => n + 1);
     }
   }, [inset]);
 
-  // deep links: /map?focus=A3-G01  or  /map?q=library
+  // deep links: /hub?section=map&focus=A3-G01 or &q=library
   const focusParam = params.get("focus");
   const qParam = params.get("q");
   useEffect(() => {
@@ -77,14 +127,28 @@ export function MapView() {
     return list;
   }, [route, showRoute, selected, room]);
 
+  const pins3d = useMemo<Pin3D[]>(() => pins.map((p) => ({ id: p.id, place: p.place, label: p.label, tone: p.tone === "green" ? "green" : "accent" })), [pins]);
   const place = selected ? PLACE_BY_ID[selected] : null;
   const rooms = place ? ROOMS.filter((r) => r.place === place.id).sort((a, b) => floorOrder(a.floor) - floorOrder(b.floor)) : [];
 
   const toggleKind = (k: PlaceKind) => setKinds((s) => { const n = new Set(s); if (n.has(k)) { if (n.size > 1) n.delete(k); } else n.add(k); return n; });
 
   return (
-    <div className="relative h-[calc(100dvh)] overflow-hidden" style={{ background: "var(--bg)" }}>
-      <CampusCanvas ref={canvas} inset={desktop ? { right: 400, top: 96 } : { bottom: 300, top: 120 }} selected={selected} kinds={kinds} pins={pins} onSelect={(id) => choose(id, null)} />
+    <div className={`relative overflow-hidden ${embedded ? "h-[720px] max-h-[78dvh] min-h-[620px] rounded-[24px]" : "h-[calc(100dvh)]"}`} style={{ background: "var(--bg)" }}>
+      {/* The 3D scene is parked (paused, hidden) when you switch back to 2D, not unmounted: it re-opens instantly and its HTML labels never tear down mid-render. */}
+      {visited3d && (
+        <div className={view === "3d" ? "absolute inset-0" : "hidden"} aria-hidden={view !== "3d"}>
+        <Campus3D
+          paused={view !== "3d"}
+          mode={mode} labels={names3d} selected={selected} pins={pins3d} flyNonce={flyNonce} rightInset={desktop ? 400 : 0}
+          initialView={camParam ?? (selected ? viewFor(PLACE_BY_ID[selected]) : deepView) ?? defaultView(desktop)}
+          intro={!(camParam || selected || deepView)}
+          onSelect={(id) => choose(id, null)}
+          onFail={() => { setView("2d"); setVisited3d(false); showToast("3D map isn't available on this device — showing the 2D map"); }}
+        />
+        </div>
+      )}
+      {view === "2d" && <CampusCanvas ref={canvas} inset={desktop ? { right: 400, top: 96 } : { bottom: 300, top: 120 }} selected={selected} kinds={kinds} pins={pins} onSelect={(id) => choose(id, null)} />}
 
       {/* Search + layers */}
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex flex-col gap-2 lg:right-[412px]">
@@ -110,7 +174,29 @@ export function MapView() {
           </AnimatePresence>
         </div>
         <div className="rail pointer-events-auto flex gap-1.5 overflow-x-auto pb-1">
-          {ALL_KINDS.map((k) => {
+          <div role="tablist" aria-label="Map view" className="glass flex shrink-0 rounded-full p-0.5">
+            {(["2d", "3d"] as const).map((v) => (
+              <button key={v} role="tab" aria-selected={view === v} onClick={() => { if (v === "3d" && !canUseWebGL()) { showToast("3D needs WebGL2, which this browser doesn't offer"); return; } setView(v); if (v === "3d") { setVisited3d(true); if (selected) setFlyNonce((n) => n + 1); } }} className="press relative min-h-[34px] rounded-full px-3.5 text-[0.8rem] font-bold uppercase tracking-wide" style={{ background: view === v ? "var(--accent)" : "transparent", color: view === v ? "var(--accent-fg)" : "var(--label-2)" }}>{v}</button>
+            ))}
+          </div>
+          {view === "3d" && (
+            <>
+              <button onClick={() => setNames3d((v) => !v)} aria-pressed={names3d} className="press glass flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-semibold" style={{ opacity: names3d ? 1 : 0.7 }}>{names3d ? "Hide names" : "Show names"}</button>
+              <button
+                onClick={() => setMode3d(NEXT_MODE[mode])}
+                aria-label={`Time of day: ${mode}. Switch to ${NEXT_MODE[mode]}`}
+                title={`Time of day: ${mode}`}
+                className="press glass grid h-[36px] w-[36px] shrink-0 place-items-center overflow-hidden rounded-full"
+              >
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span key={mode} initial={{ opacity: 0, rotate: -60, scale: 0.5 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 60, scale: 0.5 }} transition={SPRING_FAST} className="grid place-items-center" style={{ color: mode === "day" ? "var(--orange)" : mode === "sunset" ? "var(--red)" : "var(--accent)" }}>
+                    {mode === "day" ? <Sun size={18} /> : mode === "sunset" ? <Sunset size={18} /> : <Moon size={18} />}
+                  </motion.span>
+                </AnimatePresence>
+              </button>
+            </>
+          )}
+          {view === "2d" && ALL_KINDS.map((k) => {
             const m = KIND_META[k];
             const on = kinds.has(k);
             return (
@@ -126,7 +212,7 @@ export function MapView() {
       </div>
 
       {/* Zoom + attribution */}
-      <div className="absolute bottom-[100px] right-3 z-10 flex flex-col gap-2 lg:bottom-5 lg:left-3 lg:right-auto">
+      {view === "2d" && <div className={`absolute right-3 z-10 flex flex-col gap-2 lg:left-3 lg:right-auto ${embedded ? "bottom-[calc(42dvh+1.5rem)] lg:bottom-5" : "bottom-[100px] lg:bottom-5"}`}>
         <div className="glass flex flex-col overflow-hidden rounded-2xl">
           <button aria-label="Zoom in" onClick={() => canvas.current?.zoomBy(1.6)} className="press-row grid h-11 w-11 place-items-center"><Plus size={19} /></button>
           <span className="mx-2 h-px bg-sep" />
@@ -134,13 +220,13 @@ export function MapView() {
           <span className="mx-2 h-px bg-sep" />
           <button aria-label="Reset view" onClick={() => { choose(null); canvas.current?.reset(); }} className="press-row grid h-11 w-11 place-items-center"><Compass size={18} /></button>
         </div>
-      </div>
-      <p className="glass pointer-events-none absolute bottom-[100px] left-3 z-10 rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 lg:left-[72px]">Map © OpenStreetMap contributors. Building details and room labels are demo data.</p>
+      </div>}
+      <p className={`glass pointer-events-none absolute left-3 z-10 max-w-[calc(100%-5rem)] rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 ${embedded ? "bottom-[calc(42dvh+1.5rem)]" : "bottom-[100px]"} ${view === "2d" ? "lg:left-[72px]" : "lg:left-3"}`}>Map © OpenStreetMap contributors. Building details and room labels are demo data.</p>
 
       {/* Detail panel — a side card on desktop, a bottom card on phones */}
       <motion.aside
         layout
-        className="glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] bottom-[96px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:max-h-none lg:w-[384px]"
+        className={`glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:max-h-none lg:w-[384px] ${embedded ? "bottom-3" : "bottom-[96px]"}`}
         aria-label="Place details"
       >
         <AnimatePresence mode="wait" initial={false}>

@@ -31,7 +31,7 @@ export function ClubsView() {
                 <p className="t-eyebrow text-accent">{e.when}</p>
                 <h3 className="t-headline mt-1.5">{e.title}</h3>
                 <p className="t-caption mt-1">{e.where}</p>
-                {e.room && <Link href={`/map?q=${encodeURIComponent(e.room)}`} className="press mt-3 inline-flex items-center gap-1.5 text-[0.85rem] font-semibold text-accent"><MapPin size={14} /> Where is it?</Link>}
+                {e.room && <Link href={`/hub?section=map&q=${encodeURIComponent(e.room)}`} className="press mt-3 inline-flex items-center gap-1.5 text-[0.85rem] font-semibold text-accent"><MapPin size={14} /> Where is it?</Link>}
               </article>
             ))}
           </div>
@@ -58,7 +58,7 @@ export function ClubsView() {
                     <div className="flex items-center justify-between gap-2"><Pill tone={c.category === "Tech" ? "blue" : c.category === "Sports" ? "green" : c.category === "Arts" ? "purple" : c.category === "Culture" ? "orange" : "teal"}>{c.category}</Pill><span className="t-caption tnum">{c.members} members</span></div>
                     <h3 className="t-headline mt-3">{c.name}</h3>
                     <p className="t-sub mt-1 flex-1">{c.blurb}</p>
-                    <p className="t-caption mt-3">{c.meets}{c.room ? <>, <Link href={`/map?q=${encodeURIComponent(c.room)}`} className="font-semibold text-accent">{c.room}</Link></> : ""}</p>
+                    <p className="t-caption mt-3">{c.meets}{c.room ? <>, <Link href={`/hub?section=map&q=${encodeURIComponent(c.room)}`} className="font-semibold text-accent">{c.room}</Link></> : ""}</p>
                     <button
                       onClick={() => { toggleClub(c.id); showToast(on ? `Left ${c.name}` : c.recruiting ? `Interest sent to ${c.name}` : `Added to ${c.name} waitlist`); }}
                       aria-pressed={on}
