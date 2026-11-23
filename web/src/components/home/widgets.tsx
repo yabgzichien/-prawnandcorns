@@ -44,7 +44,7 @@ function NextWidget() {
           <p className="tnum text-[2.6rem] font-bold leading-none tracking-[-0.04em]">{Math.floor(mins / 60)}<span className="text-[1.1rem] font-semibold text-label-2">h </span>{mins % 60}<span className="text-[1.1rem] font-semibold text-label-2">m</span></p>
           <p className="t-caption mt-1">until class</p>
         </div>
-        <Link href={`/map?focus=${next.room}`} className="press btn btn-primary"><MapPin size={17} /> Find {next.room}</Link>
+        <Link href={`/hub?section=map&focus=${next.room}`} className="press btn btn-primary"><MapPin size={17} /> Find {next.room}</Link>
       </div>
     </div>
   );
@@ -76,7 +76,7 @@ function DueWidget() {
   const items = ASSIGNMENTS.filter((a) => a.status !== "submitted").sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime()).slice(0, 5);
   return (
     <>
-      <CardTitle title="Due soon" action={<Link href="/assignments" className="press text-[0.85rem] font-semibold text-accent">All <ArrowRight className="inline" size={14} /></Link>} />
+      <CardTitle title="Due soon" action={<Link href="/hub?section=assignments" className="press text-[0.85rem] font-semibold text-accent">All <ArrowRight className="inline" size={14} /></Link>} />
       <ul className="-mx-2">
         {items.map((a) => {
           const done = submitted.includes(a.id);
@@ -130,7 +130,7 @@ function FeesWidget() {
   const next = FINANCE.dues.find((d) => d.status === "upcoming")!;
   return (
     <>
-      <CardTitle icon={<Wallet size={18} className="text-accent" />} title="Fees" action={<Link href="/finance" className="press text-[0.85rem] font-semibold text-accent">Details <ArrowRight className="inline" size={14} /></Link>} />
+      <CardTitle icon={<Wallet size={18} className="text-accent" />} title="Fees" action={<Link href="/hub?section=finance" className="press text-[0.85rem] font-semibold text-accent">Details <ArrowRight className="inline" size={14} /></Link>} />
       <div className="flex items-center gap-4">
         <Ring value={FINANCE.paid / FINANCE.tuitionTotal} size={72} stroke={8} tone="var(--green)"><span className="tnum text-[0.85rem] font-bold">{Math.round((FINANCE.paid / FINANCE.tuitionTotal) * 100)}%</span></Ring>
         <div>
@@ -146,7 +146,7 @@ function FeesWidget() {
 function ProgressWidget() {
   return (
     <>
-      <CardTitle title="Degree progress" action={<Link href="/courses" className="press text-[0.85rem] font-semibold text-accent">Plan <ArrowRight className="inline" size={14} /></Link>} />
+      <CardTitle title="Degree progress" action={<Link href="/hub?section=courses" className="press text-[0.85rem] font-semibold text-accent">Plan <ArrowRight className="inline" size={14} /></Link>} />
       <div className="flex items-center gap-4">
         <Ring value={14 / 120} size={72} stroke={8}><span className="tnum text-[0.85rem] font-bold">14</span></Ring>
         <div>
@@ -164,7 +164,7 @@ function ClubsWidget() {
   const picks = CLUBS.filter((c) => c.recruiting && !joined.includes(c.id)).slice(0, 2);
   return (
     <>
-      <CardTitle title="Clubs & events" action={<Link href="/clubs" className="press text-[0.85rem] font-semibold text-accent">Explore <ArrowRight className="inline" size={14} /></Link>} />
+      <CardTitle title="Clubs & events" action={<Link href="/hub?section=clubs" className="press text-[0.85rem] font-semibold text-accent">Explore <ArrowRight className="inline" size={14} /></Link>} />
       <div className="rounded-xl bg-accent-soft p-3">
         <p className="text-[0.95rem] font-semibold tracking-[-0.01em] text-accent">{ev.title}</p>
         <p className="t-caption">{ev.when} · {ev.where}</p>
@@ -187,13 +187,13 @@ function FindWidget() {
   return (
     <>
       <CardTitle title="Find a room" />
-      <form onSubmit={(e) => { e.preventDefault(); if (q.trim()) router.push(`/map?q=${encodeURIComponent(q.trim())}`); }} className="flex items-center gap-2 rounded-full bg-surface-2 py-1 pl-4 pr-1 ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
+      <form onSubmit={(e) => { e.preventDefault(); if (q.trim()) router.push(`/hub?section=map&q=${encodeURIComponent(q.trim())}`); }} className="flex items-center gap-2 rounded-full bg-surface-2 py-1 pl-4 pr-1 ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
         <Search size={17} className="text-label-3" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="A3-G01, library, canteen…" aria-label="Search campus" className="min-w-0 flex-1 bg-transparent py-2 outline-none placeholder:text-label-3" />
         <button className="press btn btn-sm btn-primary">Go</button>
       </form>
       <div className="mt-3 flex flex-wrap gap-2">
-        {["A3-G01", "A5-L2", "Library", "Canteen"].map((s) => <Link key={s} href={`/map?q=${s}`} className="press btn btn-sm btn-plain">{s}</Link>)}
+        {["A3-G01", "A5-L2", "Library", "Canteen"].map((s) => <Link key={s} href={`/hub?section=map&q=${s}`} className="press btn btn-sm btn-plain">{s}</Link>)}
       </div>
     </>
   );

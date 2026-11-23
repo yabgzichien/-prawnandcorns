@@ -74,7 +74,7 @@ export function TimetableView() {
                       </p>
                     )}
                   </div>
-                  {!cancelled && <Link href={`/map?focus=${c.room}`} aria-label={`Show ${c.room} on map`} className="press grid h-11 w-11 shrink-0 place-items-center self-center rounded-full bg-accent-soft text-accent"><MapPin size={19} /></Link>}
+                  {!cancelled && <Link href={`/hub?section=map&focus=${c.room}`} aria-label={`Show ${c.room} on map`} className="press grid h-11 w-11 shrink-0 place-items-center self-center rounded-full bg-accent-soft text-accent"><MapPin size={19} /></Link>}
                 </article>
               </Item>
             );
@@ -114,7 +114,7 @@ function WeekGrid() {
                 const t = toneClass[course.tone];
                 const cancelled = c.status === "cancelled";
                 return (
-                  <Link key={c.id} href={cancelled ? "/timetable" : `/map?focus=${c.room}`} className={`press absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-[0.75rem] leading-tight ${cancelled ? "bg-red-soft text-red" : `${t.bg} ${t.fg}`}`} style={{ top: top + 2, height: h - 4, outline: c.status !== "normal" && !cancelled ? "2px solid var(--orange)" : undefined }}>
+                  <Link key={c.id} href={cancelled ? "/hub?section=timetable" : `/hub?section=map&focus=${c.room}`} className={`press absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-[0.75rem] leading-tight ${cancelled ? "bg-red-soft text-red" : `${t.bg} ${t.fg}`}`} style={{ top: top + 2, height: h - 4, outline: c.status !== "normal" && !cancelled ? "2px solid var(--orange)" : undefined }}>
                     <span className={`block font-bold ${cancelled ? "line-through" : ""}`}>{course.code}</span>
                     <span className="block opacity-80">{c.kind} · {c.room}</span>
                   </Link>

@@ -1,3 +1,2 @@
-import { TimetableView } from "@/components/pages/TimetableView";
-export const metadata = { title: "Timetable · XMUM Compass" };
-export default function Page() { return <TimetableView />; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/hub?section=timetable"); }

@@ -22,7 +22,7 @@ const ALL_KINDS = Object.keys(KIND_META) as PlaceKind[];
 
 const floorOrder = (f: string) => (f === "Ground" ? 0 : f === "Outdoor" ? 0 : Number(f.replace(/\D/g, "")) || 0);
 
-export function MapView() {
+export function MapView({ embedded = false }: { embedded?: boolean }) {
   const params = useSearchParams();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const canvas = useRef<CanvasHandle>(null);
@@ -44,7 +44,7 @@ export function MapView() {
     }
   }, [inset]);
 
-  // deep links: /map?focus=A3-G01  or  /map?q=library
+  // deep links: /hub?section=map&focus=A3-G01 or &q=library
   const focusParam = params.get("focus");
   const qParam = params.get("q");
   useEffect(() => {
@@ -83,7 +83,7 @@ export function MapView() {
   const toggleKind = (k: PlaceKind) => setKinds((s) => { const n = new Set(s); if (n.has(k)) { if (n.size > 1) n.delete(k); } else n.add(k); return n; });
 
   return (
-    <div className="relative h-[calc(100dvh)] overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className={`relative overflow-hidden ${embedded ? "h-[720px] max-h-[78dvh] min-h-[620px] rounded-[24px]" : "h-[calc(100dvh)]"}`} style={{ background: "var(--bg)" }}>
       <CampusCanvas ref={canvas} inset={desktop ? { right: 400, top: 96 } : { bottom: 300, top: 120 }} selected={selected} kinds={kinds} pins={pins} onSelect={(id) => choose(id, null)} />
 
       {/* Search + layers */}
@@ -126,7 +126,7 @@ export function MapView() {
       </div>
 
       {/* Zoom + attribution */}
-      <div className="absolute bottom-[100px] right-3 z-10 flex flex-col gap-2 lg:bottom-5 lg:left-3 lg:right-auto">
+      <div className={`absolute right-3 z-10 flex flex-col gap-2 lg:left-3 lg:right-auto ${embedded ? "bottom-[calc(42dvh+1.5rem)] lg:bottom-5" : "bottom-[100px] lg:bottom-5"}`}>
         <div className="glass flex flex-col overflow-hidden rounded-2xl">
           <button aria-label="Zoom in" onClick={() => canvas.current?.zoomBy(1.6)} className="press-row grid h-11 w-11 place-items-center"><Plus size={19} /></button>
           <span className="mx-2 h-px bg-sep" />
@@ -135,12 +135,12 @@ export function MapView() {
           <button aria-label="Reset view" onClick={() => { choose(null); canvas.current?.reset(); }} className="press-row grid h-11 w-11 place-items-center"><Compass size={18} /></button>
         </div>
       </div>
-      <p className="glass pointer-events-none absolute bottom-[100px] left-3 z-10 rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 lg:left-[72px]">Map data © OpenStreetMap contributors · building use &amp; room labels are demo data</p>
+      <p className={`glass pointer-events-none absolute left-3 z-10 max-w-[calc(100%-5rem)] rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 lg:left-[72px] ${embedded ? "bottom-[calc(42dvh+1.5rem)]" : "bottom-[100px]"}`}>Map data © OpenStreetMap contributors · building use &amp; room labels are demo data</p>
 
       {/* Detail panel — a side card on desktop, a bottom card on phones */}
       <motion.aside
         layout
-        className="glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] bottom-[96px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:max-h-none lg:w-[384px]"
+        className={`glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:max-h-none lg:w-[384px] ${embedded ? "bottom-3" : "bottom-[96px]"}`}
         aria-label="Place details"
       >
         <AnimatePresence mode="wait" initial={false}>

@@ -1,3 +1,2 @@
-import { FinanceView } from "@/components/pages/FinanceView";
-export const metadata = { title: "Finance · XMUM Compass" };
-export default function Page() { return <FinanceView />; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/hub?section=finance"); }
