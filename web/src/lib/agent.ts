@@ -13,7 +13,7 @@ import { detectConflictsTool, getRecentChanges, noticeItems, conflictsFor, readN
 import { expectedFacts } from "./agent-tools/expected";
 import { validateFacts } from "./agent-tools/facts";
 import { planFixes } from "./agent-tools/review";
-import { baseCampusData } from "./sync/view";
+import { baseCampusData, markedHereOnly } from "./sync/view";
 import { isSyncReviewPrompt } from "./sync/review";
 import type { ExtractedFact } from "./world/types";
 
@@ -224,6 +224,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           const r = [...week].sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
           return { output: "Sorted by due date", value: r };
         }, signal);
+        const hereOnly = ASSIGNMENTS.filter((a) => markedHereOnly(a, ctx.submitted, campusData));
         const overdue = ranked.filter((a) => a.status === "overdue");
         const next = ranked.find((a) => a.status !== "overdue");
         if (!next) {
@@ -231,7 +232,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           yield { type: "card", card: { kind: "deadlines", items: ranked } };
           break;
         }
-        yield* say(`You have **${ranked.length} open items** this week. Most urgent: **${next.title}** (${COURSE_BY_ID[next.courseId].code}) — due ${dueLabel(new Date(next.due)).toLowerCase()}, ${relative(new Date(next.due))}.${overdue.length ? ` ${overdue[0].title} is overdue — ${overdue[0].note ?? "check whether late attempts are open"}.` : ""} The Reflective Essay carries the most marks (10%), so start it early.`, signal);
+        yield* say(`You have **${ranked.length} open items** this week. Most urgent: **${next.title}** (${COURSE_BY_ID[next.courseId].code}) — due ${dueLabel(new Date(next.due)).toLowerCase()}, ${relative(new Date(next.due))}.${overdue.length ? ` ${overdue[0].title} is overdue — ${overdue[0].note ?? "check whether late attempts are open"}.` : ""} The Reflective Essay carries the most marks (10%), so start it early.${hereOnly.length ? ` **Heads up:** you marked ${hereOnly.map((a) => a.title).join(", ")} as done here, but Moodle still shows ${hereOnly.length === 1 ? "it" : "them"} as not submitted. Compass cannot submit for you, so check Moodle.` : ""}`, signal);
         yield { type: "card", card: { kind: "deadlines", items: ranked } };
         break;
       }

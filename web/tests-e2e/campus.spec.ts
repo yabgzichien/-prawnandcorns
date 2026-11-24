@@ -124,6 +124,18 @@ test("Moodle going down is reported once and Retry recovers", async ({ page, con
   await expect(page.getByText("Unavailable", { exact: true })).toHaveCount(0);
 });
 
+test("ticking a deadline in Compass warns that Moodle still shows it as not submitted", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  const due = page.getByRole("region", { name: "Due soon" });
+  await due.getByRole("button", { name: /Lab 6/ }).click();
+  await expect(due.getByText("Marked done here, but not submitted in Moodle yet")).toHaveCount(0); // Moodle not connected: nothing to compare
+  await connectAll(page);
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(due.getByText("Marked done here, but not submitted in Moodle yet")).toBeVisible();
+  await due.getByRole("button", { name: /Lab 6/ }).click(); // untick: the warning goes
+  await expect(due.getByText("Marked done here, but not submitted in Moodle yet")).toHaveCount(0);
+});
+
 test("the console is not linked from the student navigation and works without any student chrome", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.locator('a[href="/demo"]')).toHaveCount(0);

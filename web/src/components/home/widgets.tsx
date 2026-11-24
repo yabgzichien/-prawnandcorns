@@ -11,6 +11,7 @@ import { DEMO_NOW, dateShort, dueLabel, minutesBetween, relative, timeOf } from 
 import { classesOn, TODAY_IDX, upcomingClasses } from "@/lib/schedule";
 import { useApp, type WidgetId } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
+import { markedHereOnly, MOODLE_NOT_SUBMITTED } from "@/lib/sync/view";
 import { CardTitle, Pill, Ring, toneClass } from "@/components/ui/kit";
 
 const money = (n: number, currency = "RM") => `${currency} ${n.toLocaleString("en-MY")}`;
@@ -86,6 +87,7 @@ function DueWidget() {
       <ul className="-mx-2">
         {items.map((a) => {
           const done = submitted.includes(a.id);
+          const warn = markedHereOnly(a, submitted, data);
           return (
             <li key={a.id}>
               <button onClick={() => toggleSubmitted(a.id)} aria-pressed={done} className="press-row flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left">
@@ -94,6 +96,7 @@ function DueWidget() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${done ? "text-label-3 line-through" : ""}`}>{a.title}</span>
+                  {warn && <span className="block truncate text-[0.78rem] font-semibold text-orange">{MOODLE_NOT_SUBMITTED}</span>}
                   <span className="t-caption block truncate">{COURSE_BY_ID[a.courseId].code}, <span style={{ color: a.status === "overdue" ? "var(--red)" : undefined, fontWeight: a.status === "overdue" ? 600 : undefined }}>{a.status === "overdue" ? "Overdue" : dueLabel(new Date(a.due))}</span></span>
                 </span>
               </button>

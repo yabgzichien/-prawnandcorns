@@ -316,3 +316,14 @@ test("only review requests go to the sync review, and existing questions keep th
   ];
   for (const no of before) assert.equal(isSyncReviewPrompt(no), false, no);
 });
+
+import { markedHereOnly } from "../src/lib/sync/view.ts";
+
+test("a deadline ticked in Compass but open in Moodle is flagged, and only when Moodle is connected", () => {
+  const open = { ...base.assignments.find((a) => a.id === "a1")!, status: "todo" as const };
+  const inMoodle = { ...open, status: "submitted" as const };
+  assert.equal(markedHereOnly(open, ["a1"], { live: ["moodle"] }), true);
+  assert.equal(markedHereOnly(open, [], { live: ["moodle"] }), false, "not ticked here");
+  assert.equal(markedHereOnly(inMoodle, ["a1"], { live: ["moodle"] }), false, "Moodle agrees");
+  assert.equal(markedHereOnly(open, ["a1"], { live: [] }), false, "no Moodle to compare against");
+});

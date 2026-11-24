@@ -83,6 +83,15 @@ function toFees(items: FeeItem[], account: Snapshot["account"]): FeesView {
   };
 }
 
+/**
+ * Marking something done in Compass is a personal marker. It never changes Moodle, so when Moodle is connected
+ * and still shows the work as not submitted, the student is told the two disagree.
+ */
+export const markedHereOnly = (a: Assignment, submitted: readonly string[], data: Pick<CampusData, "live">): boolean =>
+  data.live.includes("moodle") && submitted.includes(a.id) && a.status !== "submitted";
+
+export const MOODLE_NOT_SUBMITTED = "Marked done here, but not submitted in Moodle yet";
+
 export function baseCampusData(): CampusData {
   return {
     live: [], classes: CLASSES, assignments: ASSIGNMENTS, notices: NOTICES,

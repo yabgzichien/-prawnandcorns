@@ -11,6 +11,7 @@ import { SPRING } from "@/lib/hooks";
 import { Item, PageHeader, Segmented, Stagger, toneClass } from "@/components/ui/kit";
 import { ConsentSheet } from "@/components/connections/ConsentSheet";
 import { useCampus } from "@/lib/sync/CampusProvider";
+import { markedHereOnly, MOODLE_NOT_SUBMITTED } from "@/lib/sync/view";
 
 type Filter = "open" | "done" | "all";
 
@@ -76,6 +77,7 @@ export function AssignmentsView() {
             <ul className="card divide-y divide-sep overflow-hidden">
               {g.items.map((a) => {
                 const done = isDone(a);
+                const warn = markedHereOnly(a, submitted, data);
                 const course = COURSE_BY_ID[a.courseId];
                 return (
                   <li key={a.id}>
@@ -90,10 +92,11 @@ export function AssignmentsView() {
                           <span>{a.type}</span><span>{a.weight}%</span>
                           {a.note && <span className="text-red">{a.note}</span>}
                         </span>
+                        {warn && <span className="mt-1 block text-[0.8rem] font-semibold text-orange">{MOODLE_NOT_SUBMITTED}. Compass cannot submit for you.</span>}
                       </span>
                       <span className="min-w-0 max-w-full text-right">
                         <span className="tnum block text-[0.88rem] font-semibold" style={{ color: a.status === "overdue" && !done ? "var(--red)" : undefined }}>{a.status === "overdue" && !done ? "Overdue" : dueLabel(new Date(a.due))}</span>
-                        <span className="t-caption">{done ? "Submitted" : relative(new Date(a.due))}</span>
+                        <span className="t-caption">{warn ? "Done here only" : done ? "Submitted" : relative(new Date(a.due))}</span>
                       </span>
                     </button>
                   </li>
