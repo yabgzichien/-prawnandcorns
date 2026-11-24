@@ -2,6 +2,7 @@ import { moodleAssignmentId, moodleCourseId, unixSeconds } from "../data/moodle.
 import { roomRemark, slotStatus } from "../library/availability.ts";
 import { isDate, SLOTS, slotWindow } from "../library/policy.ts";
 import { LIBRARY_ROOMS } from "../library/rooms.ts";
+import { buildLedger, outstanding } from "../finance/ledger.ts";
 import type { World, SystemId } from "./types.ts";
 
 /**
@@ -153,6 +154,12 @@ export function financeInstalments(world: World) {
     })),
     notice: DEMO_STAMP,
   };
+}
+
+/** The account statement: every invoice and receipt with a running balance, as a student portal lists them. */
+export function financeLedger(world: World) {
+  const entries = buildLedger(world);
+  return { currency: world.currency, entries, outstanding: outstanding(entries), notice: DEMO_STAMP };
 }
 
 /* ───────── University email (invented format) ───────── */

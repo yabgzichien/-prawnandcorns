@@ -34,6 +34,7 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 `/demo` is laid out like a university e-services portal so it feels like a system you can pretend to be: a dark sidebar (Announcements, Library Rooms, AskA, Campus Email), a top bar, breadcrumbs and white cards. It uses no real logo, crest, name or link, and every page carries a "Demo console, fictional data" marker. It is a separate window with none of the student navigation, and it is not linked from the student app.
 
 - **Announcements:** the scenario events, with search and a filter by who is acting, plus "Triggered so far" and a suggested run.
+- **Student Portal:** three pages laid out like a university student portal: Dashboard (outstanding balance, reminder, announcement), Account Status (the ledger with Date, Doc No, Description, Debit, Credit and Balance, a PDF button on each line and a link to a printable document page) and Download File (every invoice, receipt and the statement as PDFs). They read the same fictional ledger as the assistant.
 - **Library Rooms:** the library's booking page as the desk sees it (the same availability Compass reads), with buttons that fill or close rooms.
 - **AskA:** tickets your student submits appear here. Mark them in progress, schedule a technician or resolve them, and Compass shows the update.
 - **Campus Email:** write your own email.
@@ -57,6 +58,17 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 
 "Write your own email" on the console adds a custom notice. Offline mode cannot read it (it has no stored answer) and says so. With Gemini it is read like any outside email.
 
+## Invoices and receipts
+
+Ask Compass "Find my tuition invoice and download it" (or "the receipt for my September payment", "my unpaid invoice", "my account statement"). Needs the Finance Office connected, since that is where the statement comes from.
+
+- The ledger is fictional and worked out from the demo fees (`src/lib/finance/ledger.ts`). Document numbers start with DEMO so none can pass for a real one. When the console posts tuition instalment 2, a new unpaid invoice appears and the balance owed rises.
+- Code reads the request (`src/lib/finance/search.ts`): invoice or receipt, tuition, hostel or registration, instalment 1 or 2, a month, latest, unpaid, or the whole statement. A paid invoice comes with the receipt that paid it. If nothing matches exactly the card says "Closest documents".
+- Each Download button makes a PDF on the device (`src/lib/finance/pdf.ts`, a small dependency-free writer). Nothing is emailed or uploaded, and every file says it is a fictional demo document.
+- The same documents are on the Finance page (Invoices and receipts, once Finance is connected) and in the Student Portal pages in the console.
+- "Draft an email to Finance about my invoice" still goes to the email flow.
+- The page layouts follow public structure only (the ledger columns, the Print and Download File links, the AskA form fields). No real data from any saved page was copied.
+
 ## Library rooms
 
 Student hub, Library rooms (or `/library`). The 43 rooms, their wings, levels and capacities follow the public library layout (silent study rooms N201 to N214, study rooms S221 to S234, group discussion rooms E231 to E236 and W241 to W246, three student success rooms on Level 3). Who has booked what is invented: a fixed pattern fills about half the slots, and the console can fill or close more.
@@ -71,7 +83,7 @@ Student hub, Library rooms (or `/library`). The 43 rooms, their wings, levels an
 
 Hostel faults such as a water leak or a broken air-conditioner are reported to the AskA help desk, not by email to the Accommodation Office. So Compass routes them there:
 
-- Ask Compass "The air-con in D3-512 is leaking". It prepares a ticket (category path, location, urgency, title, description) and you review it. The mail assistant shows the same pointer when you describe a hostel fault, and keeps the email draft for room changes.
+- Ask Compass "The air-con in D3-512 is leaking". It prepares a ticket (department and category, block and room, urgency, title, question). The field names follow the real AskA form: Department, Category, Block and Room No, Question. Hostel repairs go to the Operation and Maintenance Office; room changes have their own Room Change Request form on AskA and you review it. The mail assistant shows the same pointer when you describe a hostel fault, and keeps the email draft for room changes.
 - Help desk (Student hub, or `/helpdesk`) lists your tickets. The console's AskA page can mark a ticket in progress, schedule a technician, or resolve it. Compass shows the update in its banner, and a scheduled visit can be added to your calendar in one tap.
 - Submitting saves the ticket in this browser. The form says clearly that nothing goes to a real help desk. Words like flooding, sparks or no power mark a ticket urgent, with a note to tell the hostel office in person.
 

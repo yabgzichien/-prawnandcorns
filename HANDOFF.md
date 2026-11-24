@@ -87,6 +87,7 @@ Presenter console (a separate window, no student navigation, never linked from t
 | `/demo/library` | Library desk: the same availability Compass reads, laid out like a booking page, plus buttons to fill or close rooms |
 | `/demo/aska` | AskA desk: tickets the student submitted; mark in progress, schedule technician, resolve |
 | `/demo/mail` | Write your own email (custom emails are treated as untrusted) |
+| `/demo/student-portal`, `/demo/student-portal/account-status`, `/demo/student-portal/files`, `/demo/student-portal/documents/[id]` | Mock student portal: Dashboard, Account Status ledger, Download File, a printable document page. Read the fictional ledger |
 
 The console is styled as a pseudo university e-services portal (dark sidebar, top bar, breadcrumbs, white cards) at the user's request. It uses **no real logo, crest, name or link** and says "Demo console, fictional data" on every page. The original spec said it must not resemble a real site; a revision note in the spec records the change. Keep both properties: layout feel yes, impersonation no.
 
@@ -117,6 +118,7 @@ Compass pretends to be connected to four university systems. It syncs from them,
 
 Reading: `get_demo_assignments`, `get_demo_timetable`, `get_demo_finance`, `find_demo_room` (David's names were kept; they now read connected data), `get_recent_changes`, `read_notice`.
 Thinking: `extract_notice` (a second, stricter Gemini call: JSON-only, temperature 0, a response schema; falls back to a hand-written expected answer stored with each invented email in `lib/data/inbox.ts`), `detect_conflicts` (plain code in `lib/conflicts.ts`).
+Documents: `find_finance_documents` (finds invoices, receipts or the statement from the fictional ledger; needs Finance connected; never sends anything).
 Proposing (none of these save anything): `propose_study_plan` (David's deterministic planner, `lib/planning.ts`), `propose_updates` (typed fixes, below), `draft_email`, `prepare_aska_ticket`, `find_library_rooms`.
 
 Allowed fix types (`lib/updates/types.ts`): move or remove one of the student's study sessions, add a reminder, add a personal calendar event, acknowledge a change, ask the student a question. Nothing else is expressible.
@@ -155,10 +157,19 @@ The demo must never depend on the internet. Everything except the second Gemini 
 ### 6.2 AskA help desk (`lib/aska.ts`, `components/helpdesk/`)
 
 At XMUM, hostel faults (water leaks, air-conditioner problems, and so on) are reported on the AskA help desk, not by emailing the Accommodation Office. So:
-- `detectDormIssue` classifies a message (aircon, leak, electrical, furniture, pests; urgent on flooding, sparks, no power, and so on; IT-type words like laptop or wifi are excluded). `parseLocation` reads "D3-512" or "LY2 1203". `draftTicket` builds the category path ("Accommodation > Maintenance > Air-conditioner"), title and description.
+- `detectDormIssue` classifies a message (aircon, leak, electrical, furniture, pests; urgent on flooding, sparks, no power, and so on; IT-type words like laptop or wifi are excluded). `parseLocation` reads "D3-512" or "LY2 1203". `draftTicket` builds the category path ("Operation and Maintenance Office > Hostel maintenance > Air-conditioner"), title and description.
 - Scripted agent intent "dorm", Gemini tool `prepare_aska_ticket`, Mail assistant callout, and a Help desk hub page. The ticket form (`AskaTicketSheet.tsx`) is a mock of the real form and says nothing is sent. Tickets are saved in app state.
 - The console's AskA page writes status updates to one key (`compass:aska-updates:v1`, only the console writes it). Compass reads it, shows progress and a technician visit, offers "Add to my calendar", and surfaces updates in the banner (`components/helpdesk/useAska.ts`; "told once" via `compass:aska-seen:v1`).
 - The ticket sheet is lifted to app level (`openAskaTicket` in state, mounted in `AppShell`) so it does not nest inside the assistant sheet (a `transform` ancestor breaks `position: fixed`). Opening it closes the assistant.
+
+### 6.2b Invoices and receipts (`web/src/lib/finance/`, added after the first handoff)
+
+- `ledger.ts`: `buildLedger(world)` makes the fictional account statement (invoices are debits, payments are credits, running balance; ids like `DEMO-IV-200102` and `DEMO-OR-100307`). It follows the demo fees, so the console event "Post tuition instalment 2" adds an unpaid invoice. `sanitizeLedger` cleans anything read from the network.
+- `search.ts`: `parseDocumentRequest` and `findDocuments` read plain words (invoice or receipt, tuition, hostel, instalment, month, latest, unpaid, statement). A paid invoice is paired with its receipt. Nearest matches are labelled.
+- `pdf.ts`: dependency-free PDF writer (`documentPdf`, `statementPdf`). `download.ts` hands bytes to the browser. `client.ts` and `useLedger.ts` read `/api/mock/finance/ledger`.
+- Surfaces: scripted agent intent `invoice` and card `documents` (`components/agent/DocumentsCard.tsx`), Gemini tool `find_finance_documents` (reads the ledger as the student's Finance connection last saw it, `campus.asOf.finance`), Finance page section, and the mock Student Portal pages.
+- Real pages saved by the user (`Account Status.html`, `Dashboard.html`, `AskA - XMUM.html`) sit untracked in the repo root and contain the user's real name and real financial records. They were used for page structure only. Never commit or copy them.
+- The AskA ticket now names the department and category as the real form does: "Operation and Maintenance Office > Hostel maintenance > ...".
 
 ### 6.3 Storage keys and who writes them (one writer per key)
 

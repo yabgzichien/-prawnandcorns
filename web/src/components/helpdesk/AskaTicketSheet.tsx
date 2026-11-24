@@ -32,7 +32,7 @@ function TicketForm({ draft, onClose }: { draft: AskaDraft; onClose: () => void 
   const [description, setDescription] = useState(draft.description);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const path = `Accommodation > Maintenance > ${DORM_KIND_LABEL[kind]}`;
+  const path = `Operation and Maintenance Office > Hostel maintenance > ${DORM_KIND_LABEL[kind]}`;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +48,7 @@ function TicketForm({ draft, onClose }: { draft: AskaDraft; onClose: () => void 
       </header>
       <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-5 pb-4">
         <p className="flex gap-2 rounded-xl bg-orange-soft px-3 py-2.5 text-[0.84rem] text-orange"><AlertTriangle size={16} className="mt-0.5 shrink-0" />This is a demo of the form. Nothing is sent to the real help desk. On the real site you would paste this same text.</p>
-        <div><p className="t-eyebrow mb-1">Category</p><p className="rounded-xl bg-surface px-3 py-2.5 text-[0.92rem] font-medium">{path}</p></div>
+        <div><p className="t-eyebrow mb-1">Department and category</p><p className="rounded-xl bg-surface px-3 py-2.5 text-[0.92rem] font-medium">{path}</p></div>
         <div className="grid gap-1"><label htmlFor="aska-kind" className={lab}>Type of problem</label>
           <select id="aska-kind" value={kind} onChange={(e) => setKind(e.target.value as DormIssueKind)} className={input}>{DORM_KINDS.map((k) => <option key={k} value={k}>{DORM_KIND_LABEL[k]}</option>)}</select>
         </div>
@@ -64,7 +64,7 @@ function TicketForm({ draft, onClose }: { draft: AskaDraft; onClose: () => void 
         <div className="grid gap-1"><label htmlFor="aska-title" className={lab}>Title</label>
           <input id="aska-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} className={input} />
         </div>
-        <div className="grid gap-1"><label htmlFor="aska-description" className={lab}>Description</label>
+        <div className="grid gap-1"><label htmlFor="aska-description" className={lab}>Question</label>
           <textarea id="aska-description" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={900} rows={7} className={`${input} resize-y py-2.5 leading-relaxed`} />
         </div>
         {error && <p className="rounded-xl bg-red-soft px-3 py-2.5 text-[0.85rem] text-red" role="alert">{error}</p>}

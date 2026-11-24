@@ -4,6 +4,8 @@ import { searchCampus } from "./data/campus.ts";
 import { composeEmail } from "./email.ts";
 import { draftTicket } from "./aska.ts";
 import { findRooms, parseRoomRequest } from "./library/search.ts";
+import { buildLedger, outstanding } from "./finance/ledger.ts";
+import { findDocuments, parseDocumentRequest } from "./finance/search.ts";
 import { libraryRooms } from "./world/payloads.ts";
 import { buildWorld, cleanEventIds } from "./world/world.ts";
 import { sanitizeBookings } from "./library/policy.ts";
@@ -120,6 +122,23 @@ export function createDemoExecutor(options: DemoExecutorOptions) {
           value: { draft: { to: `${dept.name} <${dept.email}>`, subject: draft.subject, body: draft.body }, sent: false, note: "Compass never sends email. The student reviews and sends it." },
           summary: `Drafted an email to ${dept.name}; not sent`,
           card: { kind: "email", draft, need },
+        };
+      }
+      case "find_finance_documents": {
+        const finance = context.campus.asOf.finance;
+        if (!finance) return { value: { error: "The Finance Office is not connected. Tell the student to connect it on the Connections page." }, summary: "Finance not connected" };
+        const request = typeof args.request === "string" ? args.request.slice(0, 300) : "";
+        const parsed = parseDocumentRequest(request);
+        const entries = buildLedger(buildWorld(finance));
+        const found = parsed.statement && !parsed.kind && !parsed.topic ? { items: [], exact: true } : findDocuments(entries, parsed);
+        return {
+          value: {
+            understood: parsed.summary, exactMatch: found.exact, outstandingRM: outstanding(entries), sent: false,
+            documents: found.items.map(({ doc, other }) => ({ docNo: doc.id, kind: doc.kind, date: doc.date.slice(0, 10), description: doc.description, status: doc.status ?? null, pairedWith: other?.id ?? null })),
+            note: "The student downloads the PDF by tapping a button on the card. Nothing is emailed or uploaded.",
+          },
+          summary: `${found.items.length} document${found.items.length === 1 ? "" : "s"}${found.exact ? "" : " (nearest match)"}; not sent`,
+          card: { kind: "documents", summary: parsed.summary, items: found.items, exact: found.exact, entries },
         };
       }
       case "find_library_rooms": {

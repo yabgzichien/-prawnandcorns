@@ -12,6 +12,9 @@ import { DORM_KIND_LABEL, detectDormIssue, draftTicket, type AskaDraft } from ".
 import { fetchLibraryDay } from "./library/client";
 import { findRooms, parseRoomRequest, type RoomOption } from "./library/search";
 import { SLOTS, type LibraryBooking } from "./library/policy";
+import { fetchLedger } from "./finance/client";
+import { findDocuments, parseDocumentRequest, type DocumentMatch } from "./finance/search";
+import type { LedgerEntry } from "./finance/ledger";
 import type { CampusToolContext } from "./agent-tools/campus";
 import { detectConflictsTool, getRecentChanges, noticeItems, conflictsFor, readNotice } from "./agent-tools/campus";
 import { expectedFacts } from "./agent-tools/expected";
@@ -34,6 +37,7 @@ export type AgentCard =
   | { kind: "updates"; proposal: UpdatesProposal }
   | { kind: "aska"; draft: AskaDraft }
   | { kind: "rooms"; summary: string; options: RoomOption[]; alternatives: boolean }
+  | { kind: "documents"; summary: string; items: DocumentMatch[]; exact: boolean; entries: LedgerEntry[] }
   | { kind: "deadlines"; items: Assignment[] }
   | { kind: "class"; session: ClassSession; notice?: Notice; makeup?: ClassSession; next?: ClassSession }
   | { kind: "schedule"; label: string; items: ClassSession[] }
@@ -73,6 +77,7 @@ export const SUGGESTIONS = [
   "I like robotics and photography — which clubs fit?",
   "The air-con in my room is leaking water",
   "Book a study room for 2 tomorrow at 3pm",
+  "Find my tuition invoice and download it",
 ];
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -117,12 +122,13 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "review" | "booking" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "review" | "booking" | "invoice" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string): Intent {
   const t = raw.toLowerCase();
   if (isSyncReviewPrompt(raw)) return "review";
   if (parseRoomRequest(raw).isRoomRequest) return "booking";
+  if (parseDocumentRequest(raw).isRequest) return "invoice";
   // A hostel fault goes to the AskA help desk, not to an email, unless the student asks for an email.
   if (!/\b(e-?mail|mail)\b/.test(t) && detectDormIssue(raw)) return "dorm";
   if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
@@ -238,6 +244,38 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         yield { type: "card", card: { kind: "rooms", summary: req.summary, options: found.options, alternatives: found.alternatives } };
         break;
       }
+      case "invoice": {
+        const req = parseDocumentRequest(prompt);
+        yield { type: "plan", steps: ["Check the Finance Office connection", "Read your account statement", "Find the matching invoices and receipts", "Offer them for download"] };
+        yield { type: "step", index: 0 };
+        const connected = ctx.campus?.data.fees.live === true;
+        yield* tool("finance.status", "Finance Office", () => ({ output: connected ? "Connected (demo, read only)" : "Not connected", value: connected }), signal);
+        if (!connected) {
+          yield* say("I can only read your account statement once the **Finance Office** is connected. Open **Connections**, connect it (no password is needed), then ask me again. Nothing was downloaded.", signal);
+          break;
+        }
+        yield { type: "step", index: 1 };
+        let ledger: { entries: LedgerEntry[]; outstanding: number };
+        try {
+          ledger = yield* toolAsync("finance.get_ledger", "account statement", async () => { const r = await fetchLedger(ctx.library?.events ?? [], signal); return { output: `${r.entries.length} documents, RM ${r.outstanding.toLocaleString("en-MY", { minimumFractionDigits: 2 })} outstanding`, value: r }; });
+        } catch (error) {
+          if ((error as DOMException)?.name === "AbortError") throw error;
+          yield* say(`I couldn't read your account statement: ${error instanceof Error ? error.message : "the finance system did not answer"} Try again in a moment. Nothing was downloaded.`, signal);
+          break;
+        }
+        yield { type: "step", index: 2 };
+        const found = yield* tool("finance.find_documents", req.summary, () => {
+          const r = req.statement && !req.kind && !req.topic ? { items: [] as DocumentMatch[], exact: true } : findDocuments(ledger.entries, req);
+          return { output: req.statement && !req.kind && !req.topic ? "Whole statement" : `${r.items.length} document${r.items.length === 1 ? "" : "s"}${r.exact ? "" : " (nearest match)"}`, value: r };
+        }, signal);
+        yield { type: "step", index: 3 };
+        yield* say(found.items.length === 0 && ledger.entries.length > 0
+          ? `Here is your **account statement**: every invoice and receipt on one page, with a running balance. You owe **RM ${ledger.outstanding.toLocaleString("en-MY", { minimumFractionDigits: 2 })}** right now. Tap **Download** to save it as a PDF. **Nothing is sent anywhere**: the file is made on this device.`
+          : found.items.length === 0 ? "I found no invoices or receipts in your account statement yet."
+            : `${found.exact ? `I found ${found.items.length} matching document${found.items.length === 1 ? "" : "s"}.` : "I couldn't find an exact match, so these are the closest."} Tap **Download** to save a PDF, or **Open in portal** to see it on the student portal page. You owe **RM ${ledger.outstanding.toLocaleString("en-MY", { minimumFractionDigits: 2 })}** in total. **Nothing is sent anywhere**: the file is made on this device.`, signal);
+        if (ledger.entries.length > 0) yield { type: "card", card: { kind: "documents", summary: req.summary, items: found.items, exact: found.exact, entries: ledger.entries } };
+        break;
+      }
       case "dorm": {
         yield { type: "plan", steps: ["Work out what kind of problem it is", "Check where hostel faults are reported", "Prepare a help desk ticket for you to review"] };
         yield { type: "step", index: 0 };
@@ -246,7 +284,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           return { output: `${DORM_KIND_LABEL[i.kind]}${i.urgent ? ", urgent" : ""}`, value: i };
         }, signal);
         yield { type: "step", index: 1 };
-        yield* tool("help_desk.route", DORM_KIND_LABEL[issue.kind], () => ({ output: "AskA (Accommodation, Maintenance), not an email", value: true }), signal);
+        yield* tool("help_desk.route", DORM_KIND_LABEL[issue.kind], () => ({ output: "AskA (Operation and Maintenance Office), not an email", value: true }), signal);
         yield { type: "step", index: 2 };
         const draft = yield* tool("aska.prepare_ticket", "not submitted", () => {
           const d = draftTicket(prompt)!;

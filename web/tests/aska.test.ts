@@ -41,7 +41,7 @@ test("a block and room number are read from the message", () => {
 test("a ticket draft names the help desk path, keeps the location and never claims to be sent", () => {
   const d = draftTicket("The air-con in D3-512 is leaking water")!;
   assert.equal(d.kind, "aircon");
-  assert.equal(d.path, "Accommodation > Maintenance > Air-conditioner");
+  assert.equal(d.path, "Operation and Maintenance Office > Hostel maintenance > Air-conditioner");
   assert.equal(d.block, "D3"); assert.equal(d.room, "512");
   assert.match(d.title, /^Air-conditioner: /);
   assert.match(d.description, /staying in D3-512/);
@@ -50,7 +50,7 @@ test("a ticket draft names the help desk path, keeps the location and never clai
   const noRoom = draftTicket("my toilet is blocked")!;
   assert.match(noRoom.description, /\[block and room number\]/);
   assert.equal(draftTicket("What's due this week?"), null);
-  assert.equal(draftTicket("hello", { kind: "leak" })?.path, "Accommodation > Maintenance > Water leak or plumbing");
+  assert.equal(draftTicket("hello", { kind: "leak" })?.path, "Operation and Maintenance Office > Hostel maintenance > Water leak or plumbing");
 });
 
 test("saved tickets and help desk updates are cleaned, and ticket numbers continue from what is saved", () => {
@@ -81,7 +81,7 @@ test("the Gemini tool prepares a ticket for a hostel fault, refuses anything els
   assert.equal(ok.card?.kind, "aska");
   const v = ok.value as { submitted: boolean; ticket: { path: string; location: string } };
   assert.equal(v.submitted, false);
-  assert.equal(v.ticket.path, "Accommodation > Maintenance > Water leak or plumbing");
+  assert.equal(v.ticket.path, "Operation and Maintenance Office > Hostel maintenance > Water leak or plumbing");
   assert.equal(v.ticket.location, "LY2-1203");
   const no = await exec("prepare_aska_ticket", { problem: "What's due this week?" });
   assert.equal(no.card, undefined);

@@ -19,7 +19,7 @@ test("a hostel fault goes to an AskA ticket, not an email, and the student revie
   const dialog = await prepareViaAssistant(page, "The air-con in D3-512 is leaking water onto the floor");
   await expect(dialog.getByText(/reported on the AskA help desk, not by email/)).toBeVisible();
   const card = dialog.getByRole("region", { name: "AskA ticket ready to review" });
-  await expect(card.getByText("Accommodation > Maintenance > Air-conditioner")).toBeVisible();
+  await expect(card.getByText("Operation and Maintenance Office > Hostel maintenance > Air-conditioner")).toBeVisible();
   await expect(card.getByText("Not submitted")).toBeVisible();
   await expect(dialog.getByRole("link", { name: /mail/i })).toHaveCount(0);
 

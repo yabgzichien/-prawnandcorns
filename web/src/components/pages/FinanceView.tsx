@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Download, Mail, Sparkles } from "lucide-react";
+import { downloadBytes } from "@/lib/finance/download";
+import { KIND_LABEL, fileNameFor } from "@/lib/finance/ledger";
+import { documentPdf, statementPdf } from "@/lib/finance/pdf";
+import { useLedger } from "@/lib/finance/useLedger";
 import { dateShort, relative } from "@/lib/time";
 import { useApp } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
@@ -11,7 +15,8 @@ const money = (n: number, currency = "RM") => `${currency} ${n.toLocaleString("e
 
 export function FinanceView() {
   const { openAgent } = useApp();
-  const { data } = useCampus();
+  const { data, connections } = useCampus();
+  const ledger = useLedger(Boolean(connections.finance));
   const FINANCE = data.fees;
   const next = FINANCE.dues.find((d) => d.status === "upcoming");
   const outstanding = FINANCE.tuitionTotal - FINANCE.paid;
@@ -55,6 +60,27 @@ export function FinanceView() {
             {FINANCE.dues.length === 0 && <li className="px-5 py-4 t-sub">Nothing is listed yet.</li>}
           </ol>
         </Item>
+
+        {connections.finance && (
+          <Item>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+              <h2 className="t-headline">Invoices and receipts</h2>
+              <button type="button" disabled={ledger.entries.length === 0} onClick={() => downloadBytes("account-statement.pdf", statementPdf(ledger.entries))} className="press btn btn-sm btn-tint disabled:opacity-40"><Download size={14} /> Account statement</button>
+            </div>
+            <ul className="card divide-y divide-sep overflow-hidden" aria-label="Invoices and receipts">
+              {!ledger.ready && <li className="px-5 py-4 t-sub" role="status">Loading your documents.</li>}
+              {ledger.error && <li className="px-5 py-4 text-[0.88rem] text-orange" role="alert">{ledger.error} Try again in a moment.</li>}
+              {[...ledger.entries].reverse().map((e) => (
+                <li key={e.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                  <div className="min-w-0 flex-1"><p className="font-semibold tracking-[-0.01em]">{KIND_LABEL[e.kind]} {e.id}</p><p className="t-caption break-words">{e.description}{e.kind === "invoice" && e.status === "Unpaid" ? ", unpaid" : ""}</p></div>
+                  <p className="tnum font-semibold">{money(e.kind === "invoice" ? e.debit : e.credit, FINANCE.currency)}</p>
+                  <button type="button" onClick={() => downloadBytes(fileNameFor(e), documentPdf(e, ledger.entries.find((x) => x.id === e.relatedDoc)))} aria-label={`Download ${KIND_LABEL[e.kind].toLowerCase()} ${e.id} as PDF`} className="press btn btn-sm btn-plain"><Download size={14} /> PDF</button>
+                </li>
+              ))}
+            </ul>
+            <p className="t-caption mt-3 px-1">Or ask Compass: &ldquo;Find my tuition invoice and download it&rdquo;. Files are made on this device and are fictional.</p>
+          </Item>
+        )}
 
         <Item>
           <h2 className="t-headline mb-3 px-1">Payment history</h2>

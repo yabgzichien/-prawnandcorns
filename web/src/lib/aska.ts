@@ -52,7 +52,7 @@ export function parseLocation(text: string): { block: string; room: string } | n
 
 export type AskaDraft = {
   kind: DormIssueKind;
-  /** Category path on the help desk, for example "Accommodation > Maintenance > Air-conditioner". */
+  /** Category path on the help desk, for example "Operation and Maintenance Office > Hostel maintenance > Air-conditioner". */
   path: string;
   urgent: boolean;
   block: string;
@@ -76,7 +76,7 @@ export function draftTicket(problem: string, override: Partial<Pick<AskaDraft, "
   const summary = problem.trim().replace(/\s+/g, " ").slice(0, 80).replace(/[.!?\s]+$/, "");
   return {
     kind, urgent, block, room,
-    path: `Accommodation > Maintenance > ${label}`,
+    path: `Operation and Maintenance Office > Hostel maintenance > ${label}`,
     title: `${label}: ${summary.charAt(0).toLowerCase() + summary.slice(1)}`.slice(0, 100),
     description: [
       `Hello, I am ${STUDENT.name} (${STUDENT.id}), staying in ${where}.`,

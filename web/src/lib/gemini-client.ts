@@ -32,7 +32,7 @@ export async function* runGeminiAgent(prompt: string, context: AgentContext, sig
     text: presentGeminiAnswer(result.text, cards, typeof result.model === "string" ? result.model : "Gemini", typeof result.fallbackFrom === "string" ? result.fallbackFrom : undefined),
   };
   for (const card of cards) {
-    if (card && (card.kind === "study-plan" || card.kind === "updates" || card.kind === "email" || card.kind === "aska" || card.kind === "rooms")) yield { type: "card", card };
+    if (card && (card.kind === "study-plan" || card.kind === "updates" || card.kind === "email" || card.kind === "aska" || card.kind === "rooms" || card.kind === "documents")) yield { type: "card", card };
   }
   yield { type: "step", index: 2 };
   yield { type: "done" };
