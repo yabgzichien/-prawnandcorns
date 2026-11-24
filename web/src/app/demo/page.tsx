@@ -1,6 +1,3 @@
-import type { Metadata } from "next";
-import { DemoConsole } from "@/components/demo/DemoConsole";
+import { EventsPage } from "@/components/portal/EventsPage";
 
-export const metadata: Metadata = { title: "Demo console", robots: { index: false, follow: false } };
-
-export default function Page() { return <DemoConsole />; }
+export default function Page() { return <EventsPage />; }

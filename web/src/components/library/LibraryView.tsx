@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, CalendarClock, ChevronDown, DoorClosed, MapPin, Users, Wrench, X } from "lucide-react";
 import { fetchLibraryDay, type LibraryDay } from "@/lib/library/client";
 import { overlapWith } from "@/lib/library/overlap";
-import { bookableDates, cancelDeadline, checkBooking, checkCancel, CANCEL_GRACE_MINUTES, hasStarted, isDate, MAX_DAYS_AHEAD, SLOTS, type LibraryBooking } from "@/lib/library/policy";
+import { bookableDates, BOOKING_RULES, cancelDeadline, checkBooking, checkCancel, hasStarted, isDate, MAX_DAYS_AHEAD, SLOTS, type LibraryBooking } from "@/lib/library/policy";
 import { CATEGORIES, CATEGORY_INFO, LIBRARY_ROOM_BY_ID, whereIs, type LibraryRoom, type RoomCategory } from "@/lib/library/rooms";
 import { classBlocksFrom } from "@/lib/planning-demo";
 import { DEMO_NOW, dateShort, dayShort } from "@/lib/time";
@@ -90,11 +90,7 @@ export function LibraryView() {
         {rulesOpen && (
           <motion.section initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={SPRING} className="mb-5 overflow-hidden" aria-label="Library room booking rules">
             <ul className="card list-disc space-y-1.5 py-4 pl-9 pr-5 text-[0.9rem]">
-              <li>Library rooms are for campus users only, in fixed two-hour slots from 09:00 to 21:00.</li>
-              <li>Book up to {MAX_DAYS_AHEAD} days ahead, counting today. Each person can book one slot per day.</li>
-              <li>Cancel any time before the start, and up to {CANCEL_GRACE_MINUTES} minutes after it. Then you can book another room if one is free.</li>
-              <li>A booking cannot be handed to someone else. The person who booked must be in the room.</li>
-              <li>Student success room 3 is for 5 to 10 people. The other rooms hold 2 or 4.</li>
+              {BOOKING_RULES.map((rule) => <li key={rule}>{rule}</li>)}
             </ul>
           </motion.section>
         )}

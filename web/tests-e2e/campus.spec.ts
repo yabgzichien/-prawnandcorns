@@ -42,7 +42,8 @@ test("console event reaches Compass, the offline agent proposes fixes, approval 
   const consolePage = await context.newPage();
   await consolePage.goto("/demo", { waitUntil: "networkidle" });
   await expect(consolePage.getByRole("heading", { name: /Demo console/ })).toBeVisible();
-  await expect(consolePage.getByRole("navigation")).toHaveCount(0); // no student chrome in the presenter window
+  await expect(consolePage.getByRole("navigation", { name: "Primary" })).toHaveCount(0); // no student navigation in the presenter window
+  await expect(consolePage.getByRole("navigation", { name: "Console sections" }).first()).toBeVisible();
   await trigger(consolePage, /Extend the Lab 6 report deadline/);
 
   await expect(page.getByRole("status").filter({ hasText: /2 updates from Moodle and Email/ })).toBeVisible({ timeout: 8000 });
@@ -145,8 +146,8 @@ test("the console is not linked from the student navigation and works without an
 
 test.describe("narrow screens", () => {
   test.use({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
-  test("Connections and the console fit 320px without horizontal scrolling", async ({ page }) => {
-    for (const path of ["/connections", "/demo"]) {
+  test("Connections, the console and the library pages fit 320px without horizontal scrolling", async ({ page }) => {
+    for (const path of ["/connections", "/demo", "/demo/library", "/demo/mail", "/library"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       const width = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(width, `${path} should not scroll horizontally`).toBeLessThanOrEqual(320);

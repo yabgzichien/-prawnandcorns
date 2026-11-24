@@ -19,6 +19,15 @@ export const SLOTS = [
 export const MAX_DAYS_AHEAD = 3; // today plus two more days
 export const CANCEL_GRACE_MINUTES = 15;
 
+/** The rules in plain words, written for this demo. The booking page and the library desk show the same list. */
+export const BOOKING_RULES: readonly string[] = [
+  "Library rooms are for campus users only, in fixed two-hour slots from 09:00 to 21:00.",
+  `Book up to ${MAX_DAYS_AHEAD} days ahead, counting today. Each person can book one slot per day.`,
+  `Cancel any time before the start, and up to ${CANCEL_GRACE_MINUTES} minutes after it. Then you can book another room if one is free.`,
+  "A booking cannot be handed to someone else. The person who booked must be in the room.",
+  "Student success room 3 is for 5 to 10 people. The other rooms hold 2 or 4.",
+];
+
 /** What Compass keeps for each booking. Everything else is worked out from these three facts. */
 export type LibraryBooking = { id: string; roomId: string; date: string; slot: number };
 
