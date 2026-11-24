@@ -2,9 +2,16 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { ASKA_SEEN_KEY, ASKA_UPDATES_KEY, sanitizeUpdates, type AskaTicket, type AskaUpdates } from "@/lib/aska";
-import { SCENARIO_CHANGED, subscribeStorage } from "@/lib/world/storage";
+import { subscribeStorage } from "@/lib/world/storage";
 
-const subscribe = (fn: () => void) => subscribeStorage([ASKA_UPDATES_KEY, ASKA_SEEN_KEY], fn);
+/** Fired after Compass records which ticket updates the student has been told about. A separate event, so it does not look like a scenario change. */
+export const ASKA_SEEN_EVENT = "compass:aska-seen-changed";
+
+const subscribe = (fn: () => void) => {
+  const off = subscribeStorage([ASKA_UPDATES_KEY, ASKA_SEEN_KEY], fn);
+  window.addEventListener(ASKA_SEEN_EVENT, fn);
+  return () => { off(); window.removeEventListener(ASKA_SEEN_EVENT, fn); };
+};
 const read = (key: string) => () => { try { return localStorage.getItem(key) ?? "{}"; } catch { return "{}"; } };
 const parse = (text: string): unknown => { try { return JSON.parse(text); } catch { return {}; } };
 
@@ -23,7 +30,7 @@ export function useAskaAlerts(tickets: readonly AskaTicket[]) {
   const markSeen = useCallback(() => {
     const next: Record<string, string> = { ...seen };
     for (const a of alerts) next[a.ticket.id] = a.update.status;
-    try { localStorage.setItem(ASKA_SEEN_KEY, JSON.stringify(next)); window.dispatchEvent(new Event(SCENARIO_CHANGED)); } catch {}
+    try { localStorage.setItem(ASKA_SEEN_KEY, JSON.stringify(next)); window.dispatchEvent(new Event(ASKA_SEEN_EVENT)); } catch {}
   }, [alerts, seen]);
   return { alerts, markSeen };
 }

@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check, MapPin } from "lucide-react";
+import { fetchLibraryDay } from "@/lib/library/client";
 import type { RoomOption } from "@/lib/library/search";
 import { SLOTS } from "@/lib/library/policy";
 import { LIBRARY_ROOM_BY_ID, whereIs } from "@/lib/library/rooms";
 import { useApp } from "@/lib/state";
 import { dateShort, dayShort } from "@/lib/time";
+import { getTriggeredEvents } from "@/lib/world/storage";
 
 const day = (date: string) => { const d = new Date(`${date}T12:00:00+08:00`); return `${dayShort(d)} ${dateShort(d)}`; };
 
@@ -33,7 +35,15 @@ export function RoomsCard({ card, onNavigate }: { card: { summary: string; optio
               <div className="flex gap-2">
                 <Link href={link} onClick={onNavigate} className="press btn btn-sm btn-plain"><MapPin size={14} /> Map</Link>
                 {mine ? <span className="btn btn-sm btn-tint pointer-events-none"><Check size={14} strokeWidth={3} /> Booked</span> : (
-                  <button type="button" onClick={() => { const r = bookLibraryRoom(o.roomId, o.date, o.slot); setError(r.ok ? "" : r.error); }} className="press btn btn-sm btn-primary">Book</button>
+                  <button type="button" onClick={async () => {
+                    // the card may be minutes old, so ask the library again before booking
+                    try {
+                      const day = await fetchLibraryDay(o.date, getTriggeredEvents());
+                      if (day.rooms.find((r) => r.id === o.roomId)?.slots[o.slot]?.status !== "available") { setError(`${o.roomId} at ${SLOTS[o.slot].start} is no longer free. Ask again for fresh options.`); return; }
+                    } catch { setError("The library booking system did not answer. Try again in a moment."); return; }
+                    const r = bookLibraryRoom(o.roomId, o.date, o.slot);
+                    setError(r.ok ? "" : r.error);
+                  }} className="press btn btn-sm btn-primary">Book</button>
                 )}
               </div>
             </li>

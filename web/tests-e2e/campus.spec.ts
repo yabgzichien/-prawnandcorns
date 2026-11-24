@@ -146,8 +146,8 @@ test("the console is not linked from the student navigation and works without an
 
 test.describe("narrow screens", () => {
   test.use({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
-  test("Connections, the console and the library pages fit 320px without horizontal scrolling", async ({ page }) => {
-    for (const path of ["/connections", "/demo", "/demo/library", "/demo/mail", "/library"]) {
+  test("Connections, the console, the library and the help desk fit 320px without horizontal scrolling", async ({ page }) => {
+    for (const path of ["/connections", "/demo", "/demo/library", "/demo/mail", "/demo/aska", "/library", "/helpdesk"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       const width = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(width, `${path} should not scroll horizontally`).toBeLessThanOrEqual(320);
