@@ -100,7 +100,7 @@ export function StudentHubView() {
             <div hidden={selected !== "courses"}><CoursesView /></div>
             <div hidden={selected !== "clubs"}><ClubsView /></div>
             <div hidden={selected !== "finance"}><FinanceView /></div>
-            {selected === "library" && <LibraryView />}
+            {selected === "library" && <LibraryView key={params.toString()} />}
             {selected === "helpdesk" && <HelpDeskView />}
           </motion.section>
         ) : (

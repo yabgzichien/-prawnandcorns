@@ -142,3 +142,50 @@ test("the floor plan places every room once, inside the drawing, and level 2 has
   }
   assert.equal(floorPlan(2).wings.length, 4);
 });
+
+import { parseRoomRequest, searchRooms } from "../src/lib/library/search.ts";
+
+test("a request in plain words is understood: day, time, people and room kind", () => {
+  const a = parseRoomRequest("Book a study room for 2 tomorrow at 3pm", NOW);
+  assert.deepEqual([a.isRoomRequest, a.date, a.slots, a.people], [true, "2026-11-24", [3], 2]);
+  const b = parseRoomRequest("I need a group discussion room for four people this evening", NOW);
+  assert.deepEqual([b.isRoomRequest, b.date, b.slots, b.people, b.category], [true, "2026-11-23", [4, 5], 4, "group"]);
+  const c = parseRoomRequest("any silent study room free on Wednesday morning?", NOW);
+  assert.deepEqual([c.isRoomRequest, c.date, c.slots, c.category], [true, "2026-11-25", [0, 1], "silent"]);
+  const d = parseRoomRequest("find me a room for a presentation with 8 people day after tomorrow at 15:00 in the library room", NOW);
+  assert.deepEqual([d.date, d.slots, d.people], ["2026-11-25", [3], 8]);
+  assert.equal(parseRoomRequest("book a study room", NOW).date, "2026-11-23", "today when no day is said");
+  assert.equal(parseRoomRequest("study room at 7am", NOW).slots.length, 0, "the library opens at 09:00");
+});
+
+test("things that are not about a library room are left alone", () => {
+  for (const text of ["Where is A3-G01?", "Help me plan my week", "Is my 2pm class still on?", "The air-con in my room is leaking", "What's due this week?", "my hostel room has a leak", "I like robotics and photography", "Draft an email to Finance"]) {
+    assert.equal(parseRoomRequest(text, NOW).isRoomRequest, false, text);
+  }
+});
+
+test("room search offers the smallest room that fits, near the time asked, and respects the rules", async () => {
+  const day = (events: string[], date = "2026-11-24") => mockRespond(new Request("http://x/", { headers: { [HDR_EVENTS]: events.join(",") } }), "library", (w) => libraryRooms(w, date)).then((r) => r.json());
+  const open = await day([]);
+  const two = searchRooms(open, { slots: [3], people: 2, category: null }, [], NOW);
+  assert.ok(two.length > 0 && two.length <= 4);
+  assert.ok(two.every((o) => LIBRARY_ROOM_BY_ID[o.roomId].capacity === 2), "two people get a two-person room, not a group room");
+  assert.ok(two.every((o) => o.slot === 3));
+  assert.equal(new Set(two.map((o) => o.roomId)).size, two.length, "a spread of rooms");
+  const five = searchRooms(open, { slots: [], people: 5, category: null }, [], NOW);
+  assert.ok(five.every((o) => o.roomId === "SSR3"), "only student success room 3 takes five");
+  const group = searchRooms(open, { slots: [3], people: 4, category: "group" }, [], NOW);
+  assert.ok(group.every((o) => LIBRARY_ROOM_BY_ID[o.roomId].category === "group"));
+  // the student already has a booking that day: nothing may be offered
+  const mine = [{ id: "x", roomId: "N201", date: "2026-11-24", slot: 0 }];
+  assert.deepEqual(searchRooms(open, { slots: [3], people: 2, category: null }, mine, NOW), []);
+  // an event can fill the afternoon
+  const rush = await day(["library-evening-rush"]);
+  assert.deepEqual(searchRooms(rush, { slots: [4], people: 2, category: null }, [], NOW).filter((o) => o.slot === 4), [], "nothing at 17:00");
+  assert.ok(searchRooms(rush, { slots: [4], people: 2, category: null }, [], NOW).every((o) => Math.abs(o.slot - 4) <= 1), "never wanders far from the time asked");
+  // closed and already-started slots are never offered
+  const closed = await day(["library-room-maintenance"]);
+  assert.ok(!searchRooms(closed, { slots: [], people: 2, category: "silent" }, [], NOW, 20).some((o) => o.roomId === "N205"));
+  const today = await day([], "2026-11-23");
+  assert.ok(searchRooms(today, { slots: [], people: 2, category: null }, [], NOW, 50).every((o) => o.slot >= 3), "13:20: nothing before 15:00");
+});

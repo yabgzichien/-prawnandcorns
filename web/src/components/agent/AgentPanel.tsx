@@ -8,6 +8,7 @@ import { runGeminiAgent } from "@/lib/gemini-client";
 import { useApp, type WidgetPref } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
 import { DEMO_NOW } from "@/lib/time";
+import { getTriggeredEvents } from "@/lib/world/storage";
 import { Sheet } from "@/components/ui/Sheet";
 import { SPRING, SPRING_FAST } from "@/lib/hooks";
 import { AgentCardView } from "./Cards";
@@ -39,7 +40,7 @@ function AgentText({ value }: { value: string }) {
 }
 
 export function AgentPanel() {
-  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, reminders, personalEvents, setWidgets, showToast } = useApp();
+  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, reminders, personalEvents, bookings, setWidgets, showToast } = useApp();
   const campus = useCampus();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -55,6 +56,7 @@ export function AgentPanel() {
   useEffect(() => {
     ctxRef.current = {
       widgets, submitted, studySessions,
+      library: { events: [], bookings },
       campus: campus.snapshot ? {
         data: campus.data, items: campus.snapshot.items, changes: campus.changes,
         failed: campus.failed.map((f) => ({ system: f.system, message: f.error.message })),
@@ -112,14 +114,16 @@ export function AgentPanel() {
     };
     try {
       try {
-        await consume(useGemini ? runGeminiAgent(text, ctxRef.current, ac.signal) : runAgent(text, ctxRef.current, ac.signal));
+        // the library changes when the console fills or closes rooms, so its events are read fresh for every question
+        const ctx: AgentContext = { ...ctxRef.current, library: { bookings: ctxRef.current.library?.bookings ?? [], events: getTriggeredEvents() } };
+        await consume(useGemini ? runGeminiAgent(text, ctx, ac.signal) : runAgent(text, ctx, ac.signal));
       } catch (error) {
         if (!useGemini || ac.signal.aborted) throw error;
         // The demo must never depend on the internet. When Gemini is unavailable, the same question is answered
         // by the offline scripted agent, and the answer says so.
         const why = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 140) : "no answer";
         patchAgent(aid, (m) => ({ ...m, plan: [], step: -1, tools: [], text: "", cards: [], done: false }));
-        await consume(runAgent(text, ctxRef.current, ac.signal), `**Offline demo mode:** Gemini was unavailable (${why}). This answer comes from the built-in demo agent.\n\n`);
+        await consume(runAgent(text, { ...ctxRef.current, library: { bookings: ctxRef.current.library?.bookings ?? [], events: getTriggeredEvents() } }, ac.signal), `**Offline demo mode:** Gemini was unavailable (${why}). This answer comes from the built-in demo agent.\n\n`);
       }
     } catch (error) {
       const message = error instanceof Error && !ac.signal.aborted ? error.message : "Request cancelled.";

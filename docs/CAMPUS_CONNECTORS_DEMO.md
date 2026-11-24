@@ -17,7 +17,7 @@ cd web
 npm run dev
 ```
 
-Open Compass at `http://localhost:3000` in one window and `http://localhost:3000/demo` in another. Both share the browser's local storage, so changes in the console reach Compass within a second.
+Open Compass at `http://localhost:3000` in one window and `http://localhost:3000/demo` in another. Both share the browser's local storage, so changes in the console reach Compass within a second. Use the same host name in both windows (`localhost`, not `127.0.0.1`): Next's dev server only hydrates pages on the host it was started for, and local storage is per host.
 
 Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of the build order). With a key, Compass uses Gemini and falls back to offline mode, with a visible label, if Gemini is down.
 
@@ -29,7 +29,16 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 4. In Compass, tap Review on the banner. The agent shows its steps, then a card: move the Lab 6 session, add a Thursday reminder, mark two updates as reviewed.
 5. Press Approve selected, look at Home, then press Undo.
 
-## The nine scenarios
+## The console is an e-services portal
+
+`/demo` is laid out like a university e-services portal so it feels like a system you can pretend to be: a dark sidebar (Announcements, Library Rooms, AskA, Campus Email), a top bar, breadcrumbs and white cards. It uses no real logo, crest, name or link, and every page carries a "Demo console, fictional data" marker. It is a separate window with none of the student navigation, and it is not linked from the student app.
+
+- **Announcements:** the scenario events, with search and a filter by who is acting, plus "Triggered so far" and a suggested run.
+- **Library Rooms:** the library's booking page as the desk sees it (the same availability Compass reads), with buttons that fill or close rooms.
+- **AskA:** tickets your student submits appear here. Mark them in progress, schedule a technician or resolve them, and Compass shows the update.
+- **Campus Email:** write your own email.
+
+## The twelve scenarios
 
 | Console button | What Compass should do |
 | --- | --- |
@@ -42,8 +51,29 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 | Send two noise emails | Both marked "No action needed". The planted instruction in the spam is never followed. |
 | Send an unclear email: the quiz is moved to next week | Low confidence, so it asks instead of guessing, and offers a draft to the lecturer. Never sent. |
 | Take Moodle down for one sync | Banner says Moodle is unavailable and keeps its last data. Retry recovers. Other systems are unaffected. |
+| Fill every group discussion room tomorrow afternoon | Group rooms show Reserved from 13:00 to 19:00 tomorrow. A request for a group room offers the closest alternatives. |
+| Close silent study room N205 for maintenance | N205 shows an Under maintenance note. If your student booked it, My bookings flags it and offers Find another room. |
+| Library evening rush: nearly everything booked tomorrow | Nothing is free from 17:00 tomorrow. "A study room at 5pm" gets the closest free rooms and says it is not an exact match. |
 
 "Write your own email" on the console adds a custom notice. Offline mode cannot read it (it has no stored answer) and says so. With Gemini it is read like any outside email.
+
+## Library rooms
+
+Student hub, Library rooms (or `/library`). The 43 rooms, their wings, levels and capacities follow the public library layout (silent study rooms N201 to N214, study rooms S221 to S234, group discussion rooms E231 to E236 and W241 to W246, three student success rooms on Level 3). Who has booked what is invented: a fixed pattern fills about half the slots, and the console can fill or close more.
+
+- Two-hour slots from 09:00 to 21:00. Book up to 3 days ahead, counting today. One slot per person per day. Cancel until 15 minutes after the start. A slot that has already started cannot be booked. These rules are plain code (`src/lib/library/policy.ts`).
+- Picking a slot pulls out a panel with the campus map gliding to block A3 and a schematic floor plan with the room, its wing and its level lit up. The floor plan is labelled "not to scale" because the real layout may differ.
+- A booking that overlaps a class, study session or calendar entry shows a warning, not an error.
+- Bookings are saved in this browser only, with an Undo, and show on Home. Nothing is sent to a real library.
+- Ask Compass "Book a study room for 2 tomorrow at 3pm". Code reads the day, time and group size, checks availability and the rules, and offers rooms with a Book button. The assistant never books on its own.
+
+## AskA help desk
+
+Hostel faults such as a water leak or a broken air-conditioner are reported to the AskA help desk, not by email to the Accommodation Office. So Compass routes them there:
+
+- Ask Compass "The air-con in D3-512 is leaking". It prepares a ticket (category path, location, urgency, title, description) and you review it. The mail assistant shows the same pointer when you describe a hostel fault, and keeps the email draft for room changes.
+- Help desk (Student hub, or `/helpdesk`) lists your tickets. The console's AskA page can mark a ticket in progress, schedule a technician, or resolve it. Compass shows the update in its banner, and a scheduled visit can be added to your calendar in one tap.
+- Submitting saves the ticket in this browser. The form says clearly that nothing goes to a real help desk. Words like flooding, sparks or no power mark a ticket urgent, with a note to tell the hostel office in person.
 
 ## Decisions taken where the spec left a choice
 
@@ -54,6 +84,14 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 - The existing Gemini tool names (`get_demo_assignments` and so on) are kept, and now read the connected data.
 - The Gemini loop allows 7 turns and 14 tool calls (was 4 and 8) and `/api/agent` accepts 40 KB bodies (was 16 KB). A full review is about five sequential steps, which did not fit the old limits.
 - A study session can only be moved or removed when the conflict check found a problem with it. Text in an email can never talk the agent into clearing the plan.
+- The console now looks like an e-services portal. The spec (section 10) had asked for it not to resemble any real university site. It keeps that spirit by using no real logo, crest, name or link and by saying "fictional" on every page, but follows the layout of a real portal because that is what you asked for.
+- Library and AskA are features of Compass with their own small mock API and storage, not connectors yet. Making them connectors (so a new booking or ticket status flows through sync and the review banner) is a natural next step.
+- Reset: Compass's Reset demo clears bookings, tickets and every console key. The console's Reset scenario clears the events, custom emails and ticket updates it owns, and leaves what the student saved.
+
+## Not built yet
+
+- The interior of the A blocks in 3D. The room table in `src/lib/library/rooms.ts` and the plan in `plan.ts` are written so that work can reuse them.
+- Real library, AskA, Moodle or Academic Centre connections (needs university permission, per competition rule 7).
 
 ## Checks
 

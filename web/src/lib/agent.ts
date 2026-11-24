@@ -9,6 +9,9 @@ import { demoStudyProposal } from "./planning-demo";
 import type { StudyProposal, StudySession } from "./planning";
 import type { UpdatesProposal } from "./updates/types";
 import { DORM_KIND_LABEL, detectDormIssue, draftTicket, type AskaDraft } from "./aska";
+import { fetchLibraryDay } from "./library/client";
+import { findRooms, parseRoomRequest, type RoomOption } from "./library/search";
+import { SLOTS, type LibraryBooking } from "./library/policy";
 import type { CampusToolContext } from "./agent-tools/campus";
 import { detectConflictsTool, getRecentChanges, noticeItems, conflictsFor, readNotice } from "./agent-tools/campus";
 import { expectedFacts } from "./agent-tools/expected";
@@ -30,6 +33,7 @@ export type AgentCard =
   | { kind: "study-plan"; proposal: StudyProposal }
   | { kind: "updates"; proposal: UpdatesProposal }
   | { kind: "aska"; draft: AskaDraft }
+  | { kind: "rooms"; summary: string; options: RoomOption[]; alternatives: boolean }
   | { kind: "deadlines"; items: Assignment[] }
   | { kind: "class"; session: ClassSession; notice?: Notice; makeup?: ClassSession; next?: ClassSession }
   | { kind: "schedule"; label: string; items: ClassSession[] }
@@ -55,6 +59,8 @@ export type AgentContext = {
   studySessions: StudySession[];
   /** What the connected campus systems last said. Absent before anything is connected. */
   campus?: CampusToolContext;
+  /** The library: scenario events that change who has booked what, and the rooms this student has booked. */
+  library?: { events: string[]; bookings: LibraryBooking[] };
 };
 
 export const SUGGESTIONS = [
@@ -66,6 +72,7 @@ export const SUGGESTIONS = [
   "Add a finance widget and hide clubs",
   "I like robotics and photography — which clubs fit?",
   "The air-con in my room is leaking water",
+  "Book a study room for 2 tomorrow at 3pm",
 ];
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -80,6 +87,15 @@ async function* tool<T>(name: string, input: string, work: () => { output: strin
   yield { type: "tool", id, tool: name, input, status: "running" };
   await sleep(420 + Math.random() * 260, signal);
   const r = work();
+  yield { type: "tool", id, tool: name, input, status: "done", output: r.output };
+  return r.value;
+}
+
+/** Like `tool`, for work that has to wait for an answer, such as asking the library's booking system. */
+async function* toolAsync<T>(name: string, input: string, work: () => Promise<{ output: string; value: T }>): AsyncGenerator<AgentEvent, T> {
+  const id = `t${++toolSeq}`;
+  yield { type: "tool", id, tool: name, input, status: "running" };
+  const r = await work();
   yield { type: "tool", id, tool: name, input, status: "done", output: r.output };
   return r.value;
 }
@@ -101,11 +117,12 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "review" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "review" | "booking" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string): Intent {
   const t = raw.toLowerCase();
   if (isSyncReviewPrompt(raw)) return "review";
+  if (parseRoomRequest(raw).isRoomRequest) return "booking";
   // A hostel fault goes to the AskA help desk, not to an email, unless the student asks for an email.
   if (!/\b(e-?mail|mail)\b/.test(t) && detectDormIssue(raw)) return "dorm";
   if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
@@ -194,6 +211,31 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           `I suggest ${act} change${act === 1 ? "" : "s"} to your plan${marks ? `, mark ${marks} as reviewed` : ""}${asks ? ` and I have ${asks} question${asks === 1 ? "" : "s"} for you` : ""}. **Nothing is saved until you approve.**`,
         ].filter(Boolean).join("\n\n"), signal);
         yield { type: "card", card: { kind: "updates", proposal } };
+        break;
+      }
+      case "booking": {
+        const req = parseRoomRequest(prompt);
+        const mine = ctx.library?.bookings ?? [];
+        yield { type: "plan", steps: ["Work out when and how many people", "Check the library's availability", "Check the booking rules", "Offer rooms for you to book"] };
+        yield { type: "step", index: 0 };
+        yield* tool("library.parse_request", `"${prompt.slice(0, 48)}"`, () => ({ output: req.summary, value: req }), signal);
+        yield { type: "step", index: 1 };
+        const found = yield* toolAsync("library.get_availability", req.date, async () => {
+          const r = await findRooms((d) => fetchLibraryDay(d, ctx.library?.events ?? [], signal), req, mine);
+          return { output: `${r.options.length} free room${r.options.length === 1 ? "" : "s"}${r.alternatives ? " (nearest match)" : ""}`, value: r };
+        });
+        yield { type: "step", index: 2 };
+        const taken = mine.find((b) => b.date === req.date);
+        yield* tool("library.check_rules", "one 2-hour slot a day, 3 days ahead", () => ({ output: taken ? `Already booked ${taken.roomId} that day` : "No rule is in the way", value: !taken }), signal);
+        yield { type: "step", index: 3 };
+        if (taken && found.options.length === 0) {
+          yield* say(`You already have a booking that day (**${taken.roomId}**, ${SLOTS[taken.slot].start}). The library allows one two-hour slot per person per day, so cancel that one first if you want a different room.`, signal);
+        } else if (found.options.length === 0) {
+          yield* say(`I understood **${req.summary}**, but no library room is free that fits, now or over the next two days. Try a different time, or open **Library rooms** to look yourself.`, signal);
+        } else {
+          yield* say(`I understood **${req.summary}**. ${found.alternatives ? "Nothing matched exactly, so these are the closest free rooms." : "These rooms are free and fit the library's rules."} Tap **Book** on one to reserve it, or **Map** to see where it is. **Nothing is booked until you tap.**${req.people === null ? " I didn't hear how many people, so I looked for any size." : ""}`, signal);
+        }
+        yield { type: "card", card: { kind: "rooms", summary: req.summary, options: found.options, alternatives: found.alternatives } };
         break;
       }
       case "dorm": {

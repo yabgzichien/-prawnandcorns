@@ -3,6 +3,11 @@ import { DEPARTMENTS } from "./data/life.ts";
 import { searchCampus } from "./data/campus.ts";
 import { composeEmail } from "./email.ts";
 import { draftTicket } from "./aska.ts";
+import { findRooms, parseRoomRequest } from "./library/search.ts";
+import { libraryRooms } from "./world/payloads.ts";
+import { buildWorld, cleanEventIds } from "./world/world.ts";
+import { sanitizeBookings } from "./library/policy.ts";
+import { DEMO_NOW } from "./time.ts";
 import { demoStudyProposal, sanitizeDemoStudySessions, tasksFrom } from "./planning-demo.ts";
 import type { GeminiToolResult } from "./gemini-agent.ts";
 import { detectConflictsTool, getRecentChanges, noticeItems, proposeUpdatesTool, readNotice } from "./agent-tools/campus.ts";
@@ -24,6 +29,9 @@ export function sanitizeDemoContext(raw: unknown): DemoAgentContext {
     studySessions: sanitizeDemoStudySessions(value.studySessions),
     ...sanitizePlanExtras(value),
     campus: value.campus ? sanitizeCampusRequest(value.campus) : EMPTY_CAMPUS_REQUEST,
+    library: value.library && typeof value.library === "object"
+      ? { events: cleanEventIds(Array.isArray((value.library as { events?: unknown }).events) ? (value.library as { events: unknown[] }).events : []), bookings: sanitizeBookings((value.library as { bookings?: unknown }).bookings) }
+      : { events: [], bookings: [] },
   };
 }
 
@@ -112,6 +120,21 @@ export function createDemoExecutor(options: DemoExecutorOptions) {
           value: { draft: { to: `${dept.name} <${dept.email}>`, subject: draft.subject, body: draft.body }, sent: false, note: "Compass never sends email. The student reviews and sends it." },
           summary: `Drafted an email to ${dept.name}; not sent`,
           card: { kind: "email", draft, need },
+        };
+      }
+      case "find_library_rooms": {
+        const request = typeof args.request === "string" ? args.request.slice(0, 300) : "";
+        const parsed = parseRoomRequest(request, DEMO_NOW);
+        const world = buildWorld(context.library.events);
+        const found = await findRooms(async (date) => libraryRooms(world, date)!, parsed, context.library.bookings, DEMO_NOW);
+        return {
+          value: {
+            understood: parsed.summary, exactMatch: !found.alternatives, saved: false,
+            rooms: found.options.map((o) => ({ room: o.roomId, date: o.date, slot: `${o.slot}`, note: "free and allowed by the booking rules" })),
+            note: "Nothing is booked. The student taps Book on a room in the card. Each person can book one two-hour slot a day, up to 3 days ahead.",
+          },
+          summary: found.options.length ? `${found.options.length} free room${found.options.length === 1 ? "" : "s"}${found.alternatives ? " (nearest match)" : ""}; not booked` : "No free room matched",
+          card: { kind: "rooms", summary: parsed.summary, options: found.options, alternatives: found.alternatives },
         };
       }
       case "prepare_aska_ticket": {

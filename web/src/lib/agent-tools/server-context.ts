@@ -2,6 +2,7 @@ import { COURSES } from "../data/academics.ts";
 import { normalizeAc, normalizeFinance, normalizeMail, normalizeMoodle } from "../connectors/normalize.ts";
 import type { AccountSummary, CampusItem, NoticeItem } from "../connectors/types.ts";
 import type { StudySession } from "../planning.ts";
+import type { LibraryBooking } from "../library/policy.ts";
 import { diffSystem } from "../sync/diff.ts";
 import type { Change } from "../sync/types.ts";
 import { campusDataFrom } from "../sync/view.ts";
@@ -90,6 +91,8 @@ export type DemoAgentContext = {
   reminders: Reminder[];
   personalEvents: PersonalEvent[];
   campus: CampusRequest;
+  /** Which scenario events changed the library, and the rooms the student has booked. Ids and structured facts only. */
+  library: { events: string[]; bookings: LibraryBooking[] };
 };
 
 const tooLong = (v: unknown, max: number) => typeof v !== "string" || v.length === 0 || v.length > max;

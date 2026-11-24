@@ -234,6 +234,8 @@ Once the student approves or acknowledges a change, it stops showing as new. The
 ## 10. Part 7: Lecturer and Office console (`/demo`)
 
 A plain, clearly labelled page: "Demo console: pretend to be a lecturer or office". It deliberately does not look like Moodle, AC or any real XMUM site, and uses no university logos.
+
+> Revision, 24 Nov 2026: at the product owner's request the console now borrows the layout of a university e-services portal (sidebar, top bar, breadcrumbs, cards) so it feels like a system you can pretend to be. It still uses no real logo, crest, name or link and is marked "fictional" on every page. It also gained a Library Rooms desk and an AskA desk, and the event list grew from nine to twelve (three library events). See `docs/CAMPUS_CONNECTORS_DEMO.md`.
 - A list of the scenario events, one button each, grouped by "Lecturer", "Academic Centre", "Finance Office" and "Clubs".
 - A "Triggered so far" list in order, with a Reset button.
 - A "Write your own email" box that adds a custom notice to the mock inbox. This is good for a live judge question such as "what if the lecturer writes this?". Custom text is stored only in the presenter's browser and is passed as a custom notice; the server treats it the same untrusted way as any email.

@@ -93,6 +93,46 @@ test("a fully booked evening: no room is offered at 17:00 tomorrow", async ({ pa
   await expect(page.getByRole("button", { name: /15:00 to 17:00, available/ }).first()).toBeVisible();
 });
 
+async function askCompass(page: Page, text: string) {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.keyboard.press("ControlOrMeta+k");
+  const dialog = page.getByRole("dialog", { name: "Compass assistant" });
+  await dialog.getByRole("button", { name: "Demo", exact: true }).click();
+  await dialog.getByRole("textbox", { name: "Message Compass" }).fill(text);
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  return dialog;
+}
+
+test("asking Compass for a room offers free ones, books only when tapped, and links to the map", async ({ page }) => {
+  const dialog = await askCompass(page, "Book a study room for 2 tomorrow at 3pm");
+  const card = dialog.getByRole("region", { name: "Library rooms you can book" });
+  await expect(card).toBeVisible({ timeout: 15000 });
+  await expect(dialog.getByText(/Tue 24 Nov, at 15:00, for 2/).first()).toBeVisible();
+  await expect(dialog.getByText(/Nothing is booked until you tap/)).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("xmum-compass:v1") ?? "{}").bookings ?? [])).toEqual([]);
+
+  await card.getByRole("button", { name: "Book" }).first().click();
+  await expect(card.getByText("Booked", { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("xmum-compass:v1") ?? "{}").bookings);
+  expect(saved).toHaveLength(1);
+  expect(saved[0]).toMatchObject({ date: "2026-11-24", slot: 3 });
+
+  await card.getByRole("link", { name: "Map" }).first().click();
+  const sheet = page.getByRole("dialog", { name: /^Book / });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("img", { name: /Schematic floor plan/ })).toBeVisible();
+});
+
+test("a request the library cannot meet at that time says so and offers the closest rooms", async ({ page, context }) => {
+  const consolePage = await context.newPage();
+  await consolePage.goto("/demo", { waitUntil: "networkidle" });
+  await consolePage.getByRole("listitem").filter({ hasText: /evening rush/ }).getByRole("button", { name: "Trigger" }).click();
+  const dialog = await askCompass(page, "I need a silent study room tomorrow at 5pm for 1");
+  await expect(dialog.getByRole("region", { name: "Library rooms you can book" })).toBeVisible({ timeout: 15000 });
+  await expect(dialog.getByText(/Nothing matched exactly/)).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Closest free rooms" })).toBeVisible();
+});
+
 test.describe("narrow screens", () => {
   test.use({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   test("the booking sheet and its map fit 320px", async ({ page }) => {

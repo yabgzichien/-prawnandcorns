@@ -102,3 +102,32 @@ test("help desk updates are written by the console, read back cleaned, and clear
   resetScenario(storage);
   assert.deepEqual(getAskaUpdates(storage), {});
 });
+
+test("the Gemini room tool finds rooms from the student's words, sees library events, and never books", async () => {
+  const ctx = (events: string[], bookings: unknown[] = []) => sanitizeDemoContext({ library: { events, bookings } });
+  const exec = (events: string[], bookings: unknown[] = []) => createDemoExecutor({ prompt: "x", context: ctx(events, bookings), apiKey: "", model: "gemini-2.5-flash" });
+  const found = await exec([])("find_library_rooms", { request: "Book a study room for 2 tomorrow at 3pm" });
+  const v = found.value as { saved: boolean; exactMatch: boolean; rooms: { room: string }[]; understood: string };
+  assert.equal(v.saved, false);
+  assert.equal(v.exactMatch, true);
+  assert.match(v.understood, /Tue 24 Nov, at 15:00, for 2/);
+  assert.ok(v.rooms.length > 0);
+  assert.equal(found.card?.kind, "rooms");
+
+  // the evening rush closes everything at 17:00, so the answer is honest about being a near match
+  const rush = await exec(["library-evening-rush"])("find_library_rooms", { request: "a silent study room tomorrow at 5pm for 1" });
+  const rv = rush.value as { exactMatch: boolean; rooms: { slot: string }[] };
+  assert.equal(rv.exactMatch, false);
+  assert.ok(rv.rooms.every((r) => r.slot !== "4" && r.slot !== "5") || rv.rooms.length === 0);
+
+  // a booking already on that day blocks a second one
+  const mine = await exec([], [{ roomId: "N201", date: "2026-11-24", slot: 0 }])("find_library_rooms", { request: "study room tomorrow at 3pm for 2" });
+  assert.equal(((mine.value as { rooms: unknown[] }).rooms.length > 0), true, "but not on tomorrow itself: it offers the next free day");
+  assert.ok(!(mine.card && mine.card.kind === "rooms" && mine.card.options.some((o) => o.date === "2026-11-24")));
+
+  // junk ids and bookings are dropped before they reach the tool
+  const dirty = sanitizeDemoContext({ library: { events: ["nope", "library-room-maintenance"], bookings: [{ roomId: "ZZ", date: "x", slot: 99 }, null] } });
+  assert.deepEqual(dirty.library.events, ["library-room-maintenance"]);
+  assert.deepEqual(dirty.library.bookings, []);
+  assert.equal((await exec([])("find_library_rooms", { request: { evil: 1 } })).card?.kind, "rooms");
+});

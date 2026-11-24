@@ -6,12 +6,13 @@ import type { AgentContext } from "../agent.ts";
  * so a tampered browser cannot add an email or change a date. The one text the browser may send is an
  * email the presenter typed into the console, which is capped and always treated as untrusted.
  */
-export function campusRequest(context: Pick<AgentContext, "submitted" | "studySessions" | "campus">) {
+export function campusRequest(context: Pick<AgentContext, "submitted" | "studySessions" | "campus" | "library">) {
   const c = context.campus;
   return {
     submitted: context.submitted,
     studySessions: context.studySessions,
     reminders: c?.plan.reminders ?? [],
+    library: context.library ?? { events: [], bookings: [] },
     personalEvents: c?.plan.personalEvents ?? [],
     ...(c ? {
       campus: {
