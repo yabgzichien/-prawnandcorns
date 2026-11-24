@@ -1,4 +1,5 @@
 import type { Assignment, ClassSession, Course, Notice } from "../data/academics.ts";
+import type { LibraryBlock, LibraryState } from "../library/availability.ts";
 
 /** Shared vocabulary for the invented campus systems. Every record in a World is fictional. */
 
@@ -66,6 +67,8 @@ export type World = {
   fees: FeeRecord[];
   announcements: WorldNotice[];
   inbox: InboxMessage[];
+  /** Rooms other people have booked, and rooms the library has closed. */
+  library: LibraryState;
   /** system -> id of the event that took it down */
   outage: Partial<Record<SystemId, string>>;
   applied: string[];
@@ -80,16 +83,17 @@ export type Effect =
   | { op: "postFee"; feeId: string }
   | { op: "addAnnouncement"; notice: WorldNotice }
   | { op: "addEmail"; message: InboxMessage }
-  | { op: "outage"; system: SystemId };
+  | { op: "outage"; system: SystemId }
+  | { op: "libraryBlock"; block: LibraryBlock };
 
-export type EventGroup = "Lecturer" | "Academic Centre" | "Finance Office" | "Clubs" | "Inbox and systems";
+export type EventGroup = "Lecturer" | "Academic Centre" | "Finance Office" | "Clubs" | "Library" | "Inbox and systems";
 
 export type ScenarioEvent = {
   id: string;
   title: string;
   group: EventGroup;
   /** The system a student would see change first. */
-  system: SystemId;
+  system: SystemId | "library";
   summary: string;
   effects: Effect[];
 };

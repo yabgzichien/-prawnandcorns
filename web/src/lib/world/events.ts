@@ -120,5 +120,35 @@ export const SCENARIO_EVENTS: ScenarioEvent[] = [
   },
 ];
 
+const TOMORROW = "2026-11-24";
+
+/** Library events. They change who else has booked rooms, so the booking page and the agent see the new picture. */
+SCENARIO_EVENTS.push(
+  {
+    id: "library-group-rooms-full",
+    title: "Fill every group discussion room tomorrow afternoon",
+    group: "Library",
+    system: "library",
+    summary: "All twelve group rooms are reserved from 13:00 to 19:00 tomorrow. Single-person rooms are still open.",
+    effects: [{ op: "libraryBlock", block: { categories: ["group"], dates: [TOMORROW], slots: [2, 3, 4], status: "reserved" } }],
+  },
+  {
+    id: "library-room-maintenance",
+    title: "Close silent study room N205 for maintenance",
+    group: "Library",
+    system: "library",
+    summary: "N205 shows an Under maintenance note and cannot be booked today, tomorrow or the day after.",
+    effects: [{ op: "libraryBlock", block: { rooms: ["N205"], dates: ["2026-11-23", TOMORROW, "2026-11-25"], slots: [0, 1, 2, 3, 4, 5], status: "closed", remark: "Under maintenance" } }],
+  },
+  {
+    id: "library-evening-rush",
+    title: "Library evening rush: nearly everything booked tomorrow",
+    group: "Library",
+    system: "library",
+    summary: "Every room is reserved from 17:00 to 21:00 tomorrow, so a request for an evening room has to suggest another time.",
+    effects: [{ op: "libraryBlock", block: { categories: ["silent", "study", "group", "success"], dates: [TOMORROW], slots: [4, 5], status: "reserved" } }],
+  },
+);
+
 export const EVENT_BY_ID: Record<string, ScenarioEvent> = Object.fromEntries(SCENARIO_EVENTS.map((event) => [event.id, event]));
-export const EVENT_GROUPS = ["Lecturer", "Academic Centre", "Finance Office", "Clubs", "Inbox and systems"] as const;
+export const EVENT_GROUPS = ["Lecturer", "Academic Centre", "Finance Office", "Clubs", "Library", "Inbox and systems"] as const;

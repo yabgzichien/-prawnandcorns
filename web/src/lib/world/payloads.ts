@@ -1,4 +1,7 @@
 import { moodleAssignmentId, moodleCourseId, unixSeconds } from "../data/moodle.ts";
+import { roomRemark, slotStatus } from "../library/availability.ts";
+import { isDate, SLOTS, slotWindow } from "../library/policy.ts";
+import { LIBRARY_ROOMS } from "../library/rooms.ts";
 import type { World, SystemId } from "./types.ts";
 
 /**
@@ -169,6 +172,24 @@ export function mailList(world: World) {
 export function mailMessage(world: World, id: string) {
   const m = world.inbox.find((message) => message.id === id);
   return m ? { message: { id: m.id, from: m.from, address: m.address, subject: m.subject, date: m.date, body: m.body }, notice: DEMO_STAMP } : null;
+}
+
+/* ───────── Library room booking (invented format) ───────── */
+
+/** Every room for one day: whether each two-hour slot is free, taken by someone else, or closed. */
+export function libraryRooms(world: World, date: string) {
+  if (!isDate(date)) return null;
+  return {
+    date,
+    slots: SLOTS.map((s) => ({ index: s.index, ...slotWindow(date, s.index) })),
+    rooms: LIBRARY_ROOMS.map((room) => ({
+      id: room.id, name: room.name, category: room.category, level: room.level, wing: room.wing, capacity: room.capacity,
+      ...(room.minPax ? { minPax: room.minPax } : {}),
+      remark: roomRemark(world.library, room, date) ?? null,
+      slots: SLOTS.map((s) => ({ index: s.index, ...slotStatus(world.library, room, date, s.index) })),
+    })),
+    notice: DEMO_STAMP,
+  };
 }
 
 /* ───────── outages ───────── */

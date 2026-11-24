@@ -13,13 +13,14 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 
 const baseHeaders = { "Cache-Control": "no-store", [HDR_DATA]: DATA_STAMP };
 
-export async function mockRespond(request: Request, system: SystemId, build: (world: World) => unknown | null): Promise<Response> {
+export async function mockRespond(request: Request, system: SystemId | "library", build: (world: World) => unknown | null): Promise<Response> {
   const world = buildWorld(parseIdList(request.headers.get(HDR_EVENTS)));
   await wait(Number(process.env.COMPASS_MOCK_DELAY_MS ?? DELAY_MS));
-  const outage = outageFor(world, system, parseIdList(request.headers.get(HDR_OUTAGE_SEEN)));
+  // The library has no outage event: the booking page is a feature of Compass, not one of the four connected systems.
+  const outage = system === "library" ? null : outageFor(world, system, parseIdList(request.headers.get(HDR_OUTAGE_SEEN)));
   if (outage) {
     return Response.json(
-      { error: { code: "outage", system, event: outage, message: `${SYSTEM_LABEL[system]} is unavailable right now.` }, notice: "fictional demo data" },
+      { error: { code: "outage", system, event: outage, message: `${system === "library" ? "The library" : SYSTEM_LABEL[system]} is unavailable right now.` }, notice: "fictional demo data" },
       { status: 503, headers: { ...baseHeaders, "Retry-After": "1" } },
     );
   }

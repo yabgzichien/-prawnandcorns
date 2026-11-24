@@ -17,6 +17,7 @@ export function baseWorld(): World {
     fees: BASE_FEES,
     announcements: BASE_ANNOUNCEMENTS,
     inbox: BASE_INBOX,
+    library: { blocks: [] },
     outage: {},
     applied: [],
   });
@@ -66,6 +67,10 @@ function applyEffect(world: World, effect: Effect, eventId: string): void {
     }
     case "outage": {
       world.outage[effect.system] = eventId;
+      return;
+    }
+    case "libraryBlock": {
+      world.library.blocks.push(structuredClone(effect.block));
       return;
     }
   }

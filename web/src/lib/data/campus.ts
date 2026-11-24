@@ -1,4 +1,5 @@
 import { GEO, type EN } from "./campus-geo.ts";
+import { LIBRARY_ROOMS } from "../library/rooms.ts";
 
 // Building footprints come from OpenStreetMap (© OpenStreetMap contributors, ODbL).
 // What each block is used for, and every room label below, is DEMO data — approximate, not an official directory.
@@ -61,6 +62,9 @@ export const ROOMS: Room[] = [
   { code: "CANTEEN", place: "CANTEEN", floor: "Ground", name: "Main Canteen", type: "Dining" },
   { code: "COURTS", place: "COURTS", floor: "Outdoor", name: "Outdoor Courts", type: "Court" },
 ];
+
+// The library's bookable rooms are rooms on the map too, so a booking can show where it is.
+ROOMS.push(...LIBRARY_ROOMS.map((r): Room => ({ code: r.id, place: "A3", floor: `Level ${r.level}`, name: r.name, type: "Study room", seats: r.capacity })));
 
 export const ROOM_BY_CODE = Object.fromEntries(ROOMS.map((r) => [r.code, r]));
 

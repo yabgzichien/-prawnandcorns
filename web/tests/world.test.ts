@@ -62,7 +62,7 @@ test("events never reuse an existing id and only point at records that exist", (
       if (effect.op === "postFee") assert.ok(base.fees.some((f) => f.id === effect.feeId));
     }
   }
-  assert.equal(new Set(SCENARIO_EVENTS.map((e) => e.id)).size, 9);
+  assert.equal(new Set(SCENARIO_EVENTS.map((e) => e.id)).size, 12);
 });
 
 test("triggered events are stored in order, once, and reset clears them", () => {
