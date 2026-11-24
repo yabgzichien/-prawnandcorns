@@ -8,6 +8,7 @@ import { composeEmail, extractNeed, routeDepartment, type Draft } from "./email"
 import { demoStudyProposal } from "./planning-demo";
 import type { StudyProposal, StudySession } from "./planning";
 import type { UpdatesProposal } from "./updates/types";
+import { DORM_KIND_LABEL, detectDormIssue, draftTicket, type AskaDraft } from "./aska";
 import type { CampusToolContext } from "./agent-tools/campus";
 import { detectConflictsTool, getRecentChanges, noticeItems, conflictsFor, readNotice } from "./agent-tools/campus";
 import { expectedFacts } from "./agent-tools/expected";
@@ -28,6 +29,7 @@ import type { ExtractedFact } from "./world/types";
 export type AgentCard =
   | { kind: "study-plan"; proposal: StudyProposal }
   | { kind: "updates"; proposal: UpdatesProposal }
+  | { kind: "aska"; draft: AskaDraft }
   | { kind: "deadlines"; items: Assignment[] }
   | { kind: "class"; session: ClassSession; notice?: Notice; makeup?: ClassSession; next?: ClassSession }
   | { kind: "schedule"; label: string; items: ClassSession[] }
@@ -63,6 +65,7 @@ export const SUGGESTIONS = [
   "Draft an email to Finance about my fee instalment",
   "Add a finance widget and hide clubs",
   "I like robotics and photography — which clubs fit?",
+  "The air-con in my room is leaking water",
 ];
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -98,11 +101,13 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "review" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "review" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string): Intent {
   const t = raw.toLowerCase();
   if (isSyncReviewPrompt(raw)) return "review";
+  // A hostel fault goes to the AskA help desk, not to an email, unless the student asks for an email.
+  if (!/\b(e-?mail|mail)\b/.test(t) && detectDormIssue(raw)) return "dorm";
   if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
   const aliasHit = Object.values(WIDGET_META).some((m) => m.aliases.some((a) => t.includes(a)));
   if (has(t, /\b(widget|widgets|dashboard|home ?screen|layout|personali[sz]e|customi[sz]e)\b/) ||
@@ -189,6 +194,29 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           `I suggest ${act} change${act === 1 ? "" : "s"} to your plan${marks ? `, mark ${marks} as reviewed` : ""}${asks ? ` and I have ${asks} question${asks === 1 ? "" : "s"} for you` : ""}. **Nothing is saved until you approve.**`,
         ].filter(Boolean).join("\n\n"), signal);
         yield { type: "card", card: { kind: "updates", proposal } };
+        break;
+      }
+      case "dorm": {
+        yield { type: "plan", steps: ["Work out what kind of problem it is", "Check where hostel faults are reported", "Prepare a help desk ticket for you to review"] };
+        yield { type: "step", index: 0 };
+        const issue = yield* tool("aska.classify", `"${prompt.slice(0, 48)}"`, () => {
+          const i = detectDormIssue(prompt)!;
+          return { output: `${DORM_KIND_LABEL[i.kind]}${i.urgent ? ", urgent" : ""}`, value: i };
+        }, signal);
+        yield { type: "step", index: 1 };
+        yield* tool("help_desk.route", DORM_KIND_LABEL[issue.kind], () => ({ output: "AskA (Accommodation, Maintenance), not an email", value: true }), signal);
+        yield { type: "step", index: 2 };
+        const draft = yield* tool("aska.prepare_ticket", "not submitted", () => {
+          const d = draftTicket(prompt)!;
+          return { output: `${d.path}, ${d.block && d.room ? `${d.block}-${d.room}` : "location missing"}`, value: d };
+        }, signal);
+        yield* say([
+          `Hostel faults like this are reported on the **AskA** help desk, not by email to the Accommodation Office. I've prepared a ticket under **${draft.path}**.`,
+          draft.urgent ? "**This sounds urgent.** If anyone could be hurt (flooding, sparks, no power), tell the hostel office in person right away, then submit the ticket." : "",
+          !draft.block || !draft.room ? "I couldn't see your block and room number, so please add them on the form. A technician needs them." : "",
+          "**Nothing has been submitted.** Check it, then submit. I'll show the help desk's updates under Help desk.",
+        ].filter(Boolean).join("\n\n"), signal);
+        yield { type: "card", card: { kind: "aska", draft } };
         break;
       }
       case "study": {

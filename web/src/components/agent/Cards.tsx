@@ -14,6 +14,7 @@ import { DEMO_NOW } from "@/lib/time";
 import { useCampus } from "@/lib/sync/CampusProvider";
 import { classBlocksFrom, tasksFrom } from "@/lib/planning-demo";
 import { UpdatesCard } from "./UpdatesCard";
+import { AskaCard } from "./AskaCard";
 
 const statusTone = { overdue: "red", todo: "orange", progress: "blue", submitted: "green" } as const;
 
@@ -23,6 +24,8 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
       return <StudyPlanCard card={card} />;
     case "updates":
       return <UpdatesCard card={card} />;
+    case "aska":
+      return <AskaCard draft={card.draft} />;
     case "deadlines":
       return (
         <ul className="divide-y divide-sep overflow-hidden rounded-2xl bg-surface">

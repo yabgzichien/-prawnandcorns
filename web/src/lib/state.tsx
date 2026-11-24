@@ -7,6 +7,7 @@ import { applyFixes } from "./updates/apply";
 import { isMyIso, type Fix, type PersonalEvent, type Reminder } from "./updates/types";
 import { checkBooking, checkCancel, bookingId, sanitizeBookings, SLOTS, type LibraryBooking } from "./library/policy";
 import { LIBRARY_ROOM_BY_ID } from "./library/rooms";
+import { nextTicketId, sanitizeTickets, type AskaDraft, type AskaTicket } from "./aska";
 import { useCampus } from "./sync/CampusProvider";
 import { DEMO_NOW } from "./time";
 import { persistDemoSnapshot } from "./demo-persistence";
@@ -48,8 +49,12 @@ type State = {
   personalEvents: PersonalEvent[];
   /** Library rooms the student has booked. Saved in this browser only. */
   bookings: LibraryBooking[];
+  /** Help desk tickets the student has submitted. Saved in this browser only. */
+  tickets: AskaTicket[];
   /** Set after an approval, until it is undone or replaced. Not saved, so a reload ends it. */
   lastApply: { id: number; before: Pick<State, "studySessions" | "reminders" | "personalEvents">; ackIds: string[]; summary: string } | null;
+  /** A prepared help desk ticket waiting for the student to review and submit. Opened from the agent, the help desk or the mail assistant. */
+  askaDraft: AskaDraft | null;
   agentOpen: boolean;
   agentSeed: { prompt: string; nonce: number } | null;
   toast: { id: number; text: string; undo?: () => void } | null;
@@ -65,6 +70,8 @@ const initial: State = {
   reminders: [],
   personalEvents: [],
   bookings: [],
+  tickets: [],
+  askaDraft: null,
   lastApply: null,
   agentOpen: false,
   agentSeed: null,
@@ -80,6 +87,8 @@ type Action =
   | { type: "studySessions"; sessions: StudySession[] }
   | { type: "plan"; plan: Pick<State, "studySessions" | "reminders" | "personalEvents">; lastApply: State["lastApply"] }
   | { type: "bookings"; bookings: LibraryBooking[] }
+  | { type: "tickets"; tickets: AskaTicket[] }
+  | { type: "askaDraft"; draft: AskaDraft | null }
   | { type: "removeReminder"; id: string }
   | { type: "removeEvent"; id: string }
   | { type: "agent"; open: boolean; seed?: string }
@@ -98,7 +107,7 @@ function sanitizeEvents(raw: unknown): PersonalEvent[] {
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), lastApply: null, hydrated: true };
+    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), lastApply: null, hydrated: true };
     case "theme": return { ...s, theme: a.theme };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
@@ -106,6 +115,9 @@ function reducer(s: State, a: Action): State {
     case "studySessions": return { ...s, studySessions: a.sessions };
     case "plan": return { ...s, ...a.plan, lastApply: a.lastApply };
     case "bookings": return { ...s, bookings: a.bookings };
+    case "tickets": return { ...s, tickets: a.tickets };
+    // one sheet at a time: opening the ticket form puts the assistant away, and its messages are still there afterwards
+    case "askaDraft": return { ...s, askaDraft: a.draft, agentOpen: a.draft ? false : s.agentOpen };
     case "removeReminder": return { ...s, reminders: s.reminders.filter((r) => r.id !== a.id) };
     case "removeEvent": return { ...s, personalEvents: s.personalEvents.filter((e) => e.id !== a.id) };
     case "agent": return { ...s, agentOpen: a.open, agentSeed: a.seed ? { prompt: a.seed, nonce: Date.now() } : a.open ? s.agentSeed : null };
@@ -115,12 +127,12 @@ function reducer(s: State, a: Action): State {
 }
 
 const KEY = "xmum-compass:v1";
-type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings">;
+type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings" | "tickets">;
 
 /** One place decides what is saved, so a new kind of saved data cannot be forgotten by one of the save paths. */
 const persistedOf = (s: State, over: Partial<Persisted> = {}): Persisted => ({
   theme: s.theme, widgets: s.widgets, joined: s.joined, submitted: s.submitted,
-  studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, bookings: s.bookings, ...over,
+  studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, bookings: s.bookings, tickets: s.tickets, ...over,
 });
 
 type Ctx = State & {
@@ -134,6 +146,10 @@ type Ctx = State & {
   bookLibraryRoom: (roomId: string, date: string, slot: number) => { ok: true; booking: LibraryBooking } | { ok: false; error: string };
   /** Cancels a booking, if it is not more than 15 minutes into its slot. */
   cancelLibraryBooking: (id: string) => { ok: true } | { ok: false; error: string };
+  /** Saves a help desk ticket the student has reviewed and submitted. Nothing is sent to a real help desk. */
+  openAskaTicket: (draft: AskaDraft) => void;
+  closeAskaTicket: () => void;
+  submitAskaTicket: (draft: AskaDraft) => { ok: true; ticket: AskaTicket } | { ok: false; error: string };
   removeReminder: (id: string) => void;
   removeEvent: (id: string) => void;
   /** Saves approved fixes to the student's own plan, with one undo step for the whole batch. */
@@ -172,7 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!state.hydrated) return;
     persistDemoSnapshot(() => localStorage, KEY, persistedOf(state));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings]);
+  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings, state.tickets]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -253,6 +269,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "bookings", bookings: next });
       showToast(`Cancelled ${LIBRARY_ROOM_BY_ID[booking.roomId].name}. The slot is free for others.`);
       return { ok: true };
+    },
+    openAskaTicket: (draft) => dispatch({ type: "askaDraft", draft }),
+    closeAskaTicket: () => dispatch({ type: "askaDraft", draft: null }),
+    submitAskaTicket: (draft) => {
+      if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
+      if (state.tickets.length >= 10) return { ok: false, error: "You already have 10 tickets saved. Reset the demo to start again." };
+      if (!draft.title.trim() || !draft.description.trim()) return { ok: false, error: "A ticket needs a title and a description." };
+      if (!draft.block || !draft.room.trim()) return { ok: false, error: "Add your block and room number so a technician knows where to go." };
+      const ticket: AskaTicket = { ...draft, title: draft.title.trim().slice(0, 100), description: draft.description.trim().slice(0, 900), room: draft.room.trim().toUpperCase().slice(0, 6), id: nextTicketId(state.tickets), submittedAt: asMalaysiaIso(DEMO_NOW.getTime()) };
+      const next = [...state.tickets, ticket];
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { tickets: next }))) {
+        return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
+      }
+      dispatch({ type: "tickets", tickets: next });
+      showToast(`Ticket ${ticket.id} saved in this browser. This demo sends nothing to a real help desk.`);
+      return { ok: true, ticket };
     },
     removeReminder: (id) => dispatch({ type: "removeReminder", id }),
     removeEvent: (id) => dispatch({ type: "removeEvent", id }),

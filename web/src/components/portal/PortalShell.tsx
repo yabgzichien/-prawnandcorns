@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ExternalLink, LibraryBig, Mail, Megaphone, Menu, RotateCcw, X } from "lucide-react";
+import { ExternalLink, LibraryBig, LifeBuoy, Mail, Megaphone, Menu, RotateCcw, X } from "lucide-react";
 import { resetScenario } from "@/lib/world/storage";
 import { PORTAL_VARS, PButton } from "./ui";
 import { useTriggered } from "./useScenario";
@@ -12,6 +12,7 @@ import { useTriggered } from "./useScenario";
 const NAV = [
   { section: "E-Services", items: [{ href: "/demo", label: "Announcements", hint: "Scenario events", icon: Megaphone }] },
   { section: "Space Booking", items: [{ href: "/demo/library", label: "Library Rooms", hint: "Availability desk", icon: LibraryBig }] },
+  { section: "Help desk", items: [{ href: "/demo/aska", label: "AskA", hint: "Hostel tickets", icon: LifeBuoy }] },
   { section: "Mailbox", items: [{ href: "/demo/mail", label: "Campus Email", hint: "Write your own email", icon: Mail }] },
 ] as const;
 

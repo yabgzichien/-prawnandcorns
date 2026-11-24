@@ -2,7 +2,8 @@
 
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Check, Copy, ExternalLink, RefreshCw, Search, Shield, Wand2 } from "lucide-react";
+import { Check, Copy, ExternalLink, LifeBuoy, RefreshCw, Search, Shield, Wand2 } from "lucide-react";
+import { detectDormIssue, draftTicket } from "@/lib/aska";
 import { DEPARTMENTS, type Department } from "@/lib/data/life";
 import { composeEmail, extractNeed, mailtoHref, routeDepartment, type Tone } from "@/lib/email";
 import { useApp } from "@/lib/state";
@@ -12,7 +13,7 @@ const EXAMPLES = ["I can't log in to Moodle", "I have a clash between two classe
 
 export function MailView() {
   const params = useSearchParams();
-  const { showToast } = useApp();
+  const { showToast, openAskaTicket } = useApp();
   const initialDept = DEPARTMENTS.find((d) => d.id === params.get("dept"));
   const [need, setNeed] = useState(params.get("need") ?? "");
   const [deptId, setDeptId] = useState<string | null>(initialDept?.id ?? null);
@@ -49,6 +50,14 @@ export function MailView() {
               {EXAMPLES.map((e) => <button key={e} onClick={() => { setNeed(e); setDeptId(null); setEdited(false); }} className="press btn btn-sm btn-plain">{e}</button>)}
             </div>
           </section>
+
+          {detectDormIssue(need) && (
+            <section className="card min-w-0 border-l-4 border-l-accent p-5" aria-label="Hostel repairs go through AskA">
+              <h2 className="t-headline mb-1 flex items-center gap-2"><LifeBuoy size={18} className="text-accent" /> Hostel repairs go through AskA</h2>
+              <p className="t-sub mb-3">Leaks, air-conditioners and other room faults are reported as a help desk ticket, not by email. Compass can prepare the ticket for you to check. To ask for a room change instead, use the email draft below.</p>
+              <button type="button" onClick={() => { const d = draftTicket(need); if (d) openAskaTicket(d); }} className="press btn btn-primary"><LifeBuoy size={16} /> Prepare AskA ticket</button>
+            </section>
+          )}
 
           <section className="card min-w-0 p-5">
             <h2 className="t-headline mb-3">Send to</h2>

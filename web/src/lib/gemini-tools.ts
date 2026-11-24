@@ -2,6 +2,7 @@ import { ASSIGNMENTS } from "./data/academics.ts";
 import { DEPARTMENTS } from "./data/life.ts";
 import { searchCampus } from "./data/campus.ts";
 import { composeEmail } from "./email.ts";
+import { draftTicket } from "./aska.ts";
 import { demoStudyProposal, sanitizeDemoStudySessions, tasksFrom } from "./planning-demo.ts";
 import type { GeminiToolResult } from "./gemini-agent.ts";
 import { detectConflictsTool, getRecentChanges, noticeItems, proposeUpdatesTool, readNotice } from "./agent-tools/campus.ts";
@@ -111,6 +112,16 @@ export function createDemoExecutor(options: DemoExecutorOptions) {
           value: { draft: { to: `${dept.name} <${dept.email}>`, subject: draft.subject, body: draft.body }, sent: false, note: "Compass never sends email. The student reviews and sends it." },
           summary: `Drafted an email to ${dept.name}; not sent`,
           card: { kind: "email", draft, need },
+        };
+      }
+      case "prepare_aska_ticket": {
+        const problem = typeof args.problem === "string" ? args.problem.slice(0, 400) : "";
+        const draft = draftTicket(problem);
+        if (!draft) return { value: { error: "That does not look like a hostel fault. Do not prepare a help desk ticket." }, summary: "Not a hostel fault" };
+        return {
+          value: { ticket: { path: draft.path, location: draft.block && draft.room ? `${draft.block}-${draft.room}` : "missing, ask the student to add it", urgent: draft.urgent, title: draft.title }, submitted: false, note: "The student reviews and submits the ticket. Nothing is sent." },
+          summary: `Prepared a help desk ticket: ${draft.path}; not submitted`,
+          card: { kind: "aska", draft },
         };
       }
       default:

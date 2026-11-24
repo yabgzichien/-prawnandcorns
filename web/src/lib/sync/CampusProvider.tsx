@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { clearMailCache } from "../connectors/connectors.ts";
 import { connectSystem, disconnectSystem, getConnections, CONNECTIONS_KEY, type Connections } from "../connectors/connections.ts";
 import { SYSTEM_IDS, type SystemId } from "../world/types.ts";
+import { ASKA_SEEN_KEY } from "../aska.ts";
 import { getCustomNotices, getTriggeredEvents, resetScenario, subscribeScenario } from "../world/storage.ts";
 import { mergePending } from "./diff.ts";
 import { syncAll } from "./engine.ts";
@@ -161,7 +162,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const unacknowledge = useCallback((ids: string[]) => setAck(ackRef.current.filter((id) => !ids.includes(id))), [setAck]);
 
   const resetAll = useCallback(() => {
-    try { localStorage.removeItem(CONNECTIONS_KEY); localStorage.removeItem(ACK_KEY); } catch {}
+    try { localStorage.removeItem(CONNECTIONS_KEY); localStorage.removeItem(ACK_KEY); localStorage.removeItem(ASKA_SEEN_KEY); } catch {}
     clearSyncState();
     resetScenario();
     clearMailCache();

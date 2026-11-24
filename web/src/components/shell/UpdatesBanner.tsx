@@ -2,7 +2,9 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { AlertTriangle, Bell, RefreshCw, X } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Bell, LifeBuoy, RefreshCw, X } from "lucide-react";
+import { useAskaAlerts } from "@/components/helpdesk/useAska";
 import { SPRING } from "@/lib/hooks";
 import { useApp } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
@@ -20,10 +22,11 @@ const list = (systems: SystemId[]) => {
  */
 export function UpdatesBanner() {
   const { changes, failed, syncNow, syncing } = useCampus();
-  const { openAgent, agentOpen } = useApp();
+  const { openAgent, agentOpen, tickets } = useApp();
+  const { alerts, markSeen } = useAskaAlerts(tickets);
   const [hiddenFor, setHiddenFor] = useState("");
-  const signature = changes.map((c) => c.id).join("|") + failed.map((f) => f.system).join(",");
-  const visible = (changes.length > 0 || failed.length > 0) && !agentOpen && hiddenFor !== signature;
+  const signature = changes.map((c) => c.id).join("|") + failed.map((f) => f.system).join(",") + alerts.map((a) => `${a.ticket.id}:${a.update.status}`).join(",");
+  const visible = (changes.length > 0 || failed.length > 0 || alerts.length > 0) && !agentOpen && hiddenFor !== signature;
   const systems = [...new Set(changes.map((c) => c.system))];
 
   return (
@@ -45,6 +48,12 @@ export function UpdatesBanner() {
                   <span>{changes.length} update{changes.length === 1 ? "" : "s"} from {list(systems)}. Review with Compass?</span>
                 </p>
               )}
+              {alerts.map((a) => (
+                <p key={a.ticket.id} className="flex items-start gap-2 text-[0.88rem] font-semibold leading-snug tracking-[-0.01em]">
+                  <LifeBuoy size={17} className="mt-0.5 shrink-0 text-accent" />
+                  <span>AskA ticket {a.ticket.id} is now {a.update.status.toLowerCase()}.{a.update.note ? ` ${a.update.note}` : ""}</span>
+                </p>
+              ))}
               {failed.map((f) => (
                 <p key={f.system} className="flex items-start gap-2 text-[0.85rem] leading-snug text-label-2">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-orange" />
@@ -57,7 +66,8 @@ export function UpdatesBanner() {
                 <button onClick={() => void syncNow()} disabled={syncing} className="press btn btn-sm btn-plain disabled:opacity-40"><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Retry</button>
               )}
               {changes.length > 0 && <button onClick={() => openAgent(SYNC_REVIEW_PROMPT)} className="press btn btn-sm btn-primary">Review</button>}
-              <button onClick={() => setHiddenFor(signature)} aria-label="Dismiss for now" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={16} /></button>
+              {alerts.length > 0 && <Link href="/hub?section=helpdesk" onClick={markSeen} className="press btn btn-sm btn-primary">View ticket</Link>}
+              <button onClick={() => { setHiddenFor(signature); markSeen(); }} aria-label="Dismiss for now" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={16} /></button>
             </div>
           </motion.div>
         )}

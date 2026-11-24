@@ -1,3 +1,4 @@
+import { ASKA_UPDATES_KEY, sanitizeUpdates, type AskaUpdate, type AskaUpdates } from "../aska.ts";
 import { cleanEventIds } from "./world.ts";
 
 /**
@@ -51,7 +52,7 @@ export function triggerEvent(id: string, storage: StorageLike | null = store()):
 
 export function resetScenario(storage: StorageLike | null = store()): void {
   if (!storage) return;
-  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); } catch {}
+  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); storage.removeItem(ASKA_UPDATES_KEY); } catch {}
   announce();
 }
 
@@ -107,4 +108,30 @@ export function subscribeScenario(fn: () => void): () => void {
   window.addEventListener(SCENARIO_CHANGED, fn);
   window.addEventListener("storage", onStorage);
   return () => { window.removeEventListener(SCENARIO_CHANGED, fn); window.removeEventListener("storage", onStorage); };
+}
+
+/**
+ * Calls `fn` when any saved key whose name starts with one of `prefixes` changes in another window, or when this
+ * window announces a scenario change. The console and Compass use it to stay in step through local storage.
+ */
+export function subscribeStorage(prefixes: readonly string[], fn: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (e: StorageEvent) => { if (e.key === null || prefixes.some((p) => e.key!.startsWith(p))) fn(); };
+  window.addEventListener(SCENARIO_CHANGED, fn);
+  window.addEventListener("storage", onStorage);
+  return () => { window.removeEventListener(SCENARIO_CHANGED, fn); window.removeEventListener("storage", onStorage); };
+}
+
+/** The help desk's updates to the student's tickets. Only the console window writes them. */
+export function getAskaUpdates(storage: StorageLike | null = store()): AskaUpdates {
+  if (!storage) return {};
+  try { return sanitizeUpdates(JSON.parse(storage.getItem(ASKA_UPDATES_KEY) ?? "{}")); } catch { return {}; }
+}
+
+export function setAskaUpdate(ticketId: string, update: AskaUpdate, storage: StorageLike | null = store()): boolean {
+  if (!storage) return false;
+  const next = sanitizeUpdates({ ...getAskaUpdates(storage), [ticketId]: update });
+  try { storage.setItem(ASKA_UPDATES_KEY, JSON.stringify(next)); } catch { return false; }
+  announce();
+  return true;
 }
