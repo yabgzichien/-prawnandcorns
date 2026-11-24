@@ -9,11 +9,13 @@ import { dayLong, dayShort, dateShort, timeOf, DEMO_NOW } from "@/lib/time";
 import { SPRING } from "@/lib/hooks";
 import { SUGGESTIONS } from "@/lib/agent";
 import { Sheet } from "@/components/ui/Sheet";
+import { SLOTS, slotWindow } from "@/lib/library/policy";
+import { LIBRARY_ROOM_BY_ID, whereIs } from "@/lib/library/rooms";
 import { Switch } from "@/components/ui/kit";
 import { WIDGETS } from "./widgets";
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession, reminders, personalEvents, removeReminder, removeEvent } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession, reminders, personalEvents, removeReminder, removeEvent, bookings, cancelLibraryBooking } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
   const visible = widgets.filter((w) => !w.hidden);
@@ -67,15 +69,16 @@ export function HomeView() {
         </section>
       )}
 
-      {hydrated && (reminders.length > 0 || personalEvents.length > 0) && (
+      {hydrated && (reminders.length > 0 || personalEvents.length > 0 || bookings.length > 0) && (
         <section className="card mb-6 p-5" aria-label="Reminders and calendar entries">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="t-title">Reminders and calendar</h2>
+            <h2 className="t-title">Reminders, bookings and calendar</h2>
             <span className="t-caption">Saved in this browser (demo data, MYT)</span>
           </div>
           <ul className="divide-y divide-sep">
             {[
               ...reminders.map((r) => ({ key: `r-${r.id}`, kind: "Reminder", title: r.title, at: r.at, when: `${dayShort(new Date(r.at))} ${dateShort(new Date(r.at))}, ${timeOf(new Date(r.at))}`, remove: () => removeReminder(r.id) })),
+              ...bookings.map((b) => { const w = slotWindow(b.date, b.slot); const r = LIBRARY_ROOM_BY_ID[b.roomId]; return { key: `b-${b.id}`, kind: "Library booking", title: r.name, at: w.start, when: `${dayShort(new Date(w.start))} ${dateShort(new Date(w.start))}, ${SLOTS[b.slot].start} to ${SLOTS[b.slot].end}, A3 ${whereIs(r)}`, remove: () => { cancelLibraryBooking(b.id); } }; }),
               ...personalEvents.map((e) => ({ key: `e-${e.id}`, kind: "Calendar", title: e.title, at: e.start, when: `${dayShort(new Date(e.start))} ${dateShort(new Date(e.start))}, ${timeOf(new Date(e.start))} to ${timeOf(new Date(e.end))}${e.place ? `, ${e.place}` : ""}`, remove: () => removeEvent(e.id) })),
             ].sort((a, b) => a.at.localeCompare(b.at)).map((item) => (
               <li key={item.key} className="flex items-center justify-between gap-3 py-2.5">
@@ -83,7 +86,7 @@ export function HomeView() {
                   <p className="break-words text-[0.92rem] font-semibold">{item.title}</p>
                   <p className="t-caption">{item.kind}, {item.when}</p>
                 </div>
-                <button type="button" onClick={item.remove} aria-label={`Remove ${item.kind.toLowerCase()}: ${item.title}`} className="press btn btn-sm btn-plain shrink-0"><X size={15} /> Remove</button>
+                <button type="button" onClick={item.remove} aria-label={`${item.kind === "Library booking" ? "Cancel" : "Remove"} ${item.kind.toLowerCase()}: ${item.title}`} className="press btn btn-sm btn-plain shrink-0"><X size={15} /> {item.kind === "Library booking" ? "Cancel" : "Remove"}</button>
               </li>
             ))}
           </ul>

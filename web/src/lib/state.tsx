@@ -5,6 +5,8 @@ import { asMalaysiaIso, tryConfirmStudyPlan, type BusyBlock, type StudySession }
 import { classBlocksFrom, sanitizeDemoStudySessions, tasksFrom } from "./planning-demo";
 import { applyFixes } from "./updates/apply";
 import { isMyIso, type Fix, type PersonalEvent, type Reminder } from "./updates/types";
+import { checkBooking, checkCancel, bookingId, sanitizeBookings, SLOTS, type LibraryBooking } from "./library/policy";
+import { LIBRARY_ROOM_BY_ID } from "./library/rooms";
 import { useCampus } from "./sync/CampusProvider";
 import { DEMO_NOW } from "./time";
 import { persistDemoSnapshot } from "./demo-persistence";
@@ -44,6 +46,8 @@ type State = {
   studySessions: StudySession[];
   reminders: Reminder[];
   personalEvents: PersonalEvent[];
+  /** Library rooms the student has booked. Saved in this browser only. */
+  bookings: LibraryBooking[];
   /** Set after an approval, until it is undone or replaced. Not saved, so a reload ends it. */
   lastApply: { id: number; before: Pick<State, "studySessions" | "reminders" | "personalEvents">; ackIds: string[]; summary: string } | null;
   agentOpen: boolean;
@@ -60,6 +64,7 @@ const initial: State = {
   studySessions: [],
   reminders: [],
   personalEvents: [],
+  bookings: [],
   lastApply: null,
   agentOpen: false,
   agentSeed: null,
@@ -74,6 +79,7 @@ type Action =
   | { type: "toggleSubmitted"; id: string }
   | { type: "studySessions"; sessions: StudySession[] }
   | { type: "plan"; plan: Pick<State, "studySessions" | "reminders" | "personalEvents">; lastApply: State["lastApply"] }
+  | { type: "bookings"; bookings: LibraryBooking[] }
   | { type: "removeReminder"; id: string }
   | { type: "removeEvent"; id: string }
   | { type: "agent"; open: boolean; seed?: string }
@@ -92,13 +98,14 @@ function sanitizeEvents(raw: unknown): PersonalEvent[] {
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), lastApply: null, hydrated: true };
+    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), lastApply: null, hydrated: true };
     case "theme": return { ...s, theme: a.theme };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
     case "toggleSubmitted": return { ...s, submitted: s.submitted.includes(a.id) ? s.submitted.filter((x) => x !== a.id) : [...s.submitted, a.id] };
     case "studySessions": return { ...s, studySessions: a.sessions };
     case "plan": return { ...s, ...a.plan, lastApply: a.lastApply };
+    case "bookings": return { ...s, bookings: a.bookings };
     case "removeReminder": return { ...s, reminders: s.reminders.filter((r) => r.id !== a.id) };
     case "removeEvent": return { ...s, personalEvents: s.personalEvents.filter((e) => e.id !== a.id) };
     case "agent": return { ...s, agentOpen: a.open, agentSeed: a.seed ? { prompt: a.seed, nonce: Date.now() } : a.open ? s.agentSeed : null };
@@ -108,7 +115,13 @@ function reducer(s: State, a: Action): State {
 }
 
 const KEY = "xmum-compass:v1";
-type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents">;
+type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings">;
+
+/** One place decides what is saved, so a new kind of saved data cannot be forgotten by one of the save paths. */
+const persistedOf = (s: State, over: Partial<Persisted> = {}): Persisted => ({
+  theme: s.theme, widgets: s.widgets, joined: s.joined, submitted: s.submitted,
+  studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, bookings: s.bookings, ...over,
+});
 
 type Ctx = State & {
   setTheme: (t: Theme) => void;
@@ -117,6 +130,10 @@ type Ctx = State & {
   toggleSubmitted: (id: string) => void;
   confirmStudyPlan: (sessions: StudySession[], blocked: BusyBlock[]) => { ok: boolean; error?: string };
   removeStudySession: (id: string) => void;
+  /** Books a library room for the student, if the rules allow. Saved in this browser only, with an Undo. */
+  bookLibraryRoom: (roomId: string, date: string, slot: number) => { ok: true; booking: LibraryBooking } | { ok: false; error: string };
+  /** Cancels a booking, if it is not more than 15 minutes into its slot. */
+  cancelLibraryBooking: (id: string) => { ok: true } | { ok: false; error: string };
   removeReminder: (id: string) => void;
   removeEvent: (id: string) => void;
   /** Saves approved fixes to the student's own plan, with one undo step for the whole batch. */
@@ -153,9 +170,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state.hydrated) return;
-    const p: Persisted = { theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted, studySessions: state.studySessions, reminders: state.reminders, personalEvents: state.personalEvents };
-    persistDemoSnapshot(() => localStorage, KEY, p);
-  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents]);
+    persistDemoSnapshot(() => localStorage, KEY, persistedOf(state));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -178,7 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { state: s, campus: c } = latest.current;
     const last = s.lastApply;
     if (!last || (applyId !== undefined && last.id !== applyId)) return false;
-    const snapshot: Persisted = { theme: s.theme, widgets: s.widgets, joined: s.joined, submitted: s.submitted, ...last.before };
+    const snapshot = persistedOf(s, last.before);
     if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) return false;
     dispatch({ type: "plan", plan: last.before, lastApply: null });
     c.unacknowledge(last.ackIds);
@@ -196,10 +213,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
       const result = tryConfirmStudyPlan(sessions, state.studySessions, tasksFrom(campus.data.assignments, state.submitted), classBlocksFrom(campus.data.classes), blocked, asMalaysiaIso(DEMO_NOW.getTime()));
       if (result.ok) {
-        const snapshot: Persisted = {
-          theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted,
-          studySessions: result.sessions, reminders: state.reminders, personalEvents: state.personalEvents,
-        };
+        const snapshot = persistedOf(state, { studySessions: result.sessions });
         if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) {
           return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
         }
@@ -208,6 +222,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return result;
     },
     removeStudySession: (id) => dispatch({ type: "studySessions", sessions: state.studySessions.filter((item) => item.id !== id) }),
+    bookLibraryRoom: (roomId, date, slot) => {
+      if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
+      const check = checkBooking({ roomId, date, slot }, state.bookings, DEMO_NOW);
+      if (!check.ok) return check;
+      const booking: LibraryBooking = { id: bookingId(roomId, date, slot), roomId, date, slot };
+      const next = [...state.bookings, booking];
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { bookings: next }))) {
+        return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
+      }
+      dispatch({ type: "bookings", bookings: next });
+      const room = LIBRARY_ROOM_BY_ID[roomId];
+      showToast(`Booked ${room.name}, ${SLOTS[slot].start} to ${SLOTS[slot].end}. Saved in this browser.`, () => {
+        const now = latest.current.state.bookings.filter((b) => b.id !== booking.id);
+        persistDemoSnapshot(() => localStorage, KEY, persistedOf(latest.current.state, { bookings: now }));
+        dispatch({ type: "bookings", bookings: now });
+        showToast("Booking removed.");
+      });
+      return { ok: true, booking };
+    },
+    cancelLibraryBooking: (id) => {
+      const booking = state.bookings.find((b) => b.id === id);
+      if (!booking) return { ok: false, error: "That booking is no longer saved." };
+      const check = checkCancel(booking, DEMO_NOW);
+      if (!check.ok) return check;
+      const next = state.bookings.filter((b) => b.id !== id);
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { bookings: next }))) {
+        return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
+      }
+      dispatch({ type: "bookings", bookings: next });
+      showToast(`Cancelled ${LIBRARY_ROOM_BY_ID[booking.roomId].name}. The slot is free for others.`);
+      return { ok: true };
+    },
     removeReminder: (id) => dispatch({ type: "removeReminder", id }),
     removeEvent: (id) => dispatch({ type: "removeEvent", id }),
     applyUpdates: (fixes) => {
@@ -220,7 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         changeIds: new Set(campus.changes.map((c) => c.id)),
       });
       if (!result.ok) return result;
-      const snapshot: Persisted = { theme: state.theme, widgets: state.widgets, joined: state.joined, submitted: state.submitted, ...result.plan };
+      const snapshot = persistedOf(state, result.plan);
       if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) {
         return { ok: false, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
       }

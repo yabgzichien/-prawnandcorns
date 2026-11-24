@@ -2,11 +2,12 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, CalendarDays, CheckSquare, ChevronDown, Landmark, MapPin, Users, X } from "lucide-react";
+import { BookOpen, CalendarDays, CheckSquare, ChevronDown, Landmark, Library, MapPin, Users, X } from "lucide-react";
 import { AssignmentsView } from "@/components/pages/AssignmentsView";
 import { ClubsView } from "@/components/pages/ClubsView";
 import { CoursesView } from "@/components/pages/CoursesView";
 import { FinanceView } from "@/components/pages/FinanceView";
+import { LibraryView } from "@/components/library/LibraryView";
 import { TimetableView } from "@/components/pages/TimetableView";
 import { MapView } from "@/components/map/MapView";
 import { DemoBadge } from "@/components/ui/kit";
@@ -19,6 +20,7 @@ const SECTIONS = [
   { id: "courses", title: "Courses", summary: "5 courses this semester", description: "See your semester, degree outlook and GE credits.", icon: BookOpen, tone: "cream" },
   { id: "clubs", title: "Clubs & events", summary: "Discover your community", description: "Browse events, clubs and activities around campus.", icon: Users, tone: "green" },
   { id: "finance", title: "Finance", summary: "Fees and payment dates", description: "Review balances, instalments and payment history.", icon: Landmark, tone: "cream" },
+  { id: "library", title: "Library rooms", summary: "Book a study room", description: "Reserve a study or discussion room and see where it is.", icon: Library, tone: "green" },
 ] as const;
 
 export type HubSection = (typeof SECTIONS)[number]["id"];
@@ -96,6 +98,7 @@ export function StudentHubView() {
             <div hidden={selected !== "courses"}><CoursesView /></div>
             <div hidden={selected !== "clubs"}><ClubsView /></div>
             <div hidden={selected !== "finance"}><FinanceView /></div>
+            {selected === "library" && <LibraryView />}
           </motion.section>
         ) : (
           <motion.p key="hub-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-5 flex items-center gap-2 px-1 text-sm text-label-2">
