@@ -11,6 +11,8 @@ import { cleanEventIds } from "./world.ts";
 export const SCENARIO_KEY = "compass:scenario-events:v1";
 export const CUSTOM_MAIL_KEY = "compass:custom-mail:v1";
 export const SCENARIO_CHANGED = "compass:scenario-changed";
+/** Which emails the presenter has opened in the demo webmail. The console window owns it. */
+export const MAIL_READ_KEY = "compass:mail-read:v1";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -52,7 +54,7 @@ export function triggerEvent(id: string, storage: StorageLike | null = store()):
 
 export function resetScenario(storage: StorageLike | null = store()): void {
   if (!storage) return;
-  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); storage.removeItem(ASKA_UPDATES_KEY); } catch {}
+  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); storage.removeItem(ASKA_UPDATES_KEY); storage.removeItem(MAIL_READ_KEY); } catch {}
   announce();
 }
 
@@ -132,6 +134,20 @@ export function setAskaUpdate(ticketId: string, update: AskaUpdate, storage: Sto
   if (!storage) return false;
   const next = sanitizeUpdates({ ...getAskaUpdates(storage), [ticketId]: update });
   try { storage.setItem(ASKA_UPDATES_KEY, JSON.stringify(next)); } catch { return false; }
+  announce();
+  return true;
+}
+
+export function getMailRead(storage: StorageLike | null = store()): string[] {
+  if (!storage) return [];
+  try { const v: unknown = JSON.parse(storage.getItem(MAIL_READ_KEY) ?? "[]"); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.length <= 160).slice(-200) : []; } catch { return []; }
+}
+
+export function markMailRead(id: string, storage: StorageLike | null = store()): boolean {
+  if (!storage || id.length > 160) return false;
+  const now = getMailRead(storage);
+  if (now.includes(id)) return true;
+  try { storage.setItem(MAIL_READ_KEY, JSON.stringify([...now, id].slice(-200))); } catch { return false; }
   announce();
   return true;
 }

@@ -37,7 +37,7 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 - **Student Portal:** three pages laid out like a university student portal: Dashboard (outstanding balance, reminder, announcement), Account Status (the ledger with Date, Doc No, Description, Debit, Credit and Balance, a PDF button on each line and a link to a printable document page) and Download File (every invoice, receipt and the statement as PDFs). They read the same fictional ledger as the assistant.
 - **Library Rooms:** the library's booking page as the desk sees it (the same availability Compass reads), with buttons that fill or close rooms.
 - **AskA:** tickets your student submits appear here. Mark them in progress, schedule a technician or resolve them, and Compass shows the update.
-- **Campus Email:** write your own email.
+- **Campus Email:** the student's mailbox as a webmail screen: a searchable inbox (All or Unread), a reading pane, and a New message window that writes an email into the inbox as someone else. Mail from scenario events arrives live and unread, opening a message marks it read, and the arrow keys (or J and K) move through the list. On a phone the list and the reading pane take turns. Messages come from the mock mail system; typed ones stay in this browser and are labelled as such.
 
 ## The twelve scenarios
 

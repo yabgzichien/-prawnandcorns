@@ -86,7 +86,7 @@ Presenter console (a separate window, no student navigation, never linked from t
 | `/demo` | Announcements: the 12 scenario events, search and filter, "Triggered so far", suggested run |
 | `/demo/library` | Library desk: the same availability Compass reads, laid out like a booking page, plus buttons to fill or close rooms |
 | `/demo/aska` | AskA desk: tickets the student submitted; mark in progress, schedule technician, resolve |
-| `/demo/mail` | Write your own email (custom emails are treated as untrusted) |
+| `/demo/mail` | Webmail screen: inbox list with search and an Unread filter, reading pane, New message window (custom emails are treated as untrusted). Read state lives in `compass:mail-read:v1` (console-owned, cleared by Reset scenario). Helpers in `web/src/lib/mail/` |
 | `/demo/student-portal`, `/demo/student-portal/account-status`, `/demo/student-portal/files`, `/demo/student-portal/documents/[id]` | Mock student portal: Dashboard, Account Status ledger, Download File, a printable document page. Read the fictional ledger |
 
 The console is styled as a pseudo university e-services portal (dark sidebar, top bar, breadcrumbs, white cards) at the user's request. It uses **no real logo, crest, name or link** and says "Demo console, fictional data" on every page. The original spec said it must not resemble a real site; a revision note in the spec records the change. Keep both properties: layout feel yes, impersonation no.

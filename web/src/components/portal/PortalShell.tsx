@@ -14,7 +14,7 @@ const NAV = [
   { section: "Student Portal", items: [{ href: "/demo/student-portal", label: "Dashboard", hint: "Alerts and balance", icon: LayoutDashboard }, { href: "/demo/student-portal/account-status", label: "Account Status", hint: "Invoices and receipts", icon: ReceiptText }, { href: "/demo/student-portal/files", label: "Download File", hint: "PDF files", icon: FileDown }] },
   { section: "Space Booking", items: [{ href: "/demo/library", label: "Library Rooms", hint: "Availability desk", icon: LibraryBig }] },
   { section: "Help desk", items: [{ href: "/demo/aska", label: "AskA", hint: "Hostel tickets", icon: LifeBuoy }] },
-  { section: "Mailbox", items: [{ href: "/demo/mail", label: "Campus Email", hint: "Write your own email", icon: Mail }] },
+  { section: "Mailbox", items: [{ href: "/demo/mail", label: "Campus Email", hint: "Inbox and New message", icon: Mail }] },
 ] as const;
 
 /**
