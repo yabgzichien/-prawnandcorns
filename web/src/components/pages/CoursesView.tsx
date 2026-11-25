@@ -21,8 +21,8 @@ export function CoursesView() {
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             {COURSES.map((c) => (
-              <article key={c.id} className="card min-w-0 p-5">
-                <div className="flex items-center justify-between">
+              <article key={c.id} className="card min-w-0 p-3 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className={`inline-flex items-center gap-2 text-[0.8rem] font-bold tracking-wide ${toneClass[c.tone].fg}`}><span className={`h-2 w-2 rounded-full ${toneClass[c.tone].dot}`} />{c.code}</span>
                   <Pill tone={c.kind === "Core" ? "blue" : "teal"}>{c.kind}, {c.credits} cr</Pill>
                 </div>
@@ -57,7 +57,7 @@ export function CoursesView() {
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             {GE_GROUPS.map((g) => (
-              <article key={g.id} className="card flex min-w-0 flex-wrap gap-4 p-5">
+              <article key={g.id} className="card flex min-w-0 flex-wrap gap-4 p-3 sm:p-5">
                 <Ring value={g.done / g.need} size={60} stroke={7} tone={g.done >= g.need ? "var(--green)" : "var(--accent)"}><span className="tnum text-[0.8rem] font-bold">{g.done}/{g.need}</span></Ring>
                 <div className="min-w-0">
                   <h3 className="font-semibold tracking-[-0.01em]">{g.title}</h3>

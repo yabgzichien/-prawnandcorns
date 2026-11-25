@@ -21,7 +21,6 @@ export async function POST(request: Request) {
   if (process.env.GEMINI_ENABLE_REMOTE !== "true" && !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) {
     return Response.json({ error: "Remote Gemini requests are disabled for this local-only prototype." }, { status: 403, headers });
   }
-  if (!configured()) return Response.json({ error: "Gemini API key not configured. Use Demo mode or set GEMINI_API_KEY in web/.env.local." }, { status: 503, headers });
   if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "JSON required." }, { status: 415, headers });
   if (Number(request.headers.get("content-length") || 0) > 16_384) return Response.json({ error: "Request too large." }, { status: 413, headers });
   // Next may normalize request.url to localhost even if a local browser uses
@@ -30,6 +29,8 @@ export async function POST(request: Request) {
   if (!isAllowedAgentOrigin(origin, request.url, process.env.GEMINI_ENABLE_REMOTE === "true")) {
     return Response.json({ error: "Cross-origin requests are not allowed." }, { status: 403, headers });
   }
+
+  if (!configured()) return Response.json({ error: "Gemini API key not configured. Use Demo mode or set GEMINI_API_KEY in web/.env.local." }, { status: 503, headers });
 
   try {
     const raw: unknown = await readJsonBodyWithinLimit(request, 16_384);
