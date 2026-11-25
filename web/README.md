@@ -1,12 +1,38 @@
-# XMUM Compass — front-end prototype
+# XMUM Compass — fictional-data competition prototype
 
-A student "super-app" for new XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **Front-end only, no backend.**
+A student dashboard and AI-assistant prototype for current and incoming XMUM students (XMUM AI Agent Innovation Competition 2026). Next.js 16 (App Router) + Tailwind v4 + Motion. **A server-side Gemini tool-calling integration is available when configured; default fictional demo still works without an API key.**
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
 npm run build
+npm run lint
+npm test
+npm run check:copy
+npm run test:e2e  # optional browser QA; first run: npx playwright install chromium
 ```
+
+Voice Dictation in the Compass message composer is a progressive enhancement. It uses the browser's `SpeechRecognition` or `webkitSpeechRecognition` implementation, when available, to turn one spoken question into editable text. It never automatically submits a recognized transcript; the student must still press **Send**. The browser may process speech through a vendor-operated online service, and Compass itself does not store raw recordings. See [`../docs/ux/VOICE_DICTATION_MVP.md`](../docs/ux/VOICE_DICTATION_MVP.md) for implementation details, privacy notes and manual device checks.
+
+If the browser reports a speech recognition network error, Gemini is not necessarily affected. Compass offers a separate, opt-in **on-device English speech** check where the browser implements it; the user must approve any language pack installation. Otherwise, Mac keyboard Dictation or typing into the same field is a reliable alternative. The app never silently uploads microphone recordings to its own backend.
+
+### Gemini API setup (local)
+
+The server uses Google Gemini `generateContent` with declared, read-only/demo-only tools. The API key **never enters the browser**. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/apikey), then from the `web/` folder:
+
+```bash
+cp .env.example .env.local
+# Open .env.local locally and paste your key into GEMINI_API_KEY=...
+npm run dev -- -p 3456
+```
+
+Open `http://localhost:3456` or `http://127.0.0.1:3456`, launch **Compass**, and select **Gemini API**. The local endpoint permits both loopback aliases only on the same scheme and port; public/cross-site origins remain blocked. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. The default is `gemini-2.5-flash` to favor competition demo responsiveness. In one local comparison on 23 November 2026, the same single-tool assignment question took 17.03 seconds with `gemini-4-hydrogen` and 4.07 seconds with `gemini-2.5-flash`. These are one-off observations, not guaranteed latencies. You can opt into Hydrogen by setting `GEMINI_MODEL=gemini-4-hydrogen` and `GEMINI_FALLBACK_MODEL=gemini-2.5-flash`. A chosen primary model falls back only on provider HTTP 503 or the 18-second interactive deadline; fallback attribution is visible. Set both models to the same value to disable model fallback. Free-tier rate limits and paid-tier token pricing are determined by Google, not by this application.
+
+The **Gemini model** dropdown in the Compass assistant also supports per-request selection between **Flash (faster)** and **Hydrogen (slower)**. These are explicit server-allowlisted IDs and do not guarantee that your API key can access both. The selected model is sent to the localhost-only `/api/agent` route; the API key stays on the server. An explicit Hydrogen choice falls back to Flash on supported timeout or temporary service-unavailable errors, while an explicit Flash choice does not escalate to Hydrogen. If a request omits the selection, the configured server model and fallback remain in effect. Selection lasts for the current assistant session and is disabled during an active request; Demo mode remains separate.
+
+Only the fictional study-planning data, demo timetable, assignments, finance data and illustrative room lookup can be fetched by the model. Scheduling conflict checks remain deterministic and every proposed study session requires user confirmation. No university account authentication, campus system integration, actual email sending or cloud persistence is implemented. Gemini responses are not streamed token by token in this first integration.
+
+**Important before any public Vercel deployment:** Gemini calls are restricted to localhost by default (`GEMINI_ENABLE_REMOTE=false`). Do not enable remote calls until the team adds proper user authentication, abuse protection and persistent server-side rate limiting. A client-side API-key restriction alone is not sufficient.
 
 ## What's in it
 
@@ -15,26 +41,30 @@ npm run build
 | `/` Today | Customisable dashboard (drag to reorder, toggles) with an AI ask bar as the front door |
 | `/timetable` | Day + week views; cancelled / room-changed / make-up classes flagged; `.ics` export |
 | `/assignments` | Moodle-style deadlines, simulated "Connect Moodle" flow (no credential fields), `.ics` export |
-| `/map` | Campus map with a **2D / 3D** switch. 2D is our own SVG map from OpenStreetMap footprints (room search, floors, today's route pins, momentum pan/zoom). 3D is the XMUM Orientation 3D campus (see below) with fly-to, pins, time of day and names |
+| `/map` | Own SVG campus map built from OpenStreetMap footprints: room search, floors, today's route pins, pan/zoom with momentum |
 | `/courses` | This semester, core outlook, General Education requirement groups |
 | `/clubs` | ECA clubs + events, join toggles |
 | `/finance` | Tuition progress, schedule, history |
 | `/mail` | Pick the right office from a plain-language need, draft an email — never sends |
 | ⌘K / **Ask** | Agent panel: visible plan → tool calls → answer → action cards |
+| Study planner | Deterministic conflict-checked proposal → editable review → confirm or reject → browser-local Home plan |
 
 ## Agent demo script
 
-Press **Reset demo** (sidebar / More) between runs — layout, ticked assignments and joined clubs persist in localStorage and change the answers.
+Press **Reset demo** (sidebar / More) between runs — layout, ticked assignments, joined clubs and confirmed study sessions persist in localStorage and change the answers.
 
 1. "What's due this week?"
 2. "Is my 2pm class still on?"
 3. "Where is A3-G01?" → *Show on map*
 4. "Draft an email to Finance about my fee instalment" → draft + approval (nothing is sent)
 5. "Add a finance widget and hide clubs" → dashboard changes, **Undo** available
-6. "When is my next class?" · "Which GE courses should I take?" · "How much do I owe?"
+6. "When is my next class?", "Which GE courses should I take?", or "How much do I owe?"
 7. "I like robotics and photography — which clubs fit?"
+8. "Help me plan my week. I have a meeting on Wednesday evening." → review the assumed 18:00–21:00 block, edit study sessions, **Confirm & save**, then reload Home
 
-The agent is a scripted mock: everything goes through `runAgent()` in `src/lib/agent.ts`, which yields an event stream (`plan`, `step`, `tool`, `text`, `card`). Replace that one function with a streaming route that runs a real LLM tool-calling loop; the UI doesn't change. The tools in that file are the tool spec to implement.
+**Demo mode** remains a scripted mock via `runAgent()` in `src/lib/agent.ts`. **Gemini mode**, when the server has a key, calls `src/app/api/agent/route.ts` and `src/lib/gemini-agent.ts` for a bounded tool-calling loop. Both display actions in the existing UI, but only Gemini mode uses a real model. The Gemini route calls `src/lib/gemini-tools.ts`, which allows only whitelisted fictional-data tools.
+
+Study proposals go through pure scheduling logic in `src/lib/planning.ts` and fictional-data mapping in `src/lib/planning-demo.ts`. The demo selects two imminent deadlines plus one high-weight assignment, prefers study windows within two days of each deadline, and lists omitted tasks for review. The app checks classes, deadlines, study hours, existing sessions and manual edits. Confirming writes only to this browser, never to university systems. **Gemini understands the request and chooses tools; it does not calculate authoritative time conflicts or save automatically.**
 
 ## Data rules (competition PNC rule)
 
@@ -57,11 +87,14 @@ src/components/agent/   panel + result cards
 
 ## Design notes
 
+The team keeps its own UX rules in [`../docs/ux/UX_GUIDELINES.md`](../docs/ux/UX_GUIDELINES.md) and [`../docs/ux/PROJECT_BRIEF.md`](../docs/ux/PROJECT_BRIEF.md). These use David's UX Engineering Kit as process guidance, not as a replacement theme or a private dependency. Run `npm run check:copy` to catch unwanted decorative punctuation in project-owned copy. The original competition handbook is an externally supplied source and is not rewritten by that check.
+
+
 System font, size-specific tracking, translucent chrome with `backdrop-filter`, press feedback on pointer-down, no-bounce springs by default, interruptible drag/flick on the map and sheets (velocity handoff + momentum projection), rubber-banding at map edges, reduced-motion / reduced-transparency / increased-contrast fallbacks.
 
 ## Not done yet
 
-Real Moodle/AC integration, auth, a live LLM, push notifications, and verified room/building data.
+Real Moodle/AC integration, student authentication, push notifications, and verified room/building data. The demo does have an optional real Gemini API agent with read-only/proposal-only tools, but **does not** have official live academic data access.
 
 ## 3D map — where it comes from
 

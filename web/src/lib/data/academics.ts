@@ -12,7 +12,7 @@ export const STUDENT = {
   first: "Alex",
   programme: "BSc Computer Science (Year 1)",
   id: "DEMO-0000",
-  semester: "Semester 1 · Week 10",
+  semester: "Semester 1, Week 10",
 };
 
 export type Course = {
@@ -28,20 +28,20 @@ export type Course = {
 };
 
 export const COURSES: Course[] = [
-  { id: "cst1101", code: "CST1101", title: "Programming Fundamentals", kind: "Core", credits: 4, lecturer: "Dr. Lim (demo)", tone: "blue", blurb: "Variables, control flow, arrays and functions in Python.", assessment: "Labs 30% · Project 30% · Final 40%" },
-  { id: "mat1101", code: "MAT1101", title: "Calculus I", kind: "Core", credits: 3, lecturer: "Prof. Chen (demo)", tone: "orange", blurb: "Limits, derivatives and integrals of one variable.", assessment: "Problem sets 20% · Midterm 30% · Final 50%" },
-  { id: "cst1103", code: "CST1103", title: "Digital Logic Design", kind: "Core", credits: 3, lecturer: "Dr. Ooi (demo)", tone: "purple", blurb: "Boolean algebra, combinational and sequential circuits.", assessment: "Quizzes 20% · Labs 20% · Final 60%" },
-  { id: "eng1101", code: "ENG1101", title: "Academic English", kind: "Core", credits: 2, lecturer: "Ms. Rao (demo)", tone: "green", blurb: "Reading, essay writing and presentation skills.", assessment: "Essays 50% · Presentation 20% · Quizzes 30%" },
-  { id: "gen1201", code: "GEN1201", title: "Malaysian Studies", kind: "GE", credits: 2, lecturer: "Dr. Siti (demo)", tone: "teal", blurb: "History, society and governance of Malaysia.", assessment: "Presentation 40% · Final 60%" },
+  { id: "cst1101", code: "CST1101", title: "Programming Fundamentals", kind: "Core", credits: 4, lecturer: "Dr. Lim (demo)", tone: "blue", blurb: "Variables, control flow, arrays and functions in Python.", assessment: "Labs 30%, Project 30%, Final 40%" },
+  { id: "mat1101", code: "MAT1101", title: "Calculus I", kind: "Core", credits: 3, lecturer: "Prof. Chen (demo)", tone: "orange", blurb: "Limits, derivatives and integrals of one variable.", assessment: "Problem sets 20%, Midterm 30%, Final 50%" },
+  { id: "cst1103", code: "CST1103", title: "Digital Logic Design", kind: "Core", credits: 3, lecturer: "Dr. Ooi (demo)", tone: "purple", blurb: "Boolean algebra, combinational and sequential circuits.", assessment: "Quizzes 20%, Labs 20%, Final 60%" },
+  { id: "eng1101", code: "ENG1101", title: "Academic English", kind: "Core", credits: 2, lecturer: "Ms. Rao (demo)", tone: "green", blurb: "Reading, essay writing and presentation skills.", assessment: "Essays 50%, Presentation 20%, Quizzes 30%" },
+  { id: "gen1201", code: "GEN1201", title: "Malaysian Studies", kind: "GE", credits: 2, lecturer: "Dr. Siti (demo)", tone: "teal", blurb: "History, society and governance of Malaysia.", assessment: "Presentation 40%, Final 60%" },
 ];
 
 export const COURSE_BY_ID = Object.fromEntries(COURSES.map((c) => [c.id, c]));
 
 // Programme outlook shown on the Courses page.
 export const CORE_PLAN = [
-  { sem: "Year 1 · Sem 1", status: "current", items: ["CST1101 Programming Fundamentals", "MAT1101 Calculus I", "CST1103 Digital Logic Design", "ENG1101 Academic English"] },
-  { sem: "Year 1 · Sem 2", status: "next", items: ["CST1202 Data Structures", "MAT1202 Linear Algebra", "CST1204 Computer Organisation", "ENG1202 Technical Writing"] },
-  { sem: "Year 2 · Sem 1", status: "later", items: ["CST2101 Algorithms", "CST2103 Database Systems", "MAT2101 Probability & Statistics"] },
+  { sem: "Year 1, Sem 1", status: "current", items: ["CST1101 Programming Fundamentals", "MAT1101 Calculus I", "CST1103 Digital Logic Design", "ENG1101 Academic English"] },
+  { sem: "Year 1, Sem 2", status: "next", items: ["CST1202 Data Structures", "MAT1202 Linear Algebra", "CST1204 Computer Organisation", "ENG1202 Technical Writing"] },
+  { sem: "Year 2, Sem 1", status: "later", items: ["CST2101 Algorithms", "CST2103 Database Systems", "MAT2101 Probability & Statistics"] },
 ];
 
 export const GE_GROUPS = [
@@ -124,10 +124,10 @@ export type Assignment = {
 
 export const ASSIGNMENTS: Assignment[] = [
   { id: "a0", courseId: "eng1101", title: "Vocabulary Quiz 4", due: "2026-11-22T23:59:00+08:00", weight: 2, type: "Quiz", status: "overdue", note: "Late attempts open until Wed 25 Nov" },
-  { id: "a1", courseId: "cst1101", title: "Lab 6 · Loops & Arrays", due: "2026-11-23T23:59:00+08:00", weight: 3, type: "Submission", status: "todo" },
-  { id: "a2", courseId: "cst1103", title: "Quiz 3 · Boolean Algebra", due: "2026-11-24T20:00:00+08:00", weight: 4, type: "Quiz", status: "todo" },
+  { id: "a1", courseId: "cst1101", title: "Lab 6: Loops & Arrays", due: "2026-11-23T23:59:00+08:00", weight: 3, type: "Submission", status: "todo" },
+  { id: "a2", courseId: "cst1103", title: "Quiz 3: Boolean Algebra", due: "2026-11-24T20:00:00+08:00", weight: 4, type: "Quiz", status: "todo" },
   { id: "a3", courseId: "mat1101", title: "Problem Set 5", due: "2026-11-25T17:00:00+08:00", weight: 4, type: "Submission", status: "progress" },
-  { id: "a4", courseId: "eng1101", title: "Reflective Essay · Draft", due: "2026-11-27T12:00:00+08:00", weight: 10, type: "Essay", status: "progress" },
+  { id: "a4", courseId: "eng1101", title: "Reflective Essay: Draft", due: "2026-11-27T12:00:00+08:00", weight: 10, type: "Essay", status: "progress" },
   { id: "a5", courseId: "gen1201", title: "Group Presentation Slides", due: "2026-11-30T23:59:00+08:00", weight: 15, type: "Presentation", status: "todo" },
   { id: "a6", courseId: "cst1101", title: "Mini Project Proposal", due: "2026-11-20T18:00:00+08:00", weight: 5, type: "Submission", status: "submitted" },
 ];

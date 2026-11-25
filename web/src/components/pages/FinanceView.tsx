@@ -18,14 +18,14 @@ export function FinanceView() {
       <PageHeader eyebrow="Semester 1" title="Finance" sub="What you owe, when, and what you've already paid. Figures here are invented for the demo." />
       <Stagger className="space-y-6">
         <Item>
-          <section className="card grid gap-6 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <section className="card grid min-w-0 grid-cols-1 gap-6 p-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
             <Ring value={FINANCE.paid / FINANCE.tuitionTotal} size={104} stroke={11} tone="var(--green)">
               <span className="text-center leading-tight"><span className="tnum block text-[1.4rem] font-bold tracking-[-0.03em]">{Math.round((FINANCE.paid / FINANCE.tuitionTotal) * 100)}%</span><span className="t-caption">paid</span></span>
             </Ring>
-            <div>
+            <div className="min-w-0">
               <p className="t-eyebrow">Tuition outstanding</p>
-              <p className="tnum t-display mt-1 !text-[2.6rem]">{money(outstanding)}</p>
-              <p className="t-sub mt-1">Next instalment due <strong className="text-label">{dateShort(new Date(next.due))}</strong> · {relative(new Date(next.due))}</p>
+              <p className="tnum t-display mt-1 break-words !text-[clamp(1.25rem,6vw,2.6rem)] sm:!text-[2.6rem]">{money(outstanding)}</p>
+              <p className="t-sub mt-1">Next instalment due <strong className="text-label">{dateShort(new Date(next.due))}</strong>, {relative(new Date(next.due))}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Link href="/mail?dept=finance&need=my%20second%20tuition%20instalment" className="press btn btn-primary"><Mail size={17} /> Email Finance</Link>
@@ -44,7 +44,7 @@ export function FinanceView() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold tracking-[-0.01em]">{d.label}</p>
-                  <p className="t-caption">{d.status === "paid" ? `Paid ${dateShort(new Date(d.paidOn!))}` : `Due ${dateShort(new Date(d.due))} · ${relative(new Date(d.due))}`}</p>
+                  <p className="t-caption">{d.status === "paid" ? `Paid ${dateShort(new Date(d.paidOn!))}` : `Due ${dateShort(new Date(d.due))}, ${relative(new Date(d.due))}`}</p>
                 </div>
                 <p className="tnum text-[1.05rem] font-semibold">{money(d.amount)}</p>
                 <Pill tone={d.status === "paid" ? "green" : d.status === "upcoming" ? "orange" : "purple"} className="hidden sm:inline-flex">{d.status === "paid" ? "Paid" : d.status === "upcoming" ? "Next" : "Later"}</Pill>
@@ -58,7 +58,7 @@ export function FinanceView() {
           <ul className="card divide-y divide-sep overflow-hidden">
             {FINANCE.history.map((p) => (
               <li key={p.id} className="flex items-center gap-4 px-5 py-4">
-                <div className="min-w-0 flex-1"><p className="font-semibold tracking-[-0.01em]">{p.label}</p><p className="t-caption">{p.date} · {p.method}</p></div>
+                <div className="min-w-0 flex-1"><p className="font-semibold tracking-[-0.01em]">{p.label}</p><p className="t-caption">{p.date}, {p.method}</p></div>
                 <p className="tnum font-semibold text-green">{money(p.amount)}</p>
               </li>
             ))}

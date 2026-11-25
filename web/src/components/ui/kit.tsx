@@ -19,7 +19,7 @@ export function PageHeader({ eyebrow, title, sub, action }: { eyebrow?: string; 
     <header className="flex flex-wrap items-end justify-between gap-4 pb-6 pt-2">
       <div className="min-w-0">
         {eyebrow && <p className="t-eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="t-title">{title}</h1>
+        <h1 className="t-title break-words">{title}</h1>
         {sub && <p className="t-sub mt-2 max-w-xl text-pretty">{sub}</p>}
       </div>
       {action}
@@ -50,8 +50,8 @@ export function Card({ children, className = "", ...rest }: { children: ReactNod
 
 export function CardTitle({ icon, title, action }: { icon?: ReactNode; title: string; action?: ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="t-headline flex items-center gap-2">{icon}{title}</h2>
+    <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
+      <h2 className="t-headline flex min-w-0 items-center gap-2 break-words">{icon}{title}</h2>
       {action}
     </div>
   );
@@ -83,9 +83,9 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="relative inline-flex rounded-full bg-surface-3 p-1">
+    <div role="tablist" aria-label={label} className="relative inline-flex max-w-full flex-wrap rounded-full bg-surface-3 p-1">
       {options.map((o) => (
-        <button key={o.value} role="tab" aria-selected={value === o.value} onClick={() => onChange(o.value)} className="press relative z-10 min-h-[34px] rounded-full px-4 text-[0.875rem] font-semibold" style={{ color: value === o.value ? "var(--label)" : "var(--label-2)" }}>
+        <button key={o.value} role="tab" aria-selected={value === o.value} onClick={() => onChange(o.value)} className="press relative z-10 min-h-[34px] rounded-full px-2 text-[0.875rem] font-semibold sm:px-4" style={{ color: value === o.value ? "var(--label)" : "var(--label-2)" }}>
           {value === o.value && <motion.span layoutId={`seg-${label}`} transition={{ type: "spring", bounce: 0, duration: 0.35 }} className="absolute inset-0 -z-10 rounded-full bg-surface shadow-sm" />}
           {o.label}
         </button>

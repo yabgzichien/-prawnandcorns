@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "npm run check:copy && node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "check:copy": "node scripts/check-copy-style.mjs",
     "lint": "eslint"
   },
   "dependencies": {
@@ -22,6 +25,7 @@
     "three-stdlib": "^2.36.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",

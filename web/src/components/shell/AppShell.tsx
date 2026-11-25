@@ -95,17 +95,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
 
       {/* Tab bar (phone): translucent layer, content scrolls under it */}
-      <nav className="glass fixed inset-x-3 bottom-3 z-30 flex items-center justify-between rounded-[26px] px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden" aria-label="Primary">
+      <nav className="glass fixed inset-x-3 bottom-3 z-30 flex min-w-0 items-center justify-between overflow-hidden rounded-[26px] px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden" style={{ width: "calc(100vw - 1.5rem)" }} aria-label="Primary">
         {NAV.filter((n) => TABS.includes(n.href)).map(({ href, label, icon: Icon }) => {
           const on = active(path, href);
           return (
-            <Link key={href} href={href} aria-current={on ? "page" : undefined} className="press flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[0.68rem] font-semibold" style={{ color: on ? "var(--accent)" : "var(--label-2)" }}>
+            <Link key={href} href={href} aria-label={label} aria-current={on ? "page" : undefined} className="press flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[0.68rem] font-semibold" style={{ color: on ? "var(--accent)" : "var(--label-2)" }}>
               <Icon size={22} strokeWidth={on ? 2.4 : 1.9} />
-              {label.replace("Campus map", "Map")}
+              <span className="max-w-full break-all text-center leading-tight">{label.replace("Campus map", "Map")}</span>
             </Link>
           );
         })}
-        <button onClick={() => setMore(true)} className="press flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[0.68rem] font-semibold" style={{ color: !TABS.includes(path) && path !== "/" ? "var(--accent)" : "var(--label-2)" }}>
+        <button onClick={() => setMore(true)} className="press flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[0.68rem] font-semibold" style={{ color: !TABS.includes(path) && path !== "/" ? "var(--accent)" : "var(--label-2)" }}>
           <MoreHorizontal size={22} />
           More
         </button>

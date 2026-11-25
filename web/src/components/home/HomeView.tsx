@@ -2,7 +2,7 @@
 
 import { AnimatePresence, LayoutGroup, motion, Reorder, useDragControls } from "motion/react";
 import { useState } from "react";
-import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useApp, WIDGET_META, DEFAULT_WIDGETS, type WidgetPref } from "@/lib/state";
 import { STUDENT } from "@/lib/data/academics";
 import { dayLong, dateShort, DEMO_NOW } from "@/lib/time";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/kit";
 import { WIDGETS } from "./widgets";
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
   const visible = widgets.filter((w) => !w.hidden);
@@ -21,9 +21,9 @@ export function HomeView() {
   return (
     <div>
       <header className="pb-6 pt-1">
-        <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)} · {STUDENT.semester}</p>
+        <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)}, {STUDENT.semester}</p>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="t-display">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
+          <h1 className="t-display break-words max-[360px]:!text-[clamp(1.6rem,4.6vw,3.25rem)]">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
           <button onClick={() => setCustomise(true)} className="press btn btn-plain"><SlidersHorizontal size={17} /> Customise</button>
         </div>
       </header>
@@ -47,8 +47,28 @@ export function HomeView() {
         </div>
       </motion.form>
 
+      {hydrated && studySessions.length > 0 && (
+        <section className="card mb-6 p-5" aria-label="Confirmed study plan">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="t-title">Your study plan</h2>
+            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
+          </div>
+          <ul className="divide-y divide-sep">
+            {[...studySessions].sort((a, b) => a.start.localeCompare(b.start)).map((session) => (
+              <li key={session.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[0.92rem] font-semibold">{session.title}</p>
+                  <p className="t-caption">{session.start.slice(0, 10)}, {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
+                </div>
+                <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <LayoutGroup>
-        <motion.div layout className="grid gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>
+        <motion.div layout className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>
           <AnimatePresence mode="popLayout" initial={false}>
             {visible.map((w, i) => {
               const def = WIDGETS[w.id];
@@ -61,7 +81,7 @@ export function HomeView() {
                   exit={{ opacity: 0, scale: 0.94 }}
                   transition={{ ...SPRING, delay: i < 8 ? i * 0.03 : 0 }}
                   aria-label={WIDGET_META[w.id].title}
-                  className={`card p-5 ${def.span === 2 ? "md:col-span-2" : ""} ${def.hero ? "sm:p-6" : ""}`}
+                  className={`card min-w-0 p-5 ${def.span === 2 ? "md:col-span-2" : ""} ${def.hero ? "sm:p-6" : ""}`}
                 >
                   {def.render()}
                 </motion.section>

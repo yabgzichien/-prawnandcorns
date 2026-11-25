@@ -51,7 +51,7 @@ export function composeEmail(dept: Department, need: string, tone: Tone = "forma
   const subject = `${dept.id === "finance" ? "Query" : "Enquiry"}: ${shortTopic.charAt(0).toUpperCase() + shortTopic.slice(1)} (${STUDENT.id})`;
   const intro = `My name is ${STUDENT.name} (${STUDENT.id}), a ${STUDENT.programme} student.`;
   const body = tone === "formal"
-    ? `Dear ${dept.name} team,\n\nI hope you are well. ${intro}\n\nI am writing about ${topic}.\n\n${ask}\n\nThank you for your time and help.\n\nKind regards,\n${STUDENT.name}\n${STUDENT.id} · ${STUDENT.programme}`
+    ? `Dear ${dept.name} team,\n\nI hope you are well. ${intro}\n\nI am writing about ${topic}.\n\n${ask}\n\nThank you for your time and help.\n\nKind regards,\n${STUDENT.name}\n${STUDENT.id}, ${STUDENT.programme}`
     : `Hi ${dept.name} team,\n\n${intro} ${sentence(`I'm writing about ${topic}`)}\n\n${ask}\n\nThanks,\n${STUDENT.name} (${STUDENT.id})`;
   return { to: dept, subject, body, tone };
 }

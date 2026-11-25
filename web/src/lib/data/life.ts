@@ -26,9 +26,9 @@ export const CLUBS: Club[] = [
 
 export type EventItem = { id: string; title: string; when: string; where: string; clubId?: string; room?: string };
 export const EVENTS: EventItem[] = [
-  { id: "e1", title: "Club Fair", when: "Fri 27 Nov · 15:00", where: "Lakeside Walk", room: "Lakefront Café" },
-  { id: "e2", title: "Hack-day: Build in 6 hours", when: "Sat 28 Nov · 09:00", where: "A4-301", clubId: "code", room: "A4-301" },
-  { id: "e3", title: "Open-mic night", when: "Fri 4 Dec · 19:30", where: "B1 Hall", clubId: "band", room: "B1 Hall" },
+  { id: "e1", title: "Club Fair", when: "Fri 27 Nov, 15:00", where: "Lakeside Walk", room: "Lakefront Café" },
+  { id: "e2", title: "Hack-day: Build in 6 hours", when: "Sat 28 Nov, 09:00", where: "A4-301", clubId: "code", room: "A4-301" },
+  { id: "e3", title: "Open-mic night", when: "Fri 4 Dec, 19:30", where: "B1 Hall", clubId: "band", room: "B1 Hall" },
 ];
 
 export type Dues = { id: string; label: string; amount: number; due: string; status: "paid" | "upcoming" | "later"; paidOn?: string };
@@ -38,12 +38,12 @@ export const FINANCE = {
   tuitionTotal: 8700,
   paid: 4350,
   dues: [
-    { id: "f1", label: "Tuition · instalment 1", amount: 4350, due: "2026-09-15T00:00:00+08:00", status: "paid", paidOn: "2026-09-12T00:00:00+08:00" },
-    { id: "f2", label: "Tuition · instalment 2", amount: 4350, due: "2026-11-30T00:00:00+08:00", status: "upcoming" },
-    { id: "f3", label: "Hostel · Semester 1", amount: 1200, due: "2026-12-15T00:00:00+08:00", status: "later" },
+    { id: "f1", label: "Tuition instalment 1", amount: 4350, due: "2026-09-15T00:00:00+08:00", status: "paid", paidOn: "2026-09-12T00:00:00+08:00" },
+    { id: "f2", label: "Tuition instalment 2", amount: 4350, due: "2026-11-30T00:00:00+08:00", status: "upcoming" },
+    { id: "f3", label: "Hostel for Semester 1", amount: 1200, due: "2026-12-15T00:00:00+08:00", status: "later" },
   ] as Dues[],
   history: [
-    { id: "p1", label: "Tuition · instalment 1", amount: 4350, date: "12 Sep 2026", method: "Online banking" },
+    { id: "p1", label: "Tuition instalment 1", amount: 4350, date: "12 Sep 2026", method: "Online banking" },
     { id: "p2", label: "Registration fee", amount: 300, date: "28 Aug 2026", method: "Card" },
   ],
 };

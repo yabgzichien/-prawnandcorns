@@ -23,13 +23,13 @@ export function TimetableView() {
 
   return (
     <div>
-      <PageHeader eyebrow="Semester 1 · Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
+      <PageHeader eyebrow="Semester 1, Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
         action={<button onClick={() => { download("xmum-timetable.ics", timetableICS()); showToast("Timetable exported to calendar file"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Segmented label="View" value={view} onChange={setView} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} />
         {view === "day" && (
-          <div className="rail flex gap-1.5 overflow-x-auto" role="tablist" aria-label="Day">
+          <div className="rail flex min-w-0 max-w-full gap-1.5 overflow-x-auto" role="tablist" aria-label="Day">
             {DAYS.map((d, i) => {
               const dots = classesOn(i).some((c) => c.status !== "normal");
               return (
@@ -55,22 +55,22 @@ export function TimetableView() {
             const notice = NOTICES.find((n) => n.id === c.noticeId);
             return (
               <Item key={c.id}>
-                <article className="card flex gap-4 p-4 sm:p-5">
+                <article className="card flex min-w-0 flex-wrap gap-4 p-4 sm:flex-nowrap sm:p-5">
                   <div className="w-14 shrink-0 text-right">
                     <p className="tnum text-[1.1rem] font-bold tracking-[-0.02em]" style={{ textDecoration: cancelled ? "line-through" : undefined, opacity: cancelled ? 0.5 : 1 }}>{c.start}</p>
                     <p className="tnum t-caption">{c.end}</p>
                   </div>
                   <span className={`w-1 shrink-0 rounded-full ${cancelled ? "bg-red" : t.dot}`} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className={`t-headline ${cancelled ? "line-through opacity-50" : ""}`}>{course.title}</h3>
+                  <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h3 className={`t-headline min-w-0 break-words ${cancelled ? "line-through opacity-50" : ""}`}>{course.title}</h3>
                       {c.status !== "normal" && <Pill tone={cancelled ? "red" : c.status === "makeup" ? "green" : "orange"}>{statusText(c)}</Pill>}
                     </div>
-                    <p className="t-sub mt-0.5">{course.code} · {c.kind} · {c.room}{room ? ` · ${PLACE_BY_ID[room.place].name}` : ""}{c.status === "room-changed" ? ` (was ${c.originalRoom})` : ""}</p>
+                    <p className="t-sub mt-0.5">{course.code}, {c.kind}, {c.room}{room ? `, ${PLACE_BY_ID[room.place].name}` : ""}{c.status === "room-changed" ? ` (was ${c.originalRoom})` : ""}</p>
                     {notice && c.status !== "normal" && (
-                      <p className="mt-3 flex gap-2 rounded-xl px-3 py-2 text-[0.85rem]" style={{ background: cancelled ? "var(--red-soft)" : "var(--orange-soft)" }}>
+                      <p className="mt-3 flex min-w-0 gap-2 rounded-xl px-3 py-2 text-[0.85rem]" style={{ background: cancelled ? "var(--red-soft)" : "var(--orange-soft)" }}>
                         {cancelled ? <CalendarX2 size={16} className="mt-0.5 shrink-0 text-red" /> : <DoorOpen size={16} className="mt-0.5 shrink-0 text-orange" />}
-                        <span>{notice.body}</span>
+                        <span className="min-w-0 flex-1 break-words">{notice.body}</span>
                       </p>
                     )}
                   </div>
@@ -116,7 +116,7 @@ function WeekGrid() {
                 return (
                   <Link key={c.id} href={cancelled ? "/hub?section=timetable" : `/hub?section=map&focus=${c.room}`} className={`press absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-[0.75rem] leading-tight ${cancelled ? "bg-red-soft text-red" : `${t.bg} ${t.fg}`}`} style={{ top: top + 2, height: h - 4, outline: c.status !== "normal" && !cancelled ? "2px solid var(--orange)" : undefined }}>
                     <span className={`block font-bold ${cancelled ? "line-through" : ""}`}>{course.code}</span>
-                    <span className="block opacity-80">{c.kind} · {c.room}</span>
+                    <span className="block opacity-80">{c.kind}, {c.room}</span>
                   </Link>
                 );
               })}

@@ -265,7 +265,7 @@ body {
   .hub-tile-icon svg { width: 1.65rem; height: 1.65rem; }
   .hub-grid.is-compact .hub-tile { min-height: 70px; padding: 0.7rem 0.85rem; }
   .hub-grid.is-compact .hub-tile-summary { display: none; }
-  .hub-content-panel { border-radius: 22px; padding: 0.8rem; }
+  .hub-content-panel { border-radius: 22px; padding: min(0.8rem, 4vw); overflow-wrap: anywhere; }
 }
 
 /* Size-specific tracking: tighter as type grows, open when small. */

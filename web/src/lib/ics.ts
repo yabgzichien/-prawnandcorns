@@ -19,7 +19,7 @@ export function timetableICS() {
 export function deadlinesICS() {
   const ev = ASSIGNMENTS.filter((a) => a.status !== "submitted").map((a) => {
     const due = new Date(a.due);
-    return ["BEGIN:VEVENT", `UID:${a.id}@xmum-compass.demo`, `DTSTAMP:${toICSDate(new Date("2026-11-23T05:20:00Z"))}`, `DTSTART:${toICSDate(new Date(due.getTime() - 30 * 60_000))}`, `DTEND:${toICSDate(due)}`, `SUMMARY:${esc(`DUE · ${COURSE_BY_ID[a.courseId].code} ${a.title}`)}`, `DESCRIPTION:${esc(`${a.weight}% · ${a.type} (demo data)`)}`, "BEGIN:VALARM", "TRIGGER:-PT3H", "ACTION:DISPLAY", "DESCRIPTION:Deadline soon", "END:VALARM", "END:VEVENT"].join("\r\n");
+    return ["BEGIN:VEVENT", `UID:${a.id}@xmum-compass.demo`, `DTSTAMP:${toICSDate(new Date("2026-11-23T05:20:00Z"))}`, `DTSTART:${toICSDate(new Date(due.getTime() - 30 * 60_000))}`, `DTEND:${toICSDate(due)}`, `SUMMARY:${esc(`DUE: ${COURSE_BY_ID[a.courseId].code} ${a.title}`)}`, `DESCRIPTION:${esc(`${a.weight}%, ${a.type} (demo data)`)}`, "BEGIN:VALARM", "TRIGGER:-PT3H", "ACTION:DISPLAY", "DESCRIPTION:Deadline soon", "END:VALARM", "END:VEVENT"].join("\r\n");
   });
   return wrap(ev);
 }

@@ -5,6 +5,8 @@ import { DEMO_NOW, dateShort, dayLong, dayShort, dueLabel, relative, timeOf, atD
 import { WIDGET_META, type WidgetId, type WidgetPref } from "./state";
 import { TODAY_IDX, upcomingClasses } from "./schedule";
 import { composeEmail, extractNeed, routeDepartment, type Draft } from "./email";
+import { demoStudyProposal } from "./planning-demo";
+import type { StudyProposal, StudySession } from "./planning";
 
 /* ───────────────────────────────────────────────────────────
    Agent runtime (front-end mock).
@@ -15,6 +17,7 @@ import { composeEmail, extractNeed, routeDepartment, type Draft } from "./email"
    ─────────────────────────────────────────────────────────── */
 
 export type AgentCard =
+  | { kind: "study-plan"; proposal: StudyProposal }
   | { kind: "deadlines"; items: Assignment[] }
   | { kind: "class"; session: ClassSession; notice?: Notice; makeup?: ClassSession; next?: ClassSession }
   | { kind: "schedule"; label: string; items: ClassSession[] }
@@ -34,9 +37,10 @@ export type AgentEvent =
   | { type: "card"; card: AgentCard }
   | { type: "done" };
 
-export type AgentContext = { widgets: WidgetPref[]; submitted: string[] };
+export type AgentContext = { widgets: WidgetPref[]; submitted: string[]; studySessions: StudySession[] };
 
 export const SUGGESTIONS = [
+  "Help me plan my week around my deadlines",
   "What's due this week?",
   "Is my 2pm class still on?",
   "Where is A3-G01?",
@@ -78,10 +82,11 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string): Intent {
   const t = raw.toLowerCase();
+  if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
   const aliasHit = Object.values(WIDGET_META).some((m) => m.aliases.some((a) => t.includes(a)));
   if (has(t, /\b(widget|widgets|dashboard|home ?screen|layout|personali[sz]e|customi[sz]e)\b/) ||
       (aliasHit && has(t, /\b(add|show|hide|remove|move|put|only|pin|reorder|first|top)\b/) && !has(t, /\b(email|mail|draft)\b/) && !has(t, /\bwhere\b/))) return "layout";
@@ -116,15 +121,33 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
 
   try {
     switch (intent) {
+      case "study": {
+        yield { type: "plan", steps: ["Read fictional deadlines and timetable", "Find free study windows and check conflicts", "Ask you to review and confirm the proposed sessions"] };
+        yield { type: "step", index: 0 };
+        const result = yield* tool("demo.study_plan", "fictional classes, deadlines and saved sessions", () => {
+          const proposal = demoStudyProposal(prompt, ctx.submitted, ctx.studySessions);
+          return { value: proposal, output: `${proposal.sessions.length} possible study blocks; ${proposal.skipped.length} unscheduled` };
+        }, signal);
+        yield { type: "step", index: 1 };
+        yield* tool("schedule.check_conflicts", "09:00–21:00 MYT; deadlines; existing commitments", () => ({ value: true, output: "Validated using application logic (not the AI model)" }), signal);
+        yield { type: "step", index: 2 };
+        yield* say(result.sessions.length
+          ? `I found **${result.sessions.length} possible study sessions** from the fictional timetable. Review or change the times below before saving. **Nothing has been saved yet.** This is a rule-based demo planner, not a live LLM.`
+          : result.assumptions.length && !result.skipped.length
+            ? "I need a clearer meeting time before I can safely propose a study plan. Please specify the weekday and whether it's in the evening. Nothing was saved."
+            : "I couldn't find a feasible study slot before the deadlines in the fictional timetable. Nothing was saved.", signal);
+        yield { type: "card", card: { kind: "study-plan", proposal: result } };
+        break;
+      }
       case "deadlines": {
         yield { type: "plan", steps: ["Check Moodle sync status", "Read assignments due 23–29 Nov", "Rank by urgency and weight"] };
         yield { type: "step", index: 0 };
         await sleep(250, signal);
         yield* tool("moodle.status", "account: demo", () => ({ output: "Connected (demo sync, read-only)", value: true }), signal);
         yield { type: "step", index: 1 };
-        const week = yield* tool("moodle.get_assignments", "from 23 Nov · to 29 Nov", () => {
+        const week = yield* tool("moodle.get_assignments", "23 to 29 Nov", () => {
           const items = ASSIGNMENTS.filter((a) => !ctx.submitted.includes(a.id) && a.status !== "submitted" && new Date(a.due) < atDay(7, "00:00"));
-          return { output: `${items.length} open · ${ASSIGNMENTS.length - items.length} done or later`, value: items };
+          return { output: `${items.length} open, ${ASSIGNMENTS.length - items.length} done or later`, value: items };
         }, signal);
         yield { type: "step", index: 2 };
         const ranked = yield* tool("rank.by_urgency", `${week.length} items`, () => {
@@ -144,21 +167,21 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         const hour = parseHour(t);
         const tomorrow = has(t, /\btomorrow\b/);
         const day = tomorrow ? 1 : todayIdx;
-        const found = yield* tool("timetable.get", `${tomorrow ? "Tue 24" : "Mon 23"} Nov${hour !== null ? ` · around ${String(hour).padStart(2, "0")}:00` : ""}`, () => {
+        const found = yield* tool("timetable.get", `${tomorrow ? "Tue 24" : "Mon 23"} Nov${hour !== null ? `, around ${String(hour).padStart(2, "0")}:00` : ""}`, () => {
           const list = CLASSES.filter((c) => c.day === day).sort((a, b) => a.start.localeCompare(b.start));
           // if a time was given, only that time counts — never substitute a different class
           const pick = hour !== null ? list.find((c) => parseInt(c.start, 10) === hour) : (list.find((c) => c.status !== "normal") ?? list[0]);
-          return { output: pick ? `${COURSE_BY_ID[pick.courseId].code} ${pick.kind} · ${pick.start}–${pick.end} · ${pick.room}` : "No class found", value: pick };
+          return { output: pick ? `${COURSE_BY_ID[pick.courseId].code} ${pick.kind}, ${pick.start}–${pick.end}, ${pick.room}` : "No class found", value: pick };
         }, signal);
         yield { type: "step", index: 1 };
         const notice = yield* tool("notices.search", found ? COURSE_BY_ID[found.courseId].code : "—", () => {
           const n = found?.noticeId ? NOTICES.find((x) => x.id === found.noticeId) : undefined;
-          return { output: n ? `Found: "${n.title}" · ${n.source}` : "No notices", value: n };
+          return { output: n ? `Found: "${n.title}", ${n.source}` : "No notices", value: n };
         }, signal);
         yield { type: "step", index: 2 };
         const makeup = yield* tool("timetable.find_makeup", found?.courseId ?? "—", () => {
           const m = CLASSES.find((c) => c.courseId === found?.courseId && c.status === "makeup");
-          return { output: m ? `${dayShort(atDay(m.day, m.start))} ${m.start} · ${m.room}` : "None scheduled", value: m };
+          return { output: m ? `${dayShort(atDay(m.day, m.start))} ${m.start}, ${m.room}` : "None scheduled", value: m };
         }, signal);
         const next = upcomingClasses()[0];
         if (!found) {
@@ -185,12 +208,12 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         yield { type: "step", index: 1 };
         const cancelled = yield* tool("timetable.get", "Mon 23 Nov", () => {
           const c = CLASSES.filter((x) => x.day === todayIdx && x.status === "cancelled");
-          return { output: `${CLASSES.filter((x) => x.day === todayIdx).length} sessions · ${c.length} cancelled`, value: c };
+          return { output: `${CLASSES.filter((x) => x.day === todayIdx).length} sessions, ${c.length} cancelled`, value: c };
         }, signal);
         yield { type: "step", index: 2 };
         const nxt = yield* tool("timetable.next_class", `after ${timeOf(DEMO_NOW)}`, () => {
           const n = upcomingClasses()[0];
-          return { output: `${COURSE_BY_ID[n.courseId].code} ${n.start} · ${n.room}`, value: n };
+          return { output: `${COURSE_BY_ID[n.courseId].code} ${n.start}, ${n.room}`, value: n };
         }, signal);
         const when = atDay(nxt.day, nxt.start);
         yield* say(`Your next class is **${COURSE_BY_ID[nxt.courseId].title}** (${COURSE_BY_ID[nxt.courseId].code}) ${nxt.kind.toLowerCase()} at **${nxt.start}** in **${nxt.room}** — ${relative(when)}.${cancelled.length ? ` Note: ${COURSE_BY_ID[cancelled[0].courseId].code} at ${cancelled[0].start} today is cancelled, so you're free until then.` : ""}`, signal);
@@ -206,7 +229,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         yield { type: "step", index: 1 };
         const open = yield* tool("courses.unmet", "—", () => {
           const o = groups.filter((g) => g.done < g.need);
-          return { output: `${o.length} groups still open · ${o.reduce((a, g) => a + (g.need - g.done), 0)} credits`, value: o };
+          return { output: `${o.length} groups still open, ${o.reduce((a, g) => a + (g.need - g.done), 0)} credits`, value: o };
         }, signal);
         yield* say(`You still need **${open.reduce((a, g) => a + (g.need - g.done), 0)} General Education credits** across ${open.length} groups. Malaysian Studies already covers *Society & Nation*. Since you're already juggling 4 core courses, pick ${open.length > 1 ? "one or two" : "one"} light option${open.length > 1 ? "s" : ""} next semester — *Language & Culture* is the biggest gap. Always confirm against the official handbook before registering.`, signal);
         yield { type: "card", card: { kind: "ge", groups: open.map((g) => ({ title: g.title, need: g.need - g.done, done: 0, options: g.options })) } };
@@ -229,7 +252,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         const hit = yield* tool("campus.search", `"${norm}"`, () => {
           const hits = searchCampus(norm, 3);
           const first = hits[0];
-          const label = first ? (first.type === "room" ? `${first.room.code} · ${first.place.name} · ${first.room.floor}` : first.place.name) : "No match";
+          const label = first ? (first.type === "room" ? `${first.room.code}, ${first.place.name}, ${first.room.floor}` : first.place.name) : "No match";
           return { output: label, value: first };
         }, signal);
         yield { type: "step", index: 2 };
@@ -257,11 +280,11 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         const routed = yield* tool("directory.route", `"${need.slice(0, 44)}"`, () => {
           const r = routeDepartment(prompt);
           const best = r[0];
-          return { output: best ? `${best.dept.name} · ${Math.round(Math.min(0.97, 0.55 + best.confidence * 0.45) * 100)}% match` : "No clear match", value: best };
+          return { output: best ? `${best.dept.name}, ${Math.round(Math.min(0.97, 0.55 + best.confidence * 0.45) * 100)}% match` : "No clear match", value: best };
         }, signal);
         yield { type: "step", index: 2 };
         const dept = routed?.dept ?? routeDepartment("student affairs welfare")[0].dept;
-        const draft = yield* tool("email.compose", `${dept.email} · formal`, () => ({ output: "Draft ready — not sent", value: composeEmail(dept, need, "formal") }), signal);
+        const draft = yield* tool("email.compose", `${dept.email}, formal`, () => ({ output: "Draft ready — not sent", value: composeEmail(dept, need, "formal") }), signal);
         yield* say(`I'll send this to the **${dept.name}** (${dept.email}) — they handle ${dept.handles.toLowerCase()}. I've drafted it below. **Nothing is sent automatically**: edit it, copy it, or open it in your mail app when you're happy.`, signal);
         yield { type: "card", card: { kind: "email", draft, need } };
         break;
@@ -274,7 +297,7 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         yield { type: "step", index: 1 };
         const plan = yield* tool("dashboard.plan_changes", `"${prompt.slice(0, 48)}"`, () => {
           const r = planLayout(prompt, before);
-          return { output: r.summary.length ? r.summary.join(" · ") : "No change needed", value: r };
+          return { output: r.summary.length ? r.summary.join(", ") : "No change needed", value: r };
         }, signal);
         yield { type: "step", index: 2 };
         if (!plan.summary.length) {
@@ -290,10 +313,10 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
       case "fees": {
         yield { type: "plan", steps: ["Read your fee schedule", "Find the next payment due"] };
         yield { type: "step", index: 0 };
-        const dues = yield* tool("finance.get_schedule", "sem 1", () => ({ output: `${FINANCE.dues.length} items · ${money(FINANCE.paid)} paid`, value: FINANCE.dues }), signal);
+        const dues = yield* tool("finance.get_schedule", "sem 1", () => ({ output: `${FINANCE.dues.length} items, ${money(FINANCE.paid)} paid`, value: FINANCE.dues }), signal);
         yield { type: "step", index: 1 };
         const next = dues.find((d) => d.status === "upcoming")!;
-        yield* tool("finance.next_due", "—", () => ({ output: `${money(next.amount)} · ${relative(new Date(next.due))}`, value: next }), signal);
+        yield* tool("finance.next_due", "—", () => ({ output: `${money(next.amount)}, ${relative(new Date(next.due))}`, value: next }), signal);
         yield* say(`You've paid **${money(FINANCE.paid)}** of ${money(FINANCE.tuitionTotal)} tuition. The next instalment — **${money(next.amount)}** — is due **${dateShort(new Date(next.due))}** (${relative(new Date(next.due))}). A hostel payment of ${money(1200)} follows on 15 Dec. If you need more time, I can draft an email to the Finance Office.`, signal);
         yield { type: "card", card: { kind: "fees", due: next.amount, label: next.label, dueIso: next.due, paid: FINANCE.paid, total: FINANCE.tuitionTotal } };
         yield { type: "card", card: { kind: "suggest", prompts: ["Draft an email to Finance about my fee instalment"] } };

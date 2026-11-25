@@ -132,7 +132,7 @@ export const POOLS: { p: V3; r: [number, number]; c: string }[] = [
 /**
  * A light beam (a moving head, or a floor fixture): its source (metres), its aim (a unit vector), its length, its
  * width at the source and at the end, and its colour. It sweeps by turning its aim about `axis` by
- * sway[0] · sin(time · sway[1] + sway[2]) (amplitude in radians, speed in radians a second, phase).
+ * sway[0] * sin(time * sway[1] + sway[2]) (amplitude in radians, speed in radians a second, phase).
  */
 export type Beam = { p: V3; dir: V3; len: number; w0: number; w1: number; c: string; axis: V3; sway: V3 };
 
