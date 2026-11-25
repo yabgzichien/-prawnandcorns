@@ -44,14 +44,13 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
   const [focusSearch, setFocusSearch] = useState(false);
   const [kinds, setKinds] = useState<Set<PlaceKind>>(new Set(ALL_KINDS));
   const [showRoute, setShowRoute] = useState(true);
-  const { showToast, theme } = useApp();
-  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const { showToast } = useApp();
   const [view, setView] = useState<"2d" | "3d">(params.get("view") === "3d" ? "3d" : "2d");
   const [visited3d, setVisited3d] = useState(params.get("view") === "3d");
   const [mode3d, setMode3d] = useState<Mode | null>(["day", "sunset", "night"].includes(params.get("mode") ?? "") ? (params.get("mode") as Mode) : null);
   const [names3d, setNames3d] = useState(false);
   const [flyNonce, setFlyNonce] = useState(0);
-  const mode: Mode = mode3d ?? (theme === "dark" || (theme === "system" && prefersDark) ? "night" : "day");
+  const mode: Mode = mode3d ?? "day";
 
   const viewRef = useRef<"2d" | "3d">("2d");
   useEffect(() => { viewRef.current = view; }, [view]);

@@ -12,17 +12,16 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f1faee" }, { media: "(prefers-color-scheme: dark)", color: "#07090f" }],
+  themeColor: "#ffffff",
 };
-
-// Apply a saved theme before first paint to avoid a flash.
-const themeScript = `try{var s=JSON.parse(localStorage.getItem("xmum-compass:v1")||"{}");if(s.theme&&s.theme!=="system")document.documentElement.setAttribute("data-theme",s.theme)}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Newsreader:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
         <Providers>

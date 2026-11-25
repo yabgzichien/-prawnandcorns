@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, LayoutGroup, motion, Reorder, useDragControls } from "motion/react";
-import { useState } from "react";
-import { ArrowUp, GripVertical, RotateCcw, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUp, CalendarDays, GripVertical, RotateCcw, Search, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useApp, WIDGET_META, DEFAULT_WIDGETS, type WidgetPref } from "@/lib/state";
 import { STUDENT } from "@/lib/data/academics";
 import { dayLong, dateShort, DEMO_NOW } from "@/lib/time";
@@ -10,35 +10,62 @@ import { SPRING } from "@/lib/hooks";
 import { SUGGESTIONS } from "@/lib/agent";
 import { Sheet } from "@/components/ui/Sheet";
 import { Switch } from "@/components/ui/kit";
-import { WIDGETS } from "./widgets";
+import { TodayOverview, WIDGETS } from "./widgets";
+
+const WIDGET_ART: Record<WidgetPref["id"], string> = {
+  next: "/brand/today-art/up-next.png",
+  alerts: "/brand/today-art/class-changes.png",
+  fees: "/brand/today-art/fees.png",
+  find: "/brand/today-art/find-a-room.png",
+  clubs: "/brand/today-art/clubs-events.png",
+  today: "/brand/today-art/today.png",
+  due: "/brand/today-art/due-soon.png",
+  progress: "/brand/today-art/degree-progress.png",
+};
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
+  const [greeting, setGreeting] = useState("Good afternoon");
+  useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      setGreeting(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
+    };
+    updateGreeting();
+    const timer = window.setInterval(updateGreeting, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const visible = widgets.filter((w) => !w.hidden);
+  const defaultOrder = visible.length === 6 && visible.every((w, i) => w.id === DEFAULT_WIDGETS[i].id);
+  const displayed = defaultOrder
+    ? (["today", "due", "alerts", "clubs", "find"] as const).map((id) => visible.find((w) => w.id === id)!)
+    : visible;
 
   return (
-    <div>
-      <header className="pb-6 pt-1">
-        <p className="t-eyebrow mb-2">{dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)}, {STUDENT.semester}</p>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="t-display break-words max-[360px]:!text-[clamp(1.6rem,4.6vw,3.25rem)]">Good afternoon,<br className="sm:hidden" /> {STUDENT.first}.</h1>
-          <button onClick={() => setCustomise(true)} className="press btn btn-plain"><SlidersHorizontal size={17} /> Customise</button>
+    <div className="home-view">
+      <header className="home-header pb-6 pt-1">
+        <div className="home-header-copy">
+          <h1 className="t-display" style={{ letterSpacing: "0.005em" }}>{greeting}, {STUDENT.first}.</h1>
+          <p className="home-date"><CalendarDays size={19} /> {dayLong(DEMO_NOW)} {dateShort(DEMO_NOW)} <span className="home-date-divider" /> {STUDENT.semester}</p>
         </div>
+        <div className="home-campus-art" aria-hidden="true" />
+        <div className="home-header-mascot" style={{ backgroundImage: 'url("/brand/corn-graduate.png")' }} aria-hidden="true" />
+        <button onClick={() => setCustomise(true)} className="press btn btn-plain home-customise"><SlidersHorizontal size={17} /> Customise</button>
       </header>
 
       {/* The agent is the front door, not a side feature. */}
       <motion.form
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={SPRING}
         onSubmit={(e) => { e.preventDefault(); if (ask.trim()) { openAgent(ask.trim()); setAsk(""); } else openAgent(); }}
-        className="card mb-6 p-2 pl-5"
+        className="home-search card mb-6 p-2 pl-5"
         style={{ boxShadow: "var(--shadow-md)" }}
       >
         <div className="flex items-center gap-3">
-          <Sparkles size={20} className="text-accent" strokeWidth={2.4} />
-          <input value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Compass" placeholder="Ask Compass — “What’s due this week?”" className="min-w-0 flex-1 bg-transparent py-3 text-[1.05rem] tracking-[-0.01em] outline-none placeholder:text-label-3" />
-          <button aria-label="Send" className="press grid h-11 w-11 place-items-center rounded-full bg-accent text-accent-fg"><ArrowUp size={20} strokeWidth={2.6} /></button>
+          <Search size={20} className="text-label-2" />
+          <input value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Compass" placeholder="Ask Compass…  e.g. “When is my next class?”, “Find a room in A3”" className="min-w-0 flex-1 bg-transparent py-3 text-[1.05rem] tracking-[-0.01em] outline-none placeholder:text-label-3" />
+          <button aria-label="Ask Compass" className="press btn btn-primary home-ask-button"><Sparkles size={17} /> <span>Ask</span><ArrowUp size={16} className="sm:hidden" /></button>
         </div>
         <div className="rail -mx-1 mt-1 flex gap-2 overflow-x-auto px-1 pb-2 pt-1">
           {SUGGESTIONS.map((s) => (
@@ -47,30 +74,10 @@ export function HomeView() {
         </div>
       </motion.form>
 
-      {hydrated && studySessions.length > 0 && (
-        <section className="card mb-6 p-5" aria-label="Confirmed study plan">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="t-title">Your study plan</h2>
-            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
-          </div>
-          <ul className="divide-y divide-sep">
-            {[...studySessions].sort((a, b) => a.start.localeCompare(b.start)).map((session) => (
-              <li key={session.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-[0.92rem] font-semibold">{session.title}</p>
-                  <p className="t-caption">{session.start.slice(0, 10)}, {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
-                </div>
-                <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <LayoutGroup>
-        <motion.div layout className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2" style={{ opacity: hydrated ? 1 : 0.999 }}>
+        <motion.div layout className={`home-grid grid gap-4 md:grid-cols-2${defaultOrder ? " is-reference-layout" : ""}${visible.length > 6 ? " has-extra-widgets" : ""}`} style={{ opacity: hydrated ? 1 : 0.999 }}>
           <AnimatePresence mode="popLayout" initial={false}>
-            {visible.map((w, i) => {
+            {displayed.map((w, i) => {
               const def = WIDGETS[w.id];
               return (
                 <motion.section
@@ -81,9 +88,11 @@ export function HomeView() {
                   exit={{ opacity: 0, scale: 0.94 }}
                   transition={{ ...SPRING, delay: i < 8 ? i * 0.03 : 0 }}
                   aria-label={WIDGET_META[w.id].title}
-                  className={`card min-w-0 p-5 ${def.span === 2 ? "md:col-span-2" : ""} ${def.hero ? "sm:p-6" : ""}`}
+                  data-widget={w.id}
+                  className={`home-widget card p-5 ${def.hero ? "sm:p-6" : ""}`}
                 >
-                  {def.render()}
+                  <img className="home-widget-art" src={WIDGET_ART[w.id]} alt="" aria-hidden="true" />
+                  {defaultOrder && w.id === "today" ? <TodayOverview /> : def.render()}
                 </motion.section>
               );
             })}
@@ -116,7 +125,7 @@ function CustomiseSheet({ open, onClose, widgets, setWidgets, onAsk }: { open: b
 
         <form onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) onAsk(prompt.trim()); }} className="mb-5 flex items-center gap-2 rounded-full bg-surface py-1 pl-4 pr-1 ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
           <Sparkles size={17} className="text-accent" />
-          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label="Describe your dashboard" placeholder="“Show fees first, hide clubs”" className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-label-3" />
+          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label="Describe your dashboard" placeholder="Show fees first, hide clubs" className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-label-3" />
           <button className="press btn btn-sm btn-primary">Apply</button>
         </form>
 
