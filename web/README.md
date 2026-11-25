@@ -12,6 +12,10 @@ npm run check:copy
 npm run test:e2e  # optional browser QA; first run: npx playwright install chromium
 ```
 
+Voice Dictation in the Compass message composer is a progressive enhancement. It uses the browser's `SpeechRecognition` or `webkitSpeechRecognition` implementation, when available, to turn one spoken question into editable text. It never automatically submits a recognized transcript; the student must still press **Send**. The browser may process speech through a vendor-operated online service, and Compass itself does not store raw recordings. See [`../docs/ux/VOICE_DICTATION_MVP.md`](../docs/ux/VOICE_DICTATION_MVP.md) for implementation details, privacy notes and manual device checks.
+
+If the browser reports a speech recognition network error, Gemini is not necessarily affected. Compass offers a separate, opt-in **on-device English speech** check where the browser implements it; the user must approve any language pack installation. Otherwise, Mac keyboard Dictation or typing into the same field is a reliable alternative. The app never silently uploads microphone recordings to its own backend.
+
 ### Gemini API setup (local)
 
 The server uses Google Gemini `generateContent` with declared, read-only/demo-only tools. The API key **never enters the browser**. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/apikey), then from the `web/` folder:
@@ -23,6 +27,8 @@ npm run dev -- -p 3456
 ```
 
 Open `http://localhost:3456` or `http://127.0.0.1:3456`, launch **Compass**, and select **Gemini API**. The local endpoint permits both loopback aliases only on the same scheme and port; public/cross-site origins remain blocked. The app detects whether the server has a configured key. Without a key it visibly uses **Demo** mode; it must not be described as a successful live Gemini call. Restart the server after changing `.env.local`. The default is `gemini-2.5-flash` to favor competition demo responsiveness. In one local comparison on 23 November 2026, the same single-tool assignment question took 17.03 seconds with `gemini-4-hydrogen` and 4.07 seconds with `gemini-2.5-flash`. These are one-off observations, not guaranteed latencies. You can opt into Hydrogen by setting `GEMINI_MODEL=gemini-4-hydrogen` and `GEMINI_FALLBACK_MODEL=gemini-2.5-flash`. A chosen primary model falls back only on provider HTTP 503 or the 18-second interactive deadline; fallback attribution is visible. Set both models to the same value to disable model fallback. Free-tier rate limits and paid-tier token pricing are determined by Google, not by this application.
+
+The **Gemini model** dropdown in the Compass assistant also supports per-request selection between **Flash (faster)** and **Hydrogen (slower)**. These are explicit server-allowlisted IDs and do not guarantee that your API key can access both. The selected model is sent to the localhost-only `/api/agent` route; the API key stays on the server. An explicit Hydrogen choice falls back to Flash on supported timeout or temporary service-unavailable errors, while an explicit Flash choice does not escalate to Hydrogen. If a request omits the selection, the configured server model and fallback remain in effect. Selection lasts for the current assistant session and is disabled during an active request; Demo mode remains separate.
 
 Only the fictional study-planning data, demo timetable, assignments, finance data and illustrative room lookup can be fetched by the model. Scheduling conflict checks remain deterministic and every proposed study session requires user confirmation. No university account authentication, campus system integration, actual email sending or cloud persistence is implemented. Gemini responses are not streamed token by token in this first integration.
 

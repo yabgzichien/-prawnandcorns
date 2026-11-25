@@ -23,3 +23,36 @@ test("invalid cross-origin requests do not access the Gemini endpoint", async ({
   });
   expect(response.status()).toBe(403);
 });
+
+test("Gemini model chooser sends only the selected allowlisted model", async ({ page }) => {
+  const requested: string[] = [];
+  await page.route("**/api/agent", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, model: "gemini-2.5-flash", data: "fictional_demo" }) });
+      return;
+    }
+    const body = route.request().postDataJSON() as { model?: string };
+    requested.push(body.model ?? "missing");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      mode: "gemini", model: body.model, text: "Fictional demo answer.", tools: [], cards: [], saved: false,
+    }) });
+  });
+
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Ask Compass" }).click();
+  const assistant = page.getByRole("dialog", { name: "Compass assistant" });
+  const models = assistant.getByRole("combobox", { name: "Gemini model" });
+  await expect(models).toHaveValue("gemini-2.5-flash");
+  await models.selectOption("gemini-4-hydrogen");
+  await expect(assistant.getByText(/Hydrogen may take longer/)).toBeVisible();
+  await assistant.getByRole("textbox", { name: "Message Compass" }).fill("What is due tomorrow?");
+  await assistant.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(assistant.getByText("Fictional demo answer.")).toBeVisible();
+  expect(requested).toEqual(["gemini-4-hydrogen"]);
+
+  await models.selectOption("gemini-2.5-flash");
+  await assistant.getByRole("textbox", { name: "Message Compass" }).fill("What about next week?");
+  await assistant.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(assistant.getByText("What about next week?")).toBeVisible();
+  expect(requested).toEqual(["gemini-4-hydrogen", "gemini-2.5-flash"]);
+});
