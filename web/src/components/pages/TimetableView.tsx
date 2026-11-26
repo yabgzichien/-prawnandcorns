@@ -10,6 +10,7 @@ import { classesOn, TODAY_IDX, statusText } from "@/lib/schedule";
 import { download, timetableICS } from "@/lib/ics";
 import { Item, PageHeader, Pill, Segmented, Stagger, toneClass } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
+import { ReplacementPanel } from "@/components/replacement/ReplacementPanel";
 import { useCampus } from "@/lib/sync/CampusProvider";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -29,6 +30,8 @@ export function TimetableView() {
     <div>
       <PageHeader eyebrow="Semester 1, Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
         action={<button onClick={() => { download("xmum-timetable.ics", timetableICS(data.classes)); showToast("Timetable exported to calendar file"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
+
+      <ReplacementPanel onShowDay={(d) => { setView("day"); setDay(d); }} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Segmented label="View" value={view} onChange={setView} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} />

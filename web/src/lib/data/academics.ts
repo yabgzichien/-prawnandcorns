@@ -44,13 +44,6 @@ export const CORE_PLAN = [
   { sem: "Year 2, Sem 1", status: "later", items: ["CST2101 Algorithms", "CST2103 Database Systems", "MAT2101 Probability & Statistics"] },
 ];
 
-export const GE_GROUPS = [
-  { id: "culture", title: "Language & Culture", need: 4, done: 0, options: ["Intermediate Mandarin", "Intro to Chinese Culture", "Bahasa Melayu for Beginners"] },
-  { id: "society", title: "Society & Nation", need: 2, done: 2, taking: "GEN1201 Malaysian Studies", options: ["Malaysian Studies", "Ethics in the Digital Age"] },
-  { id: "enterprise", title: "Enterprise & Skills", need: 2, done: 0, options: ["Entrepreneurship Essentials", "Design Thinking", "Personal Finance Basics"] },
-  { id: "wellbeing", title: "Wellbeing & Sport", need: 2, done: 0, options: ["Fitness & Wellness", "Badminton", "Mindfulness"] },
-];
-
 export type ClassStatus = "normal" | "cancelled" | "room-changed" | "makeup";
 
 export type ClassSession = {
@@ -64,6 +57,8 @@ export type ClassSession = {
   status: ClassStatus;
   originalRoom?: string;
   noticeId?: string;
+  /** Set when a lecturer added this class as a replacement for a lost one (see lib/replacement). */
+  replacementId?: string;
 };
 
 export const CLASSES: ClassSession[] = [

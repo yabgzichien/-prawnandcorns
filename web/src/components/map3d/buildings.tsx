@@ -23,6 +23,7 @@ import {
   type World,
 } from "./geo";
 import { TanKahKeeStatue } from "./statue";
+import { courtyardArcs, GABLE_PLAN, type CourtPoint } from "@/lib/data/a-block-plan";
 import {
   A3_ROWS,
   makeA3Centre,
@@ -137,14 +138,7 @@ const fourSides = (parts: THREE.BufferGeometry[]) => TURNS.flatMap((a) => parts.
 /** The rotation about +Y that turns a block's +Z side to `side` (degrees from its long side, as geo.ts A_FRONT_SIDE). */
 const toSide = (side: number) => ((90 - side) * Math.PI) / 180;
 
-/**
- * A1, A2, A4 and A5 (Ben's photos; all four alike), as shares of the walls' half width `s`: a corner tower `tower`
- * wide at each corner, a gable on each side `gable` wide each way from the middle, and round each corner a red roof
- * that rises from its eaves (where the gables start) to its ridge, `ridge` out from the corner. The courtyard's points
- * stop `point` inside the walls, and a darker square `square` each way from the middle (satellite photo) is set in its
- * paving.
- */
-const GABLE_PLAN = { tower: 0.26, gable: 0.54, ridge: 0.95, point: 0.06, square: 0.13 };
+// GABLE_PLAN (the plan's shares of the walls' half width) lives in lib/data/a-block-plan.ts, shared with the interiors.
 /** Heights over the eaves (world units): the gables' apex and the red roofs' ridge. */
 const GABLE_RISE = { apex: 2.4, ridge: 2.0 };
 /** The courtyard's paving: one tile of makePaving (four slabs each way) is this wide (world units). */
@@ -197,30 +191,7 @@ function cornerRoofGeometry(s: number, r0: number, r1: number, R: number, eave: 
   return g;
 }
 
-/** A point on the courtyard's outline (local units), with the normal there into the courtyard. */
-type CourtPoint = { x: number; z: number; nx: number; nz: number };
-
-/**
- * The open courtyard in the middle of A1, A2, A4 and A5 (Ben: open to the sky, down to the ground; aerial and
- * satellite photos), in plan: the square less a circle `R` round each corner (under the red roofs' ridges), a
- * four-pointed star whose points reach behind the gables and stop `m` inside the walls. One arc round each corner;
- * a short straight run joins each arc to the next, behind a gable.
- */
-function courtyardArcs(s: number, R: number, m: number): CourtPoint[][] {
-  const t0 = Math.asin(m / R);
-  const quarter = Array.from({ length: 13 }, (_, i) => {
-    const t = t0 + ((Math.PI / 2 - 2 * t0) * i) / 12;
-    return { x: s - R * Math.cos(t), z: s - R * Math.sin(t), nx: -Math.cos(t), nz: -Math.sin(t) };
-  });
-  // the same round the other three corners, each turned a quarter on from the last
-  return [0, 1, 2, 3].map((q) =>
-    quarter.map((p) => {
-      let { x, z, nx, nz } = p;
-      for (let k = 0; k < q; k++) [x, z, nx, nz] = [z, -x, nz, -nx];
-      return { x, z, nx, nz };
-    }),
-  );
-}
+// courtyardArcs (the star-shaped courtyard's outline) lives in lib/data/a-block-plan.ts, shared with the interiors.
 
 /**
  * The courtyard's walls, facing into it, from the plinth up to the red roofs' ridge `ridge` over the eaves: plain wall

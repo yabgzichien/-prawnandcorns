@@ -13,6 +13,7 @@ import { DemoBadge } from "@/components/ui/kit";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import { UpdatesBanner } from "./UpdatesBanner";
 import { AskaTicketSheet } from "@/components/helpdesk/AskaTicketSheet";
+import { EventApplicationSheet } from "@/components/events/EventApplicationSheet";
 
 const NAV = [
   { href: "/", label: "Today", icon: Home },
@@ -27,7 +28,7 @@ const active = (path: string, href: string) => (href === "/" ? path === "/" : pa
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { openAgent, agentOpen, closeAgent, theme, setTheme, toast, resetDemo, askaDraft, closeAskaTicket } = useApp();
+  const { openAgent, agentOpen, closeAgent, theme, setTheme, toast, resetDemo, askaDraft, closeAskaTicket, eventDraft, closeEventApplication } = useApp();
   const [moreAt, setMoreAt] = useState<string | null>(null);
   const more = moreAt === path; // the sheet belongs to the page it was opened on, so navigating closes it
   const setMore = (v: boolean) => setMoreAt(v ? path : null);
@@ -152,6 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <UpdatesBanner />
       <AgentPanel />
       <AskaTicketSheet draft={askaDraft} onClose={closeAskaTicket} />
+      <EventApplicationSheet draft={eventDraft} onClose={closeEventApplication} />
 
       <AnimatePresence>
         {toast && (

@@ -1,4 +1,6 @@
 import { ASKA_UPDATES_KEY, sanitizeUpdates, type AskaUpdate, type AskaUpdates } from "../aska.ts";
+import { DECISIONS_KEY } from "../events/types.ts";
+import { REPLACEMENTS_KEY } from "../replacement/types.ts";
 import { cleanEventIds } from "./world.ts";
 
 /**
@@ -54,7 +56,7 @@ export function triggerEvent(id: string, storage: StorageLike | null = store()):
 
 export function resetScenario(storage: StorageLike | null = store()): void {
   if (!storage) return;
-  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); storage.removeItem(ASKA_UPDATES_KEY); storage.removeItem(MAIL_READ_KEY); } catch {}
+  try { storage.removeItem(SCENARIO_KEY); storage.removeItem(CUSTOM_MAIL_KEY); storage.removeItem(ASKA_UPDATES_KEY); storage.removeItem(MAIL_READ_KEY); storage.removeItem(DECISIONS_KEY); storage.removeItem(REPLACEMENTS_KEY); } catch {}
   announce();
 }
 

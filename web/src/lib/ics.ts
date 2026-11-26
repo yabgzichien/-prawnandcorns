@@ -34,3 +34,8 @@ export function download(filename: string, text: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** One event the student chose to go to. */
+export function eventICS(ev: { id: string; title: string; start: string; end: string; place?: string }) {
+  return wrap([["BEGIN:VEVENT", `UID:${ev.id}@xmum-compass.demo`, `DTSTAMP:${toICSDate(new Date("2026-11-23T05:20:00Z"))}`, `DTSTART:${toICSDate(new Date(ev.start))}`, `DTEND:${toICSDate(new Date(ev.end))}`, `SUMMARY:${esc(ev.title)}`, ...(ev.place ? [`LOCATION:${esc(ev.place)}`] : []), `DESCRIPTION:${esc("Checked against your timetable by Compass (demo data)")}`, "END:VEVENT"].join("\r\n")]);
+}

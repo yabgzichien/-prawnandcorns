@@ -3,15 +3,17 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Building2, Check, Coffee, Compass, Dumbbell, Landmark, Layers, Minus, Plus, Moon, Search, Sun, Sunset, Trees, X } from "lucide-react";
+import { BookOpen, Box, Building2, Check, Coffee, Compass, Dumbbell, Landmark, Layers, Minus, Plus, Moon, PanelRight, Search, Sun, Sunset, Trees, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { CampusCanvas, type CanvasHandle } from "./CampusCanvas";
+import { InteriorView } from "@/components/inside/InteriorView";
 import { defaultView, viewFor, type Pin3D } from "./Campus3D";
 import { canUseWebGL } from "@/components/map3d/webgl";
 import type { Mode } from "@/components/map3d/atmosphere";
 import { useApp } from "@/lib/state";
 import { PLACE_BY_ID, PLACES, ROOMS, ROOM_BY_CODE, findRoom, placeCenter, placeRadius, searchCampus, type PlaceKind, type Room } from "@/lib/data/campus";
 import { COURSE_BY_ID } from "@/lib/data/academics";
+import { findSpace, hasInterior } from "@/lib/data/interiors";
 import { classesOn, TODAY_IDX } from "@/lib/schedule";
 import { useCampus } from "@/lib/sync/CampusProvider";
 import { SPRING, SPRING_FAST, useMediaQuery } from "@/lib/hooks";
@@ -48,12 +50,19 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
   const { showToast, theme } = useApp();
   const { data: campus } = useCampus();
   const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const [panelOpen, setPanelOpen] = useState(false); // the route / details card starts folded away so the map is clear
   const [view, setView] = useState<"2d" | "3d">(params.get("view") === "3d" ? "3d" : "2d");
   const [visited3d, setVisited3d] = useState(params.get("view") === "3d");
   const [mode3d, setMode3d] = useState<Mode | null>(["day", "sunset", "night"].includes(params.get("mode") ?? "") ? (params.get("mode") as Mode) : null);
   const [names3d, setNames3d] = useState(false);
   const [flyNonce, setFlyNonce] = useState(0);
-  const mode: Mode = mode3d ?? (theme === "dark" || (theme === "system" && prefersDark) ? "night" : "day");
+  const dark = theme === "dark" || (theme === "system" && prefersDark);
+  const mode: Mode = mode3d ?? (dark ? "night" : "day");
+  // "View inside": a building's floors in their own viewer over the map (?inside=A1&room=A1-G03 opens it)
+  const [inside, setInside] = useState<{ place: string; room: string | null } | null>(() => {
+    const p = params.get("inside");
+    return p && hasInterior(p) ? { place: p, room: params.get("room") } : null;
+  });
 
   const viewRef = useRef<"2d" | "3d">("2d");
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -89,6 +98,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
   const choose = useCallback((placeId: string | null, r: Room | null = null, fly = true) => {
     setSelected(placeId);
     setRoom(r);
+    if (placeId) setPanelOpen(true);
     if (placeId && fly) {
       const p = PLACE_BY_ID[placeId];
       if (viewRef.current === "2d") canvas.current?.focus(placeCenter(p), Math.max(placeRadius(p), 22), inset());
@@ -142,18 +152,22 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
         <div className={view === "3d" ? "absolute inset-0" : "hidden"} aria-hidden={view !== "3d"}>
         <Campus3D
           paused={view !== "3d"}
-          mode={mode} labels={names3d} selected={selected} pins={pins3d} flyNonce={flyNonce} rightInset={desktop ? 400 : 0}
-          initialView={camParam ?? (selected ? viewFor(PLACE_BY_ID[selected]) : deepView) ?? defaultView(desktop)}
+          mode={mode} labels={names3d} selected={selected} pins={pins3d} flyNonce={flyNonce} rightInset={desktop && panelOpen ? 400 : 0}
+          initialView={camParam ?? (selected ? viewFor(PLACE_BY_ID[selected]) : deepView) ?? defaultView(desktop, panelOpen)}
           intro={!(camParam || selected || deepView)}
           onSelect={(id) => choose(id, null)}
           onFail={() => { setView("2d"); setVisited3d(false); showToast("3D map isn't available on this device — showing the 2D map"); }}
         />
         </div>
       )}
-      {view === "2d" && <CampusCanvas ref={canvas} inset={desktop ? { right: 400, top: 96 } : { bottom: 300, top: 120 }} selected={selected} kinds={kinds} pins={pins} onSelect={(id) => choose(id, null)} />}
+      {view === "2d" && <CampusCanvas ref={canvas} inset={panelOpen ? (desktop ? { right: 400, top: 96 } : { bottom: 300, top: 120 }) : { top: desktop ? 96 : 120 }} selected={selected} kinds={kinds} pins={pins} onSelect={(id) => choose(id, null)} />}
+
+      <button onClick={() => setPanelOpen((v) => !v)} aria-pressed={panelOpen} aria-label={panelOpen ? "Hide route and places" : "Show route and places"} title={panelOpen ? "Hide route and places" : "Show route and places"} className="press glass-thick absolute right-3 top-3 z-30 grid h-[44px] w-[44px] place-items-center rounded-full" style={{ color: panelOpen ? "var(--accent)" : "var(--label)" }}>
+            <PanelRight size={20} />
+          </button>
 
       {/* Search + layers */}
-      <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex flex-col gap-2 lg:right-[412px]">
+      <div className={`pointer-events-none absolute left-3 right-[64px] top-3 z-10 flex flex-col gap-2`}>
         <div className="pointer-events-auto relative max-w-[460px]">
           <label className="glass-thick flex items-center gap-2 rounded-full py-1 pl-4 pr-1.5 focus-within:ring-2 focus-within:ring-accent">
             <Search size={18} className="text-label-2" />
@@ -214,7 +228,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
       </div>
 
       {/* Zoom + attribution */}
-      {view === "2d" && <div className={`absolute right-3 z-10 flex flex-col gap-2 lg:left-3 lg:right-auto ${embedded ? "bottom-[calc(42dvh+1.5rem)] lg:bottom-5" : "bottom-[100px] lg:bottom-5"}`}>
+      {view === "2d" && <div className={`absolute right-3 z-10 flex flex-col gap-2 lg:left-3 lg:right-auto ${panelOpen ? (embedded ? "bottom-[calc(42dvh+1.5rem)] lg:bottom-5" : "bottom-[100px] lg:bottom-5") : (embedded ? "bottom-3 lg:bottom-5" : "bottom-[100px] lg:bottom-5")}`}>
         <div className="glass flex flex-col overflow-hidden rounded-2xl">
           <button aria-label="Zoom in" onClick={() => canvas.current?.zoomBy(1.6)} className="press-row grid h-11 w-11 place-items-center"><Plus size={19} /></button>
           <span className="mx-2 h-px bg-sep" />
@@ -223,12 +237,14 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
           <button aria-label="Reset view" onClick={() => { choose(null); canvas.current?.reset(); }} className="press-row grid h-11 w-11 place-items-center"><Compass size={18} /></button>
         </div>
       </div>}
-      <p className={`glass pointer-events-none absolute left-3 z-10 max-w-[calc(100%-5rem)] rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 ${embedded ? "bottom-[calc(42dvh+1.5rem)]" : "bottom-[100px]"} ${view === "2d" ? "lg:left-[72px]" : "lg:left-3"}`}>Map © OpenStreetMap contributors. Building details and room labels are demo data.</p>
+      <p className={`glass pointer-events-none absolute left-3 z-10 max-w-[calc(100%-5rem)] rounded-full px-3 py-1 text-[0.7rem] text-label-2 lg:bottom-5 ${panelOpen && embedded ? "bottom-[calc(42dvh+1.5rem)]" : embedded ? "bottom-3" : "bottom-[100px]"} ${view === "2d" ? "lg:left-[72px]" : "lg:left-3"}`}>Map © OpenStreetMap contributors. Building details and room labels are demo data.</p>
 
       {/* Detail panel — a side card on desktop, a bottom card on phones */}
-      <motion.aside
-        layout
-        className={`glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:max-h-none lg:w-[384px] ${embedded ? "bottom-3" : "bottom-[96px]"}`}
+      <AnimatePresence>
+      {panelOpen && <motion.aside
+        key="panel"
+        initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 28 }} transition={SPRING}
+        className={`glass-thick absolute z-20 flex flex-col overflow-hidden rounded-[28px] left-3 right-3 max-h-[42dvh] lg:bottom-3 lg:left-auto lg:right-3 lg:top-[64px] lg:max-h-none lg:w-[384px] ${embedded ? "bottom-3" : "bottom-[96px]"}`}
         aria-label="Place details"
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -241,8 +257,16 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
                   <p className="t-sub">{place.blurb}</p>
                   {place.approximate && <p className="t-caption mt-1 text-orange">Approximate — confirm on arrival</p>}
                 </div>
-                <button aria-label="Close details" onClick={() => choose(null)} className="press grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-3"><X size={16} /></button>
+                <button aria-label="Close details" onClick={() => { choose(null); setPanelOpen(false); }} className="press grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-3"><X size={16} /></button>
               </div>
+
+              {hasInterior(place.id) && (
+                <div className="mx-5 mb-3">
+                  <button onClick={() => setInside({ place: place.id, room: room && findSpace(room.code, place.id) ? room.code : null })} className="press btn btn-primary w-full">
+                    <Box size={17} /> {room && findSpace(room.code, place.id) ? `View ${room.code} inside` : "View inside"}
+                  </button>
+                </div>
+              )}
 
               {room && (
                 <div className="mx-5 mb-3 rounded-2xl bg-accent-soft p-3.5">
@@ -273,7 +297,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
             </motion.div>
           ) : (
             <motion.div key="home" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={SPRING_FAST} className="flex min-h-0 flex-1 flex-col">
-              <div className="p-5 pb-2"><p className="t-eyebrow">Campus</p><h2 className="t-headline mt-0.5">Today&rsquo;s route</h2><p className="t-caption">Tap a numbered pin or a row to fly there.</p></div>
+              <div className="flex items-start justify-between gap-3 p-5 pb-2"><div><p className="t-eyebrow">Campus</p><h2 className="t-headline mt-0.5">Today&rsquo;s route</h2><p className="t-caption">Tap a numbered pin or a row to fly there.</p></div><button aria-label="Hide panel" onClick={() => setPanelOpen(false)} className="press grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-3"><X size={16} /></button></div>
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
                 <ol className="overflow-hidden rounded-2xl bg-surface">
                   {route.map((c, i) => {
@@ -301,7 +325,10 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.aside>
+      </motion.aside>}
+      </AnimatePresence>
+
+      {inside && <InteriorView key={`${inside.place}-${inside.room ?? ""}`} place={inside.place} room={inside.room} dark={dark} onClose={() => setInside(null)} />}
     </div>
   );
 }

@@ -1,16 +1,19 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
-import { CORE_PLAN, COURSES, GE_GROUPS } from "@/lib/data/academics";
+import Link from "next/link";
+import { CORE_PLAN, COURSES } from "@/lib/data/academics";
+import { DEFAULT_TARGET, GE_BY_CODE, STUDENT_STREAM } from "@/lib/electives/catalogue";
+import { ALLOWED_STREAMS } from "@/lib/electives/types";
 import { Item, PageHeader, Pill, Ring, Stagger, toneClass } from "@/components/ui/kit";
 import { useApp } from "@/lib/state";
 
 export function CoursesView() {
-  const { openAgent } = useApp();
+  const { openAgent, electives } = useApp();
   const credits = COURSES.reduce((a, c) => a + c.credits, 0);
   return (
     <div>
-      <PageHeader eyebrow="BSc Computer Science, Year 1" title="Courses" sub="What you&rsquo;re taking now, what&rsquo;s coming, and which General Education credits you still need."
+      <PageHeader eyebrow="BSc Computer Science, Year 1" title="Courses" sub="What you&rsquo;re taking now, what&rsquo;s coming, and the general electives you plan to take next."
         action={<a href="https://ac.xmu.edu.my/" target="_blank" rel="noreferrer" className="press btn btn-plain">Official handbook <ExternalLink size={15} /></a>} />
 
       <Stagger className="space-y-8">
@@ -52,21 +55,20 @@ export function CoursesView() {
 
         <Item>
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2 px-1">
-            <h2 className="t-headline">General Education</h2>
-            <button onClick={() => openAgent("Which GE courses should I take next semester?")} className="press text-[0.85rem] font-semibold text-accent">Ask Compass</button>
+            <h2 className="t-headline">General electives</h2>
+            <button onClick={() => openAgent("Which general electives fit my timetable next semester?")} className="press text-[0.85rem] font-semibold text-accent">Ask Compass</button>
           </div>
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-            {GE_GROUPS.map((g) => (
-              <article key={g.id} className="card flex min-w-0 flex-wrap gap-4 p-3 sm:p-5">
-                <Ring value={g.done / g.need} size={60} stroke={7} tone={g.done >= g.need ? "var(--green)" : "var(--accent)"}><span className="tnum text-[0.8rem] font-bold">{g.done}/{g.need}</span></Ring>
-                <div className="min-w-0">
-                  <h3 className="font-semibold tracking-[-0.01em]">{g.title}</h3>
-                  <p className="t-caption">{g.need} credits needed{g.taking ? `, taking ${g.taking}` : ""}</p>
-                  <p className="t-caption mt-2"><span className="font-semibold text-label">Options:</span> {g.options.join(", ")}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          <article className="card flex min-w-0 flex-wrap items-center gap-5 p-3 sm:p-5">
+            <Ring value={electives ? Math.min(1, electives.codes.reduce((n, c) => n + (GE_BY_CODE[c]?.credits ?? 0), 0) / electives.target) : 0} size={60} stroke={7} tone="var(--accent)">
+              <span className="tnum text-[0.8rem] font-bold">{electives ? electives.codes.reduce((n, c) => n + (GE_BY_CODE[c]?.credits ?? 0), 0) : 0}/{electives?.target ?? DEFAULT_TARGET}</span>
+            </Ring>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold tracking-[-0.01em]">Semester 2: {electives?.target ?? DEFAULT_TARGET} GE credits needed (demo)</h3>
+              <p className="t-caption mt-0.5">You are in the {STUDENT_STREAM} stream, so you may take {ALLOWED_STREAMS[STUDENT_STREAM].join(" and ")} electives. GEN1201 Malaysian Studies is already in this semester&rsquo;s timetable.</p>
+              <p className="t-caption mt-1.5">{electives ? <>Saved shortlist: <span className="font-semibold text-label">{electives.codes.join(", ")}</span>. Not registered.</> : "No shortlist yet."}</p>
+            </div>
+            <Link href="/hub?section=electives" className="press btn btn-primary">Open GE planner</Link>
+          </article>
         </Item>
       </Stagger>
     </div>

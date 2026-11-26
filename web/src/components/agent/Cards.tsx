@@ -15,8 +15,15 @@ import { useCampus } from "@/lib/sync/CampusProvider";
 import { classBlocksFrom, tasksFrom } from "@/lib/planning-demo";
 import { UpdatesCard } from "./UpdatesCard";
 import { AskaCard } from "./AskaCard";
+import { EventCard, EventStatusCard } from "./EventCard";
 import { RoomsCard } from "./RoomsCard";
 import { DocumentsCard } from "./DocumentsCard";
+import { EventFitCard } from "./EventFitCard";
+import { examName } from "@/lib/calendar/semester";
+import { GraduationCap } from "lucide-react";
+import { GE_BY_CODE } from "@/lib/electives/catalogue";
+import { meetingLabel } from "@/lib/electives/parse";
+import { parsedOf } from "@/lib/electives/plan";
 
 const statusTone = { overdue: "red", todo: "orange", progress: "blue", submitted: "green" } as const;
 
@@ -28,6 +35,10 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
       return <UpdatesCard card={card} />;
     case "aska":
       return <AskaCard draft={card.draft} />;
+    case "event":
+      return <EventCard card={card} />;
+    case "event-status":
+      return <EventStatusCard card={card} onNavigate={onNavigate} />;
     case "rooms":
       return <RoomsCard card={card} onNavigate={onNavigate} />;
     case "documents":
@@ -65,9 +76,12 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
           </div>
           {card.makeup && (
             <div className="border-t border-sep bg-green-soft px-3.5 py-2.5">
-              <p className="text-[0.85rem] font-semibold text-green">Make-up class on {dayShort(atDay(card.makeup.day, card.makeup.start))} {dateShort(atDay(card.makeup.day, card.makeup.start))} at {card.makeup.start} in {card.makeup.room}</p>
+              <p className="text-[0.85rem] font-semibold text-green">{card.makeup.replacementId ? "Replacement class" : "Make-up class"} on {dayShort(atDay(card.makeup.day, card.makeup.start))} {dateShort(atDay(card.makeup.day, card.makeup.start))} at {card.makeup.start} in {card.makeup.room}</p>
               <Link href={`/hub?section=map&focus=${card.makeup.room}`} onClick={onNavigate} className="mt-1 inline-flex items-center gap-1 text-[0.85rem] font-semibold text-green underline-offset-2 hover:underline"><MapPin size={14} /> Show {card.makeup.room} on map</Link>
             </div>
+          )}
+          {cancelled && !card.makeup && c.noticeId?.startsWith("rpl-") && (
+            <Link href="/hub?section=timetable" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between border-t border-sep px-3.5 text-[0.9rem] font-semibold text-accent">Tell the lecturer which times work <ArrowRight size={16} /></Link>
           )}
           {card.next && cancelled && (
             <div className="border-t border-sep px-3.5 py-2.5">
@@ -156,17 +170,50 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
         </div>
       );
 
-    case "ge":
+    case "ge-plan": {
+      const best = card.sets[0];
       return (
-        <ul className="divide-y divide-sep overflow-hidden rounded-2xl bg-surface">
-          {card.groups.map((g) => (
-            <li key={g.title} className="px-3.5 py-3">
-              <p className="flex items-center justify-between text-[0.95rem] font-semibold tracking-[-0.01em]">{g.title}<Pill tone="orange">{g.need} credits</Pill></p>
-              <p className="t-caption mt-0.5">{g.options.join(", ")}</p>
-            </li>
-          ))}
-          <li><Link href="/hub?section=courses" onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between px-3.5 text-[0.9rem] font-semibold text-accent">Open Courses <ArrowRight size={16} /></Link></li>
-        </ul>
+        <div className="overflow-hidden rounded-2xl bg-surface">
+          {best ? (
+            <div className="px-3.5 py-3">
+              <p className="flex items-center justify-between gap-2 text-[0.95rem] font-semibold tracking-[-0.01em]">Best set for {card.target} credits <Pill tone="green">{best.credits} cr</Pill></p>
+              <ul className="mt-1.5 grid gap-1">
+                {best.codes.map((code) => <li key={code} className="text-[0.88rem]"><span className="font-semibold">{GE_BY_CODE[code].title}</span> <span className="t-caption">{code}, {GE_BY_CODE[code].stream}, {parsedOf(code).meetings.map(meetingLabel).join("; ")}</span></li>)}
+              </ul>
+              <ul className="mt-2 grid gap-0.5">{best.reasons.slice(0, 3).map((r) => <li key={r} className="t-caption flex items-start gap-1.5"><Check size={12} className="mt-0.5 shrink-0 text-green" />{r}</li>)}</ul>
+              {card.sets.length > 1 && <p className="t-caption mt-2">{card.sets.length - 1} more option{card.sets.length === 2 ? "" : "s"} in the planner.</p>}
+            </div>
+          ) : (
+            <p className="t-sub px-3.5 py-3">No set adds up to {card.target} credits without a clash.</p>
+          )}
+          <Link href={card.href} onClick={onNavigate} className="press-row flex min-h-[44px] items-center justify-between border-t border-sep px-3.5 text-[0.9rem] font-semibold text-accent">Open GE planner <ArrowRight size={16} /></Link>
+        </div>
+      );
+    }
+
+    case "event-fit":
+      return <EventFitCard card={card} />;
+
+    case "exams":
+      return (
+        <div className="overflow-hidden rounded-2xl bg-surface">
+          <div className="px-3.5 py-3">
+            <p className="flex flex-wrap items-center gap-2 text-[0.95rem] font-semibold tracking-[-0.01em]">{card.status.label} <Pill tone={card.status.phase === "teaching" ? "blue" : "orange"}>{card.status.phase === "teaching" ? "Teaching" : card.status.phase === "revision" ? "Revision" : card.status.phase === "exams" ? "Exams" : "Break"}</Pill></p>
+            <p className="t-caption mt-0.5">{card.status.detail}</p>
+          </div>
+          <ul className="divide-y divide-sep border-t border-sep">
+            {card.exams.map((e) => (
+              <li key={e.id} className="flex items-start gap-3 px-3.5 py-2.5">
+                <GraduationCap size={17} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.92rem] font-semibold [overflow-wrap:anywhere]">{examName(e)}</p>
+                  <p className="t-caption">{dayShort(new Date(e.start))} {dateShort(new Date(e.start))}, {timeOf(new Date(e.start))} to {timeOf(new Date(e.end))}, {e.room}, {e.weight}%</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="t-caption border-t border-sep px-3.5 py-2.5">Demo exam timetable, not the exam office&rsquo;s.</p>
+        </div>
       );
 
     case "suggest":

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { Check, MapPin, Plus, Search, Sparkles } from "lucide-react";
+import { Check, MapPin, Plus, Search, Sparkles, CalendarCheck } from "lucide-react";
 import { CLUBS, EVENTS } from "@/lib/data/life";
 import { useApp } from "@/lib/state";
 import { SPRING } from "@/lib/hooks";
@@ -31,7 +31,10 @@ export function ClubsView() {
                 <p className="t-eyebrow text-accent">{e.when}</p>
                 <h3 className="t-headline mt-1.5">{e.title}</h3>
                 <p className="t-caption mt-1">{e.where}</p>
-                {e.room && <Link href={`/hub?section=map&q=${encodeURIComponent(e.room)}`} className="press mt-3 inline-flex items-center gap-1.5 text-[0.85rem] font-semibold text-accent"><MapPin size={14} /> Where is it?</Link>}
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <button onClick={() => openAgent(`Can I go to this? ${e.link}`)} aria-label={`Does ${e.title} fit my timetable?`} className="press inline-flex items-center gap-1.5 text-[0.85rem] font-semibold text-accent"><CalendarCheck size={14} /> Does it fit?</button>
+                  {e.room && <Link href={`/hub?section=map&q=${encodeURIComponent(e.room)}`} className="press inline-flex items-center gap-1.5 text-[0.85rem] font-semibold text-accent"><MapPin size={14} /> Where is it?</Link>}
+                </div>
               </article>
             ))}
           </div>

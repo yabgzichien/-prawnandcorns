@@ -1,12 +1,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { clearMailCache } from "../connectors/connectors.ts";
 import { connectSystem, disconnectSystem, getConnections, CONNECTIONS_KEY, type Connections } from "../connectors/connections.ts";
 import { SYSTEM_IDS, type SystemId } from "../world/types.ts";
 import { ASKA_SEEN_KEY } from "../aska.ts";
-import { getCustomNotices, getTriggeredEvents, resetScenario, subscribeScenario } from "../world/storage.ts";
+import { EVENTS_SEEN_KEY } from "../events/types";
+import { getCustomNotices, getTriggeredEvents, resetScenario, subscribeScenario, subscribeStorage } from "../world/storage.ts";
+import { applyReplacements } from "../replacement/overlay.ts";
+import { parseRequests } from "../replacement/storage.ts";
+import { REPLACEMENTS_KEY, REPLACEMENT_ANSWERS_KEY, REPLACEMENT_SEEN_KEY, type ReplacementRequest } from "../replacement/types.ts";
 import { mergePending } from "./diff.ts";
 import { syncAll } from "./engine.ts";
 import { clearSyncState, loadSyncState, saveSyncState } from "./store.ts";
@@ -14,6 +18,10 @@ import { EMPTY_SYNC, type Change, type Snapshot, type SyncFailure, type SyncStat
 import { baseCampusData, campusDataFrom, type CampusData } from "./view.ts";
 
 const ACK_KEY = "compass:acknowledged:v1";
+
+// The lecturer desk (console window) writes replacement classes to its own key. Compass lays them over the timetable.
+const subscribeReplacements = (fn: () => void) => subscribeStorage([REPLACEMENTS_KEY], fn);
+const readReplacements = () => { try { return localStorage.getItem(REPLACEMENTS_KEY) ?? "[]"; } catch { return "[]"; } };
 
 type CampusCtx = {
   hydrated: boolean;
@@ -26,7 +34,10 @@ type CampusCtx = {
   /** Changes from sync that the student has not reviewed yet. */
   changes: Change[];
   acknowledged: string[];
+  /** Timetable, notices and the rest, with the lecturers' replacement classes applied. */
   data: CampusData;
+  /** Replacement class requests from lecturers that touch this student's timetable. */
+  replacements: ReplacementRequest[];
   connect: (system: SystemId) => boolean;
   disconnect: (system: SystemId) => void;
   syncNow: () => Promise<void>;
@@ -162,7 +173,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const unacknowledge = useCallback((ids: string[]) => setAck(ackRef.current.filter((id) => !ids.includes(id))), [setAck]);
 
   const resetAll = useCallback(() => {
-    try { localStorage.removeItem(CONNECTIONS_KEY); localStorage.removeItem(ACK_KEY); localStorage.removeItem(ASKA_SEEN_KEY); } catch {}
+    try { localStorage.removeItem(CONNECTIONS_KEY); localStorage.removeItem(ACK_KEY); localStorage.removeItem(ASKA_SEEN_KEY); localStorage.removeItem(EVENTS_SEEN_KEY); localStorage.removeItem(REPLACEMENT_ANSWERS_KEY); localStorage.removeItem(REPLACEMENT_SEEN_KEY); } catch {}
     clearSyncState();
     resetScenario();
     clearMailCache();
@@ -173,15 +184,24 @@ export function CampusProvider({ children }: { children: ReactNode }) {
 
   const connected = useMemo(() => connectedOf(connections), [connections]);
   const changes = useMemo(() => sync.pending.filter((c) => !acknowledged.includes(c.id)), [sync.pending, acknowledged]);
-  const data = useMemo(
+  const replacementsText = useSyncExternalStore(subscribeReplacements, readReplacements, () => "[]");
+  const allReplacements = useMemo(() => parseRequests(replacementsText), [replacementsText]);
+  const base = useMemo(
     () => (sync.snapshot && connected.length ? campusDataFrom(sync.snapshot.items, sync.snapshot.account, connected.filter((s) => sync.snapshot?.asOf[s])) : baseCampusData()),
     [sync.snapshot, connected],
   );
+  const data = useMemo<CampusData>(() => {
+    if (allReplacements.length === 0) return base;
+    const out = applyReplacements(base.classes, base.notices, allReplacements);
+    return { ...base, classes: out.classes, notices: out.notices };
+  }, [base, allReplacements]);
+  // only the requests that matched one of this student's classes
+  const replacements = useMemo(() => allReplacements.filter((r) => data.classes.some((c) => c.noticeId === `rpl-${r.id}`)), [allReplacements, data.classes]);
 
   const value = useMemo<CampusCtx>(() => ({
     hydrated, connections, connected, syncing, lastSyncAt: sync.lastSyncAt, failed: sync.failed, snapshot: sync.snapshot,
-    changes, acknowledged, data, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll,
-  }), [hydrated, connections, connected, syncing, sync, changes, acknowledged, data, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll]);
+    changes, acknowledged, data, replacements, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll,
+  }), [hydrated, connections, connected, syncing, sync, changes, acknowledged, data, replacements, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

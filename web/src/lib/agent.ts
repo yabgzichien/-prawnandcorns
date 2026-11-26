@@ -1,4 +1,4 @@
-import { COURSE_BY_ID, GE_GROUPS, STUDENT, type Assignment, type ClassSession, type Notice } from "./data/academics";
+import { COURSE_BY_ID, STUDENT, type Assignment, type ClassSession, type Notice } from "./data/academics";
 import { CLUBS, type Club } from "./data/life";
 import { PLACE_BY_ID, ROOM_BY_CODE, searchCampus, type Place, type Room } from "./data/campus";
 import { DEMO_NOW, dateShort, dayLong, dayShort, dueLabel, relative, timeOf, atDay } from "./time";
@@ -12,6 +12,11 @@ import { DORM_KIND_LABEL, detectDormIssue, draftTicket, type AskaDraft } from ".
 import { fetchLibraryDay } from "./library/client";
 import { findRooms, parseRoomRequest, type RoomOption } from "./library/search";
 import { SLOTS, type LibraryBooking } from "./library/policy";
+import { draftFromRequest, EVENT_EXAMPLE, isEventStatusQuestion, parseEventRequest } from "./events/request";
+import { checkApplication, problemsOf, warningsOf } from "./events/checks";
+import { eventStatusOf, pendingCount } from "./events/decisions";
+import { SEEDED_APPLICATIONS } from "./events/seed";
+import type { Decisions, EventApplication, EventDraft, Issue, LineStatus } from "./events/types";
 import { fetchLedger } from "./finance/client";
 import { findDocuments, parseDocumentRequest, type DocumentMatch } from "./finance/search";
 import type { LedgerEntry } from "./finance/ledger";
@@ -23,6 +28,15 @@ import { planFixes } from "./agent-tools/review";
 import { baseCampusData, markedHereOnly } from "./sync/view";
 import { isSyncReviewPrompt } from "./sync/review";
 import type { ExtractedFact } from "./world/types";
+import { CORE_CREDITS, DEFAULT_TARGET, GE_BY_CODE, GE_CATALOGUE, STUDENT_STREAM } from "./electives/catalogue";
+import { coreClashes, courseStatus, suggestSets, type SetSuggestion } from "./electives/plan";
+import { parseGeRequest, plannerHref } from "./electives/request";
+import { ALLOWED_STREAMS, DEFAULT_PREFS, type Interest, type Stream } from "./electives/types";
+import { EXAMS, examName, semesterStatus, type Exam, type SemesterStatus } from "./calendar/semester";
+import { timeAlerts, type TimeAlert } from "./calendar/alerts";
+import { checkEventFit } from "./eventfit/check";
+import { findUrl, isEventFitQuestion, readEventLink, readEventText, type EventReading } from "./eventfit/read";
+import type { PersonalEvent } from "./updates/types";
 
 /* ───────────────────────────────────────────────────────────
    Agent runtime (front-end mock).
@@ -36,6 +50,8 @@ export type AgentCard =
   | { kind: "study-plan"; proposal: StudyProposal }
   | { kind: "updates"; proposal: UpdatesProposal }
   | { kind: "aska"; draft: AskaDraft }
+  | { kind: "event"; draft: EventDraft; issues: Issue[]; notes: string[]; missing: string[] }
+  | { kind: "event-status"; items: { id: string; name: string; date: string; status: LineStatus; answered: number; total: number }[] }
   | { kind: "rooms"; summary: string; options: RoomOption[]; alternatives: boolean }
   | { kind: "documents"; summary: string; items: DocumentMatch[]; exact: boolean; entries: LedgerEntry[] }
   | { kind: "deadlines"; items: Assignment[] }
@@ -46,7 +62,10 @@ export type AgentCard =
   | { kind: "layout"; summary: string[]; before: WidgetPref[]; after: WidgetPref[] }
   | { kind: "clubs"; items: Club[] }
   | { kind: "fees"; due: number; label: string; dueIso: string; paid: number; total: number }
-  | { kind: "ge"; groups: { title: string; need: number; done: number; options: string[] }[] }
+  | { kind: "ge-plan"; stream: Stream; target: number; interests: Interest[]; sets: SetSuggestion[]; href: string }
+  /** The fields are a proposal the student can edit; the card runs the check itself, so editing re-checks. */
+  | { kind: "event-fit"; reading: EventReading; picture?: { name: string; read: boolean } }
+  | { kind: "exams"; status: SemesterStatus; exams: Exam[]; alerts: TimeAlert[] }
   | { kind: "suggest"; prompts: string[] };
 
 export type AgentEvent =
@@ -65,6 +84,16 @@ export type AgentContext = {
   campus?: CampusToolContext;
   /** The library: scenario events that change who has booked what, and the rooms this student has booked. */
   library?: { events: string[]; bookings: LibraryBooking[] };
+  /** The club event applications the student has submitted, and what the ECA desk has said. */
+  events?: { applications: EventApplication[]; decisions: Decisions };
+  /** The timetable and notices as Compass shows them, with lecturers' replacement classes applied. Used before any system is connected. */
+  timetable?: { classes: ClassSession[]; notices: Notice[] };
+  /** Plans the student saved in Compass, for the event check. */
+  personalEvents?: PersonalEvent[];
+  /** Assignments as Compass shows them, for the event check. */
+  assignments?: Assignment[];
+  /** A picture the student attached. Demo mode cannot read it; only its name is here. */
+  attachment?: { kind: "image"; name: string };
 };
 
 export const SUGGESTIONS = [
@@ -77,7 +106,11 @@ export const SUGGESTIONS = [
   "I like robotics and photography — which clubs fit?",
   "The air-con in my room is leaking water",
   "Book a study room for 2 tomorrow at 3pm",
+  EVENT_EXAMPLE,
   "Find my tuition invoice and download it",
+  "Which electives fit my timetable? I need 4 credits and like languages",
+  "Can I go to this? https://events.compass.demo/hack-day",
+  "When is my next exam? Is it revision week yet?",
 ];
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -122,22 +155,29 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "review" | "booking" | "invoice" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "review" | "eventfit" | "exams" | "event" | "eventstatus" | "booking" | "invoice" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
-function detectIntent(raw: string): Intent {
+function detectIntent(raw: string, ctx?: AgentContext): Intent {
   const t = raw.toLowerCase();
   if (isSyncReviewPrompt(raw)) return "review";
+  // going to an event someone else runs, before organising one: a poster reads a lot like an organiser's request
+  if (ctx?.attachment || isEventFitQuestion(raw)) return "eventfit";
+  // club events first: "book rooms and chairs for our event" is not a library study room
+  if (parseEventRequest(raw).isEventRequest) return "event";
+  if (isEventStatusQuestion(raw)) return "eventstatus";
   if (parseRoomRequest(raw).isRoomRequest) return "booking";
   if (parseDocumentRequest(raw).isRequest) return "invoice";
   // A hostel fault goes to the AskA help desk, not to an email, unless the student asks for an email.
   if (!/\b(e-?mail|mail)\b/.test(t) && detectDormIssue(raw)) return "dorm";
+  // before layout and room: "add 4 credits of electives" and "find me electives" are elective questions
+  if (parseGeRequest(raw).isGeRequest) return "ge";
   if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
   const aliasHit = Object.values(WIDGET_META).some((m) => m.aliases.some((a) => t.includes(a)));
   if (has(t, /\b(widget|widgets|dashboard|home ?screen|layout|personali[sz]e|customi[sz]e)\b/) ||
       (aliasHit && has(t, /\b(add|show|hide|remove|move|put|only|pin|reorder|first|top)\b/) && !has(t, /\b(email|mail|draft)\b/) && !has(t, /\bwhere\b/))) return "layout";
   if (has(t, /\b(draft|write|compose)\b.*\b(email|e-mail|mail|message|letter)\b|\b(email|e-mail)\b/)) return "email";
+  if (has(t, /\b(exams?|finals?|mid-?terms?|revision week|study week|exam weeks?|exam timetable)\b/)) return "exams";
   if (has(t, /\b(where|locate|find|directions?|how (do|to) (i )?get)\b/) || has(t, /\b[a-d]\d?-?(g\d{2}|l\d|\d{3}|lib|hall)\b/i)) return "room";
-  if (has(t, /\b(ge|general education|electives?)\b/)) return "ge";
   if (has(t, /\b(next|upcoming)\b.*\b(class|lecture|lesson|tutorial|lab)\b|\bwhat('?s| is) (on|next)\b(?!.*tomorrow)/)) return "next";
   if (has(t, /\b(cancel|cancelled|canceled|still on|still happening|replacement|re-?schedul|moved|changed|make-?up|is my .* class)\b/)) return "class";
   if (has(t, /\b(due|deadline|deadlines|assignment|assignments|homework|submit|moodle|quiz)\b/)) return "deadlines";
@@ -161,10 +201,10 @@ const todayIdx = TODAY_IDX;
 
 /* ───────────────── the runner ───────────────── */
 export async function* runAgent(prompt: string, ctx: AgentContext, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
-  const intent = detectIntent(prompt);
+  const intent = detectIntent(prompt, ctx);
   const t = prompt.toLowerCase();
   // Read connected systems when there are any, otherwise the built-in example data.
-  const campusData = ctx.campus?.data ?? baseCampusData();
+  const campusData = ctx.campus?.data ?? (ctx.timetable ? { ...baseCampusData(), ...ctx.timetable } : baseCampusData());
   const { classes: CLASSES, assignments: ASSIGNMENTS, notices: NOTICES, fees: FINANCE } = campusData;
 
   try {
@@ -217,6 +257,55 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           `I suggest ${act} change${act === 1 ? "" : "s"} to your plan${marks ? `, mark ${marks} as reviewed` : ""}${asks ? ` and I have ${asks} question${asks === 1 ? "" : "s"} for you` : ""}. **Nothing is saved until you approve.**`,
         ].filter(Boolean).join("\n\n"), signal);
         yield { type: "card", card: { kind: "updates", proposal } };
+        break;
+      }
+      case "event": {
+        const req = parseEventRequest(prompt);
+        const mine = ctx.events?.applications ?? [];
+        const decisions = ctx.events?.decisions ?? {};
+        yield { type: "plan", steps: ["Read what the event needs", "Check which rooms are free", "Check the rules and each office's limits", "Prepare one application for you to review"] };
+        yield { type: "step", index: 0 };
+        yield* tool("events.read_request", `"${prompt.slice(0, 48)}"`, () => ({ output: req.summary || "Not much detail yet", value: req }), signal);
+        yield { type: "step", index: 1 };
+        const made = yield* tool("events.find_free_rooms", req.date || "date missing", () => {
+          const r = draftFromRequest(req, [...SEEDED_APPLICATIONS, ...mine], decisions);
+          const rooms = r.draft.lines.filter((l) => l.kind === "venue").length;
+          return { output: req.date ? `${rooms} room${rooms === 1 ? "" : "s"} chosen from the free ones` : "No date yet, so no room chosen", value: r };
+        }, signal);
+        yield { type: "step", index: 2 };
+        const issues = yield* tool("events.check_rules", "capacity, clashes, item limits, dates", () => {
+          const found = checkApplication(made.draft, [...SEEDED_APPLICATIONS, ...mine], decisions);
+          return { output: `${problemsOf(found).length} to fix, ${warningsOf(found).length} to read`, value: found };
+        }, signal);
+        yield { type: "step", index: 3 };
+        const d = made.draft;
+        const rooms = d.lines.filter((l) => l.kind === "venue").length;
+        const items = d.lines.filter((l) => l.kind === "item").length;
+        const problems = problemsOf(issues);
+        yield* say([
+          `I read this as **${req.summary || "an event"}**. I prepared **one application** with ${d.lines.length === 0 ? "no lines yet" : `${rooms} room${rooms === 1 ? "" : "s"} and ${items} item${items === 1 ? "" : "s"}`}, so the ECA office gets one message instead of one for every request.`,
+          ...made.notes,
+          req.missing.length ? `I still need **${req.missing.join(", ")}**. You can add it on the form.` : "",
+          problems.length ? `**${problems.length} thing${problems.length === 1 ? "" : "s"} to fix before you can submit**, shown on the card.` : "Nothing blocks you from submitting. Please read the checks on the card.",
+          "**Nothing has been submitted.** Open the form, check each step, and submit when it looks right. Offices may still change or refuse a line.",
+        ].filter(Boolean).join("\n\n"), signal);
+        yield { type: "card", card: { kind: "event", draft: d, issues, notes: made.notes, missing: req.missing } };
+        break;
+      }
+      case "eventstatus": {
+        const mine = ctx.events?.applications ?? [];
+        const decisions = ctx.events?.decisions ?? {};
+        yield { type: "plan", steps: ["Find your club event applications", "Read what the ECA office has answered"] };
+        yield { type: "step", index: 0 };
+        yield* tool("events.list_applications", "this browser", () => ({ output: `${mine.length} saved`, value: mine }), signal);
+        yield { type: "step", index: 1 };
+        if (mine.length === 0) {
+          yield* say("You have no club event applications saved yet. Tell me what the event needs, for example rooms, chairs and a speaker, and I'll prepare one for you to review.", signal);
+          break;
+        }
+        const items = mine.map((a) => ({ id: a.id, name: a.name, date: a.date, status: eventStatusOf(a, decisions), answered: a.lines.length - pendingCount(a, decisions), total: a.lines.length }));
+        yield* say(items.map((i) => `**${i.name}**: ${i.status}, ${i.answered} of ${i.total} lines answered.`).join("\n\n") + "\n\nOpen **Club events** to see each line, its remark and any room swap, and to download the booking slip.", signal);
+        yield { type: "card", card: { kind: "event-status", items } };
         break;
       }
       case "booking": {
@@ -317,6 +406,57 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
         yield { type: "card", card: { kind: "study-plan", proposal: result } };
         break;
       }
+      case "eventfit": {
+        yield { type: "plan", steps: ["Read the event's date and time", "Check your timetable, plans and bookings", "Look for deadlines and exams around it"] };
+        yield { type: "step", index: 0 };
+        const url = findUrl(prompt);
+        const reading = yield* tool<EventReading>("event.read", ctx.attachment ? `picture: ${ctx.attachment.name}` : url ? "link" : "pasted text", () => {
+          if (ctx.attachment) {
+            const r = readEventText(prompt.replace(/https?:\/\/\S+/g, " "));
+            return { output: "Demo mode cannot read pictures", value: { ...r, source: "typed", notes: ["Compass cannot read pictures in Demo mode. Type the date and time from the poster below, or switch to Gemini mode to read it."] } };
+          }
+          if (url) {
+            const link = readEventLink(url);
+            if (!("unknownLink" in link)) return { output: `${link.fields.title}, from the demo events list`, value: link };
+            const r = readEventText(prompt.replace(url, " "));
+            return { output: `${link.unknownLink} not opened`, value: { ...r, notes: [`Compass does not open links from other sites (${link.unknownLink}), so it cannot see the event page. Paste the event's text or a screenshot, or type the date and time below.`] } };
+          }
+          const r = readEventText(prompt);
+          return { output: r.missing.length ? `missing ${r.missing.join(" and ")}` : `${r.fields.date}, ${r.fields.start} to ${r.fields.end}`, value: r };
+        }, signal);
+        yield { type: "step", index: 1 };
+        const result = yield* tool("timetable.check_event", reading.missing.length ? "waiting for the date and time" : `${reading.fields.date} ${reading.fields.start}–${reading.fields.end}`, () => {
+          const r = checkEventFit(reading.fields, { thisWeek: CLASSES, studySessions: ctx.studySessions, personalEvents: ctx.personalEvents, bookings: ctx.library?.bookings, assignments: ASSIGNMENTS });
+          return { output: r.verdict === "incomplete" ? "Not checked yet" : `${r.clashes.length} clash${r.clashes.length === 1 ? "" : "es"}, ${r.warnings.length} to note`, value: r };
+        }, signal);
+        yield { type: "step", index: 2 };
+        const name = reading.fields.title ? `**${reading.fields.title}**` : "this event";
+        const lead = reading.notes[0] ? `${reading.notes[0]} ` : "";
+        const extra = result.warnings.length && result.verdict !== "incomplete" ? ` ${result.warnings[0].text}` : "";
+        yield* say(result.verdict === "incomplete"
+          ? `${lead}I need the date and start time of ${name} before I can check it. Fill them in below and I will check at once.`
+          : `${lead}For ${name}: ${result.headline}${extra}${reading.assumedEnd ? " No end time was given, so I assumed 2 hours. Change it below if you know it." : ""} You decide whether to go; nothing is booked.`, signal);
+        yield { type: "card", card: { kind: "event-fit", reading, ...(ctx.attachment ? { picture: { name: ctx.attachment.name, read: false } } : {}) } };
+        break;
+      }
+
+      case "exams": {
+        yield { type: "plan", steps: ["Read the semester calendar", "Read your exam timetable (demo)"] };
+        yield { type: "step", index: 0 };
+        const status = yield* tool("calendar.semester_status", "Semester 1 (demo dates)", () => { const st = semesterStatus(DEMO_NOW); return { output: st.label, value: st }; }, signal);
+        yield { type: "step", index: 1 };
+        const upcoming = yield* tool("calendar.get_exams", "Semester 1", () => {
+          const list = EXAMS.filter((e) => new Date(e.end) > DEMO_NOW).sort((a, b) => a.start.localeCompare(b.start));
+          return { output: `${list.length} upcoming`, value: list };
+        }, signal);
+        const alerts = timeAlerts({ now: DEMO_NOW, assignments: ASSIGNMENTS, markedDone: ctx.submitted }).filter((a) => a.kind === "exam" || a.kind === "phase");
+        const next = upcoming[0];
+        const asksRevision = /\b(revision|study week|exam weeks?)\b/.test(t);
+        yield* say(`It is **${status.label.toLowerCase()}** of Semester 1. ${status.detail}${next ? ` Your next exam is the **${examName(next)}** on ${dayLong(new Date(next.start))} ${dateShort(new Date(next.start))} at ${timeOf(new Date(next.start))}, ${relative(new Date(next.start))}.` : ""}${asksRevision && status.phase === "teaching" ? " So it is not revision week yet." : ""} These dates are a demo timetable, not the exam office's.`, signal);
+        yield { type: "card", card: { kind: "exams", status, exams: upcoming, alerts } };
+        break;
+      }
+
       case "deadlines": {
         yield { type: "plan", steps: ["Check Moodle sync status", "Read assignments due 23–29 Nov", "Rank by urgency and weight"] };
         yield { type: "step", index: 0 };
@@ -333,6 +473,8 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           return { output: "Sorted by due date", value: r };
         }, signal);
         const hereOnly = ASSIGNMENTS.filter((a) => markedHereOnly(a, ctx.submitted, campusData));
+        const examSoon = timeAlerts({ now: DEMO_NOW, assignments: [] }).find((a) => a.kind === "exam");
+        const examLine = examSoon ? ` **Exam heads-up:** ${examSoon.title}.` : "";
         const overdue = ranked.filter((a) => a.status === "overdue");
         const next = ranked.find((a) => a.status !== "overdue");
         if (!next) {
@@ -340,12 +482,32 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           yield { type: "card", card: { kind: "deadlines", items: ranked } };
           break;
         }
-        yield* say(`You have **${ranked.length} open items** this week. Most urgent: **${next.title}** (${COURSE_BY_ID[next.courseId].code}) — due ${dueLabel(new Date(next.due)).toLowerCase()}, ${relative(new Date(next.due))}.${overdue.length ? ` ${overdue[0].title} is overdue — ${overdue[0].note ?? "check whether late attempts are open"}.` : ""} The Reflective Essay carries the most marks (10%), so start it early.${hereOnly.length ? ` **Heads up:** you marked ${hereOnly.map((a) => a.title).join(", ")} as done here, but Moodle still shows ${hereOnly.length === 1 ? "it" : "them"} as not submitted. Compass cannot submit for you, so check Moodle.` : ""}`, signal);
+        yield* say(`You have **${ranked.length} open items** this week. Most urgent: **${next.title}** (${COURSE_BY_ID[next.courseId].code}) — due ${dueLabel(new Date(next.due)).toLowerCase()}, ${relative(new Date(next.due))}.${overdue.length ? ` ${overdue[0].title} is overdue — ${overdue[0].note ?? "check whether late attempts are open"}.` : ""} The Reflective Essay carries the most marks (10%), so start it early.${hereOnly.length ? ` **Heads up:** you marked ${hereOnly.map((a) => a.title).join(", ")} as done here, but Moodle still shows ${hereOnly.length === 1 ? "it" : "them"} as not submitted. Compass cannot submit for you, so check Moodle.` : ""}${examLine}`, signal);
         yield { type: "card", card: { kind: "deadlines", items: ranked } };
         break;
       }
 
       case "class": {
+        // A replacement a lecturer arranged answers "is there a replacement class" directly.
+        const lostToLecturer = CLASSES.filter((c) => c.status === "cancelled" && c.noticeId?.startsWith("rpl-"));
+        if (lostToLecturer.length > 0 && has(t, /\b(replacement|make-?up|lost|rescheduled?|re-?schedul|new time)\b/)) {
+          yield { type: "plan", steps: ["Find classes a lecturer cancelled", "Read the lecturer's replacement notice"] };
+          yield { type: "step", index: 0 };
+          const named = lostToLecturer.find((c) => t.includes(COURSE_BY_ID[c.courseId].code.toLowerCase())) ?? lostToLecturer[0];
+          yield* tool("timetable.get_replacements", COURSE_BY_ID[named.courseId].code, () => ({ output: `${lostToLecturer.length} class${lostToLecturer.length === 1 ? "" : "es"} cancelled by a lecturer`, value: named }), signal);
+          yield { type: "step", index: 1 };
+          const notice = NOTICES.find((n) => n.id === named.noticeId);
+          const replacement = CLASSES.find((c) => c.noticeId === named.noticeId && c.replacementId);
+          const code = COURSE_BY_ID[named.courseId].code;
+          if (replacement) {
+            yield* say(`**Yes.** Your ${code} ${named.kind.toLowerCase()} on ${dayShort(atDay(named.day, named.start))} ${dateShort(atDay(named.day, named.start))} is cancelled, and the replacement class is **${dayLong(atDay(replacement.day, replacement.start))} ${dateShort(atDay(replacement.day, replacement.start))}, ${replacement.start} to ${replacement.end}** in **${replacement.room}**. It is already in your timetable.`, signal);
+            yield { type: "card", card: { kind: "class", session: named, notice, makeup: replacement } };
+          } else {
+            yield* say(`**Not yet.** Your ${code} ${named.kind.toLowerCase()} on ${dayShort(atDay(named.day, named.start))} ${dateShort(atDay(named.day, named.start))} is cancelled and the lecturer is asking students which times work. Open **Timetable** in the Student hub to answer. They see only which times work for you.`, signal);
+            yield { type: "card", card: { kind: "class", session: named, notice } };
+          }
+          break;
+        }
         yield { type: "plan", steps: ["Find the class you mean", "Check today's class notices", "Look for a make-up or room change"] };
         yield { type: "step", index: 0 };
         const hour = parseHour(t);
@@ -407,16 +569,36 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
       }
 
       case "ge": {
-        yield { type: "plan", steps: ["Read your General Education requirements", "Find the groups you haven't finished"] };
+        const req = parseGeRequest(prompt);
+        const target = req.credits ?? DEFAULT_TARGET;
+        yield { type: "plan", steps: ["Read your stream and the credits you need", "Read each elective's time from the AC text", "Check clashes with your Semester 2 timetable", "Suggest sets that add up"] };
         yield { type: "step", index: 0 };
-        const groups = yield* tool("courses.get_ge_status", "BSc Computer Science", () => ({ output: `${GE_GROUPS.length} groups`, value: GE_GROUPS }), signal);
+        yield* tool("electives.get_rules", STUDENT.programme, () => ({ output: `${STUDENT_STREAM} stream: ${ALLOWED_STREAMS[STUDENT_STREAM].join(" and ")} electives, ${target} credits`, value: null }), signal);
         yield { type: "step", index: 1 };
-        const open = yield* tool("courses.unmet", "—", () => {
-          const o = groups.filter((g) => g.done < g.need);
-          return { output: `${o.length} groups still open, ${o.reduce((a, g) => a + (g.need - g.done), 0)} credits`, value: o };
+        const statuses = yield* tool("electives.read_times", `${GE_CATALOGUE.length} electives`, () => {
+          const st = GE_CATALOGUE.map((c) => ({ c, st: courseStatus(c, STUDENT_STREAM) }));
+          return { output: `${st.filter((x) => x.st.kind !== "unreadable").length} read, ${st.filter((x) => x.st.kind === "unreadable").length} not readable`, value: st };
         }, signal);
-        yield* say(`You still need **${open.reduce((a, g) => a + (g.need - g.done), 0)} General Education credits** across ${open.length} groups. Malaysian Studies already covers *Society & Nation*. Since you're already juggling 4 core courses, pick ${open.length > 1 ? "one or two" : "one"} light option${open.length > 1 ? "s" : ""} next semester — *Language & Culture* is the biggest gap. Always confirm against the official handbook before registering.`, signal);
-        yield { type: "card", card: { kind: "ge", groups: open.map((g) => ({ title: g.title, need: g.need - g.done, done: 0, options: g.options })) } };
+        yield { type: "step", index: 2 };
+        const allowed = statuses.filter((x) => x.st.kind !== "stream");
+        const fits = allowed.filter((x) => x.st.kind === "fits");
+        const clash = allowed.filter((x) => x.st.kind === "core-clash");
+        yield* tool("electives.check_clashes", "Semester 2 core timetable", () => ({ output: `${fits.length} fit, ${clash.length} clash, ${allowed.filter((x) => x.st.kind === "full").length} full`, value: null }), signal);
+        yield { type: "step", index: 3 };
+        const sets = yield* tool("electives.suggest_sets", `${target} credits${req.interests.length ? `, likes ${req.interests.join(", ")}` : ""}`, () => {
+          const out = suggestSets({ stream: STUDENT_STREAM, target, interests: req.interests, prefs: DEFAULT_PREFS });
+          return { output: `${out.length} set${out.length === 1 ? "" : "s"}`, value: out };
+        }, signal);
+        const example = clash[0] ? coreClashes(clash[0].c.code)[0] : undefined;
+        const unread = allowed.find((x) => x.st.kind === "unreadable");
+        const best = sets[0];
+        const bestText = best ? best.codes.map((c) => `**${GE_BY_CODE[c].title}**`).join(" and ") : "";
+        yield* say(
+          `You are in the **${STUDENT_STREAM} stream**, so you can take **${ALLOWED_STREAMS[STUDENT_STREAM].join(" and ")}** electives, and you need **${target} GE credit${target === 1 ? "" : "s"}** in Semester 2 (${CORE_CREDITS} core credits are already set). ` +
+          `I read the time text of all ${allowed.length} electives you may take: **${fits.length} fit** around your core classes${example ? `, ${clash.length} clash (for example ${clash[0].c.title} clashes with ${example.label} on ${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][example.day]} at ${example.start})` : ""}${unread ? `, and ${unread.c.title} has no time yet ("${unread.c.schedule}")` : ""}. ` +
+          (best ? `My best set: ${bestText}, ${best.credits} credits${req.interests.length ? `, matching what you like` : ""}. ` : `No set adds up to ${target} credits without a clash. `) +
+          `**Nothing is saved or registered.** Open the GE planner to compare the options, then register in the AC system yourself.`, signal);
+        yield { type: "card", card: { kind: "ge-plan", stream: STUDENT_STREAM, target, interests: req.interests, sets, href: plannerHref(req.credits, req.interests) } };
         break;
       }
 

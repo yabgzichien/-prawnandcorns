@@ -40,7 +40,8 @@ export function viewFor(p: Place, scale = 1, az = 0): CameraView {
  * The scene's own start views, shifted so the campus sits in the part of the screen the floating panel leaves free:
  * left of the side panel on desktop, above the bottom card on phones.
  */
-export function defaultView(desktop: boolean): CameraView {
+export function defaultView(desktop: boolean, panelOpen = true): CameraView {
+  if (!panelOpen) return desktop ? { position: [118, 104, 118], target: [0, 0, 0] } : { position: [176, 230, 180], target: [-14, 0, -10] };
   if (desktop) {
     const k = 22; // along the screen's right vector, which moves the campus left
     return { position: [118 + 0.707 * k, 104, 118 - 0.707 * k], target: [0.707 * k, 0, -0.707 * k] };

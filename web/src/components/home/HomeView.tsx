@@ -13,6 +13,7 @@ import { SLOTS, slotWindow } from "@/lib/library/policy";
 import { LIBRARY_ROOM_BY_ID, whereIs } from "@/lib/library/rooms";
 import { Switch } from "@/components/ui/kit";
 import { WIDGETS } from "./widgets";
+import { HeadsUp } from "./HeadsUp";
 
 export function HomeView() {
   const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession, reminders, personalEvents, removeReminder, removeEvent, bookings, cancelLibraryBooking } = useApp();
@@ -48,6 +49,8 @@ export function HomeView() {
           ))}
         </div>
       </motion.form>
+
+      <HeadsUp />
 
       {hydrated && studySessions.length > 0 && (
         <section className="card mb-6 p-5" aria-label="Confirmed study plan">

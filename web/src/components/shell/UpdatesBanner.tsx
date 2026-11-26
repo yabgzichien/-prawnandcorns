@@ -1,10 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Bell, LifeBuoy, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Bell, CalendarClock, CalendarRange, LifeBuoy, RefreshCw, X } from "lucide-react";
+import { alertText, useReplacementAlerts } from "@/components/replacement/useReplacements";
 import { useAskaAlerts } from "@/components/helpdesk/useAska";
+import { useDecisions, useEventAlerts } from "@/components/events/useEventData";
+import { eventStatusOf } from "@/lib/events/decisions";
 import { SPRING } from "@/lib/hooks";
 import { useApp } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
@@ -22,18 +25,36 @@ const list = (systems: SystemId[]) => {
  */
 export function UpdatesBanner() {
   const { changes, failed, syncNow, syncing } = useCampus();
-  const { openAgent, agentOpen, tickets } = useApp();
+  const { openAgent, agentOpen, tickets, eventApplications } = useApp();
   const { alerts, markSeen } = useAskaAlerts(tickets);
+  const events = useEventAlerts(eventApplications);
+  const eventDecisions = useDecisions();
+  const classes = useReplacementAlerts();
   const [hiddenFor, setHiddenFor] = useState("");
-  const signature = changes.map((c) => c.id).join("|") + failed.map((f) => f.system).join(",") + alerts.map((a) => `${a.ticket.id}:${a.update.status}`).join(",");
-  const visible = (changes.length > 0 || failed.length > 0 || alerts.length > 0) && !agentOpen && hiddenFor !== signature;
+  const signature = changes.map((c) => c.id).join("|") + failed.map((f) => f.system).join(",") + alerts.map((a) => `${a.ticket.id}:${a.update.status}`).join(",") + events.alerts.map((a) => a.stamp).join(",") + classes.alerts.map((r) => `${r.id}:${r.stamp}`).join(",");
+  const visible = (changes.length > 0 || failed.length > 0 || alerts.length > 0 || events.alerts.length > 0 || classes.alerts.length > 0) && !agentOpen && hiddenFor !== signature;
   const systems = [...new Set(changes.map((c) => c.system))];
+
+  // Publish how much of the top the banner covers, so sticky things on the page can sit below it
+  // instead of under it. It goes back to zero when the banner leaves.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = ref.current;
+    if (!visible || !el) { root.style.removeProperty("--banner-cover"); return; }
+    const update = () => root.style.setProperty("--banner-cover", `${el.offsetHeight + 12}px`);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty("--banner-cover"); };
+  }, [visible]);
 
   return (
     <div className="pointer-events-none fixed inset-x-3 top-3 z-[45] flex justify-center lg:left-[284px]" aria-live="polite">
       <AnimatePresence>
         {visible && (
           <motion.div
+            ref={ref}
             role="status"
             initial={{ opacity: 0, y: -18, scale: 0.97, filter: "blur(10px)" }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -54,6 +75,18 @@ export function UpdatesBanner() {
                   <span>AskA ticket {a.ticket.id} is now {a.update.status.toLowerCase()}.{a.update.note ? ` ${a.update.note}` : ""}</span>
                 </p>
               ))}
+              {classes.alerts.map((r) => (
+                <p key={r.id} className="flex items-start gap-2 text-[0.88rem] font-semibold leading-snug tracking-[-0.01em]">
+                  <CalendarClock size={17} className="mt-0.5 shrink-0 text-accent" />
+                  <span>{alertText(r)}</span>
+                </p>
+              ))}
+              {events.alerts.map((a) => (
+                <p key={a.app.id} className="flex items-start gap-2 text-[0.88rem] font-semibold leading-snug tracking-[-0.01em]">
+                  <CalendarRange size={17} className="mt-0.5 shrink-0 text-accent" />
+                  <span>The ECA office answered {a.app.name}: {eventStatusOf(a.app, eventDecisions)}.</span>
+                </p>
+              ))}
               {failed.map((f) => (
                 <p key={f.system} className="flex items-start gap-2 text-[0.85rem] leading-snug text-label-2">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-orange" />
@@ -61,13 +94,15 @@ export function UpdatesBanner() {
                 </p>
               ))}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               {failed.length > 0 && (
                 <button onClick={() => void syncNow()} disabled={syncing} className="press btn btn-sm btn-plain disabled:opacity-40"><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Retry</button>
               )}
               {changes.length > 0 && <button onClick={() => openAgent(SYNC_REVIEW_PROMPT)} className="press btn btn-sm btn-primary">Review</button>}
               {alerts.length > 0 && <Link href="/hub?section=helpdesk" onClick={markSeen} className="press btn btn-sm btn-primary">View ticket</Link>}
-              <button onClick={() => { setHiddenFor(signature); markSeen(); }} aria-label="Dismiss for now" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={16} /></button>
+              {classes.alerts.length > 0 && <Link href="/hub?section=timetable" onClick={classes.markSeen} className="press btn btn-sm btn-primary">{classes.alerts.some((r) => r.status === "asking") ? "Answer" : "View class"}</Link>}
+              {events.alerts.length > 0 && <Link href="/hub?section=events" onClick={events.markSeen} className="press btn btn-sm btn-primary">View booking</Link>}
+              <button onClick={() => { setHiddenFor(signature); markSeen(); events.markSeen(); classes.markSeen(); }} aria-label="Dismiss for now" className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2"><X size={16} /></button>
             </div>
           </motion.div>
         )}

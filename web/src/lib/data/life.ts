@@ -24,11 +24,18 @@ export const CLUBS: Club[] = [
   { id: "band", name: "Music & Band Club", category: "Arts", blurb: "Jam room, open-mic nights and the end-of-semester showcase.", meets: "Fri 19:30", room: "B1 Hall", members: 57, recruiting: true, tags: ["music", "band", "guitar", "singing", "creative"] },
 ];
 
-export type EventItem = { id: string; title: string; when: string; where: string; clubId?: string; room?: string };
+export type EventItem = {
+  id: string; title: string; when: string; where: string; clubId?: string; room?: string;
+  /** For the "Can I go?" check. YYYY-MM-DD and HH:MM, Malaysia time. */
+  date: string; start: string; end: string;
+  /** The fictional event page. The .demo address is not a real site and is never opened. */
+  link: string;
+};
+export const DEMO_EVENT_HOST = "events.compass.demo";
 export const EVENTS: EventItem[] = [
-  { id: "e1", title: "Club Fair", when: "Fri 27 Nov, 15:00", where: "Lakeside Walk", room: "Lakefront Café" },
-  { id: "e2", title: "Hack-day: Build in 6 hours", when: "Sat 28 Nov, 09:00", where: "A4-301", clubId: "code", room: "A4-301" },
-  { id: "e3", title: "Open-mic night", when: "Fri 4 Dec, 19:30", where: "B1 Hall", clubId: "band", room: "B1 Hall" },
+  { id: "e1", title: "Club Fair", when: "Fri 27 Nov, 15:00", where: "Lakeside Walk", room: "Lakefront Café", date: "2026-11-27", start: "15:00", end: "18:00", link: `https://${DEMO_EVENT_HOST}/club-fair` },
+  { id: "e2", title: "Hack-day: Build in 6 hours", when: "Sat 28 Nov, 09:00", where: "A4-301", clubId: "code", room: "A4-301", date: "2026-11-28", start: "09:00", end: "15:00", link: `https://${DEMO_EVENT_HOST}/hack-day` },
+  { id: "e3", title: "Open-mic night", when: "Fri 4 Dec, 19:30", where: "B1 Hall", clubId: "band", room: "B1 Hall", date: "2026-12-04", start: "19:30", end: "22:00", link: `https://${DEMO_EVENT_HOST}/open-mic-night` },
 ];
 
 export type Dues = { id: string; label: string; amount: number; due: string; status: "paid" | "upcoming" | "later"; paidOn?: string };

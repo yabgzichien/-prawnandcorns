@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ExternalLink, FileDown, LayoutDashboard, LibraryBig, LifeBuoy, Mail, Megaphone, Menu, ReceiptText, RotateCcw, X } from "lucide-react";
+import { CalendarClock, ClipboardList, ExternalLink, FileDown, LayoutDashboard, LibraryBig, LifeBuoy, Mail, Megaphone, Menu, ReceiptText, RotateCcw, X } from "lucide-react";
 import { resetScenario } from "@/lib/world/storage";
 import { PORTAL_VARS, PButton } from "./ui";
 import { useTriggered } from "./useScenario";
@@ -12,7 +12,9 @@ import { useTriggered } from "./useScenario";
 const NAV = [
   { section: "E-Services", items: [{ href: "/demo", label: "Announcements", hint: "Scenario events", icon: Megaphone }] },
   { section: "Student Portal", items: [{ href: "/demo/student-portal", label: "Dashboard", hint: "Alerts and balance", icon: LayoutDashboard }, { href: "/demo/student-portal/account-status", label: "Account Status", hint: "Invoices and receipts", icon: ReceiptText }, { href: "/demo/student-portal/files", label: "Download File", hint: "PDF files", icon: FileDown }] },
+  { section: "Teaching", items: [{ href: "/demo/lecturer", label: "Replacement Classes", hint: "Find a time for a lost class", icon: CalendarClock }] },
   { section: "Space Booking", items: [{ href: "/demo/library", label: "Library Rooms", hint: "Availability desk", icon: LibraryBig }] },
+  { section: "Extracurricular", items: [{ href: "/demo/eca", label: "Event Applications", hint: "Club events, rooms and items", icon: ClipboardList }] },
   { section: "Help desk", items: [{ href: "/demo/aska", label: "AskA", hint: "Hostel tickets", icon: LifeBuoy }] },
   { section: "Mailbox", items: [{ href: "/demo/mail", label: "Campus Email", hint: "Inbox and New message", icon: Mail }] },
 ] as const;

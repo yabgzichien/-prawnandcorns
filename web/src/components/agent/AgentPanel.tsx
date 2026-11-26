@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ArrowUp, Check, ChevronDown, Loader2, Mic, MicOff, Shield, Sparkles, Square, X } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, ImagePlus, Loader2, Mic, MicOff, Shield, Sparkles, Square, X } from "lucide-react";
+import { runPictureCheck } from "@/lib/eventfit/picture-client";
 import { runAgent, SUGGESTIONS, type AgentCard, type AgentContext, type AgentEvent } from "@/lib/agent";
 import { runGeminiAgent } from "@/lib/gemini-client";
 import { useApp, type WidgetPref } from "@/lib/state";
@@ -11,6 +12,7 @@ import { DEMO_NOW } from "@/lib/time";
 import { getTriggeredEvents } from "@/lib/world/storage";
 import { Sheet } from "@/components/ui/Sheet";
 import { SPRING, SPRING_FAST } from "@/lib/hooks";
+import { useDecisions } from "@/components/events/useEventData";
 import { AgentCardView } from "./Cards";
 import { STUDENT } from "@/lib/data/academics";
 import { parseAgentText } from "@/lib/agent-presentation";
@@ -53,10 +55,15 @@ function AgentText({ value }: { value: string }) {
 }
 
 export function AgentPanel() {
-  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, reminders, personalEvents, bookings, setWidgets, showToast } = useApp();
+  const { agentOpen, closeAgent, agentSeed, widgets, submitted, studySessions, reminders, personalEvents, bookings, eventApplications, setWidgets, showToast } = useApp();
+  const eventDecisions = useDecisions();
   const campus = useCampus();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  // An attached poster or screenshot. Held in memory only, never saved.
+  const [picture, setPicture] = useState<{ file: File; url: string } | null>(null);
+  const [pictureError, setPictureError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [running, setRunning] = useState(false);
   const [dictationState, setDictation] = useState<DictationState>("idle");
   const supportsDictation = useSyncExternalStore(noSpeechSubscription, browserHasSpeechRecognition, serverHasSpeechRecognition);
@@ -86,6 +93,9 @@ export function AgentPanel() {
     ctxRef.current = {
       widgets, submitted, studySessions,
       library: { events: [], bookings },
+      events: { applications: eventApplications, decisions: eventDecisions },
+      timetable: { classes: campus.data.classes, notices: campus.data.notices },
+      personalEvents, assignments: campus.data.assignments,
       campus: campus.snapshot ? {
         data: campus.data, items: campus.snapshot.items, changes: campus.changes,
         failed: campus.failed.map((f) => ({ system: f.system, message: f.error.message })),
@@ -257,8 +267,11 @@ export function AgentPanel() {
   }, []);
 
   const run = useCallback(async (prompt: string) => {
-    const text = prompt.trim();
+    const pic = picture;
+    const text = prompt.trim() || (pic ? "Can I go to the event in this picture?" : "");
     if (!text) return;
+    if (pic) { URL.revokeObjectURL(pic.url); setPicture(null); setPictureError(null); }
+    const attachment = pic ? { kind: "image" as const, name: pic.file.name.slice(0, 60) || "picture" } : undefined;
     cancelDictation();
     setDictationMessage(null);
     setDictationError(null);
@@ -267,7 +280,7 @@ export function AgentPanel() {
     abort.current = ac;
     const uid = ++idRef.current;
     const aid = ++idRef.current;
-    setMsgs((m) => [...m, { id: uid, role: "user", text }, { id: aid, role: "agent", plan: [], step: -1, tools: [], text: "", cards: [], done: false }]);
+    setMsgs((m) => [...m, { id: uid, role: "user", text: attachment ? `${text}\n\nPicture: ${attachment.name}` : text }, { id: aid, role: "agent", plan: [], step: -1, tools: [], text: "", cards: [], done: false }]);
     setInput("");
     setRunning(true);
     const useGemini = mode === "gemini" && geminiConfigured === "ready";
@@ -291,14 +304,15 @@ export function AgentPanel() {
       try {
         // the library changes when the console fills or closes rooms, so its events are read fresh for every question
         const ctx: AgentContext = { ...ctxRef.current, library: { bookings: ctxRef.current.library?.bookings ?? [], events: getTriggeredEvents() } };
-        await consume(useGemini ? runGeminiAgent(text, ctx, ac.signal, model) : runAgent(text, ctx, ac.signal));
+        // A picture in Gemini mode is read by the bounded picture route; in Demo mode Compass says it cannot read it.
+        await consume(pic && useGemini ? runPictureCheck(pic.file, ctx, ac.signal, model) : useGemini ? runGeminiAgent(text, ctx, ac.signal, model) : runAgent(text, { ...ctx, attachment }, ac.signal));
       } catch (error) {
         if (!useGemini || ac.signal.aborted) throw error;
         // The demo must never depend on the internet. When Gemini is unavailable, the same question is answered
         // by the offline scripted agent, and the answer says so.
         const why = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 140) : "no answer";
         patchAgent(aid, (m) => ({ ...m, plan: [], step: -1, tools: [], text: "", cards: [], done: false }));
-        await consume(runAgent(text, { ...ctxRef.current, library: { bookings: ctxRef.current.library?.bookings ?? [], events: getTriggeredEvents() } }, ac.signal), `**Offline demo mode:** Gemini was unavailable (${why}). This answer comes from the built-in demo agent.\n\n`);
+        await consume(runAgent(text, { ...ctxRef.current, attachment, library: { bookings: ctxRef.current.library?.bookings ?? [], events: getTriggeredEvents() } }, ac.signal), `**Offline demo mode:** Gemini was unavailable (${why}). This answer comes from the built-in demo agent.\n\n`);
       }
     } catch (error) {
       const message = error instanceof Error && !ac.signal.aborted ? error.message : "Request cancelled.";
@@ -307,7 +321,16 @@ export function AgentPanel() {
       if (abort.current === ac) { setRunning(false); abort.current = null; }
       patchAgent(aid, (m) => ({ ...m, done: true }));
     }
-  }, [patchAgent, setWidgets, mode, geminiConfigured, cancelDictation, model]);
+  }, [patchAgent, setWidgets, mode, geminiConfigured, cancelDictation, model, picture]);
+
+  const attachPicture = useCallback((file: File | null | undefined) => {
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) { setPictureError("Attach a PNG, JPEG or WebP picture."); return; }
+    if (file.size > 15_000_000) { setPictureError("That picture is over 15 MB. Crop it to the event details."); return; }
+    setPictureError(null);
+    setPicture((old) => { if (old) URL.revokeObjectURL(old.url); return { file, url: URL.createObjectURL(file) }; });
+    messageInput.current?.focus();
+  }, []);
 
   // Prompts handed over from elsewhere (Home ask bar, chips, ⌘K)
   useEffect(() => {
@@ -393,8 +416,22 @@ export function AgentPanel() {
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); void run(input); }} className="shrink-0 border-t border-sep p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {picture && (
+          <div className="mb-2 flex items-center gap-3 rounded-2xl bg-surface px-2.5 py-2 ring-1 ring-sep" aria-label="Attached picture">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, never uploaded */}
+            <img src={picture.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[0.85rem] font-semibold">{picture.file.name || "Picture"}</p>
+              <p className="text-[0.74rem] leading-snug text-label-2">{mode === "gemini" && geminiConfigured === "ready" ? "Sent to Gemini only to read the event's date and time. Not saved." : "Stays in this browser. Demo mode cannot read pictures, so you will type the date and time."}</p>
+            </div>
+            <button type="button" onClick={() => { URL.revokeObjectURL(picture.url); setPicture(null); }} aria-label="Remove picture" className="press grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-label-2"><X size={15} /></button>
+          </div>
+        )}
+        {pictureError && <p role="alert" className="mb-2 px-2 text-[0.77rem] text-red">{pictureError}</p>}
+        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { attachPicture(e.target.files?.[0]); e.target.value = ""; }} />
         <div className="flex items-center gap-2 rounded-full bg-surface py-1.5 pl-5 pr-1.5 shadow-sm ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
-          <input ref={messageInput} value={input} onChange={(e) => { setInput(e.target.value); setDictationMessage(null); }} readOnly={dictation === "starting" || dictation === "listening" || dictation === "stopping"} placeholder="Ask about classes, fees, rooms…" aria-label="Message Compass" aria-describedby="voice-dictation-hint" autoFocus className="min-w-0 flex-1 bg-transparent py-2 text-[1rem] outline-none placeholder:text-label-3" />
+          <input ref={messageInput} value={input} onPaste={(e) => { const f = [...e.clipboardData.files].find((x) => x.type.startsWith("image/")); if (f) { e.preventDefault(); attachPicture(f); } }} onChange={(e) => { setInput(e.target.value); setDictationMessage(null); }} readOnly={dictation === "starting" || dictation === "listening" || dictation === "stopping"} placeholder="Ask about classes, fees, rooms…" aria-label="Message Compass" aria-describedby="voice-dictation-hint" autoFocus className="min-w-0 flex-1 bg-transparent py-2 text-[1rem] outline-none placeholder:text-label-3" />
+          <button type="button" onClick={() => fileInput.current?.click()} disabled={running} aria-label="Attach an event poster or screenshot" title="Attach an event poster or screenshot" className="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-2 text-label disabled:opacity-40"><ImagePlus size={18} /></button>
           <button
             type="button"
             onClick={toggleDictation}
@@ -409,7 +446,7 @@ export function AgentPanel() {
           {running ? (
             <button type="button" onClick={stop} aria-label="Stop" className="press grid h-10 w-10 place-items-center rounded-full bg-label text-bg"><Square size={14} fill="currentColor" /></button>
           ) : (
-            <button type="submit" aria-label="Send" disabled={!input.trim() || dictation === "starting" || dictation === "listening" || dictation === "stopping"} className="press grid h-10 w-10 place-items-center rounded-full bg-accent text-accent-fg disabled:opacity-30"><ArrowUp size={19} strokeWidth={2.6} /></button>
+            <button type="submit" aria-label="Send" disabled={(!input.trim() && !picture) || dictation === "starting" || dictation === "listening" || dictation === "stopping"} className="press grid h-10 w-10 place-items-center rounded-full bg-accent text-accent-fg disabled:opacity-30"><ArrowUp size={19} strokeWidth={2.6} /></button>
           )}
         </div>
         {dictationError && <p role="alert" className="mt-2 px-2 text-[0.77rem] text-red">{dictationError}</p>}

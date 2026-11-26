@@ -86,6 +86,7 @@ Presenter console (a separate window, no student navigation, never linked from t
 | `/demo` | Announcements: the 12 scenario events, search and filter, "Triggered so far", suggested run |
 | `/demo/library` | Library desk: the same availability Compass reads, laid out like a booking page, plus buttons to fill or close rooms |
 | `/demo/aska` | AskA desk: tickets the student submitted; mark in progress, schedule technician, resolve |
+| `/demo/eca` | ECA event applications desk: one card per club event, checks done for you, an answer for each room and item, one Send. See 6.4 |
 | `/demo/mail` | Webmail screen: inbox list with search and an Unread filter, reading pane, New message window (custom emails are treated as untrusted). Read state lives in `compass:mail-read:v1` (console-owned, cleared by Reset scenario). Helpers in `web/src/lib/mail/` |
 | `/demo/student-portal`, `/demo/student-portal/account-status`, `/demo/student-portal/files`, `/demo/student-portal/documents/[id]` | Mock student portal: Dashboard, Account Status ledger, Download File, a printable document page. Read the fictional ledger |
 
@@ -141,7 +142,7 @@ The demo must never depend on the internet. Everything except the second Gemini 
 ## 6. Features added in this branch (what was built, in order)
 
 1. Demo world, 9 scenario events, storage. 2. Four mock APIs. 3. Connectors, Connections page, mock consent. 4. Sync engine and banner. 5. `/demo` console. 6. Scripted agent tools, approval card, apply and Undo. 7. Gemini tools, ids-only server context, `extract_notice` with code checks and offline fallback. 8. Polish: Saturday make-up class shows on the timetable, reminders on Home, outage re-arm after a scenario reset, demo script, e2e.
-9. **Library study room booking** (this turn), 10. **Console rebuilt as an e-services portal**, 11. **AskA help desk for hostel faults**, 12. **Agent finds and offers library rooms**.
+9. **Library study room booking** (this turn), 10. **Console rebuilt as an e-services portal**, 11. **AskA help desk for hostel faults**, 12. **Agent finds and offers library rooms**, 13. **Club event applications and the ECA staff desk** (section 6.4).
 
 ### 6.1 Library rooms (`web/src/lib/library/`, `components/library/`)
 
@@ -171,13 +172,25 @@ At XMUM, hostel faults (water leaks, air-conditioner problems, and so on) are re
 - Real pages saved by the user (`Account Status.html`, `Dashboard.html`, `AskA - XMUM.html`) sit untracked in the repo root and contain the user's real name and real financial records. They were used for page structure only. Never commit or copy them.
 - The AskA ticket now names the department and category as the real form does: "Operation and Maintenance Office > Hostel maintenance > ...".
 
+### 6.4 Club event applications and the ECA desk (`web/src/lib/events/`, `components/events/`, `components/portal/EcaDeskPage.tsx`)
+
+Why: a club committee that needs rooms and items files separate applications, and each office answers its own lines on its own day, so one event can take weeks and fills ECA staff inboxes. The two booking slips the user supplied show this: one event, one status for each room or item (Approved, Approve With Condition, Rejected), remarks such as a swapped room or a collect place, and offices named PAMO, IT and ECA. Decision record: `UX-ADR-004` in `docs/ux/DECISIONS.md`. **Nothing from those slips is in the repo** (they hold a real name, ID, phone and email). Everything is invented: the applicant is Alex Tan, advisers end in `@demo.invalid`, application numbers are `DEMO-EVT-...`, and the other clubs' applications in `lib/events/seed.ts` are invented.
+
+- **Data**: `types.ts` (an application has `venue`, `item` and `care` lines; each line has its own status; statuses are Pending, Approved, Approve With Condition, Rejected; the event status is derived by `deriveEventStatus` but the desk may set it). `catalogue.ts` (rooms with public codes and approximate seats; items with an owning office, stock, a per-application maximum, and the office's collect and return windows and place). Demo policy, not XMUM policy: 14 days notice (a warning), events inside the semester (to 31 Dec 2026), rooms 08:00 to 22:00, offices closed on Sundays.
+- **Checks** (`checks.ts`, plain code, shown to the student before Submit and to staff as "Suggested"): past or out of window dates, end before start, capacity against participants, a room another club holds (approved is a problem, only asked for is a warning), item maximum, stock, collect and return order, Sundays, return window closing before the event ends. The room another club really has is the one staff assigned (`effectiveVenueId`).
+- **Student side**: Hub section `Club events` (`?section=events`), a five step sheet (`EventApplicationSheet`: Event, Rooms, Items, Arrangements, Review; mounted in `AppShell`, one sheet at a time). Submit is the only save, re-checked in `submitEventApplication` (`lib/state.tsx`). The page shows each line's status, remark, room swap ("You asked for X. You were given Y."), items approved in part, a progress bar, Withdraw (only while nothing is answered, with Undo), and **Download booking slip (PDF)** (`lib/events/slip.ts`, mirrors the slip sections; header uses a light bar because the shared PDF frame's black on near black text is hard to read).
+- **Agent**: scripted intent `event` (checked BEFORE the library `booking` intent; "book a study room for 2" still goes to the library) and `eventstatus`; cards `event` and `event-status` (`components/agent/EventCard.tsx`); Gemini tool `prepare_event_application` takes the student's own words and the same parser decides every room, number and date. Nothing is submitted by the agent.
+- **Desk**: `/demo/eca`. Master and detail from 1280px, stacked below with Back to queue. Office filter chips (the real offices answer their own lines; the presenter can answer for any so the demo finishes), segmented Approve, With condition, Reject, remark chips, "Room given" (free rooms only, never one the same application already uses), "Number approved", "Approve N that pass the checks", one Send, Undo. Unanswered lines stay Pending ("Waiting for PAMO"). Partial sends and later revisions merge (`applyDecisionBatch`). Only the saved decisions are written to `compass:eca-decisions:v1`; the invented answers for the other clubs (`SEEDED_DECISIONS`) sit underneath and are never copied in.
+- **Tests**: `tests/events.test.ts` (parser, drafts, checks, decisions, sanitisers, slip, storage, Gemini tool), `tests-e2e/events.spec.ts` (agent to form to submit, clash caught, library request unchanged, desk to Compass to slip download to Undo, 320px).
+- **Not done / ideas**: the desk keeps unsent answers in page memory only (a refresh drops them). No calendar entries for collect and return days yet (reuse `applyUpdates` add_calendar_event). Real per office desks, email to the adviser, and amending a submitted application are not built. The agent does not read decisions in Gemini mode (it only prepares).
+
 ### 6.3 Storage keys and who writes them (one writer per key)
 
 | Key | Written by | Cleared by |
 | --- | --- | --- |
-| `xmum-compass:v1` (settings, study sessions, reminders, calendar entries, library bookings, AskA tickets) | Compass window (`lib/state.tsx`, single `persistedOf` helper so no save path forgets a field) | Compass "Reset demo" |
-| `compass:scenario-events:v1`, `compass:custom-mail:v1`, `compass:aska-updates:v1` | Console window | Console "Reset scenario" and Compass "Reset demo" |
-| `compass:connections:v1`, `compass:sync:v1`, `compass:acknowledged:v1`, `compass:aska-seen:v1` | Compass window | Compass "Reset demo" |
+| `xmum-compass:v1` (settings, study sessions, reminders, calendar entries, library bookings, AskA tickets, club event applications) | Compass window (`lib/state.tsx`, single `persistedOf` helper so no save path forgets a field) | Compass "Reset demo" |
+| `compass:scenario-events:v1`, `compass:custom-mail:v1`, `compass:aska-updates:v1`, `compass:eca-decisions:v1` | Console window | Console "Reset scenario" and Compass "Reset demo" |
+| `compass:connections:v1`, `compass:sync:v1`, `compass:acknowledged:v1`, `compass:aska-seen:v1`, `compass:eca-seen:v1` | Compass window | Compass "Reset demo" |
 
 The console only reads the Compass keys. Console Reset deliberately leaves what the student saved.
 
@@ -200,7 +213,8 @@ The console only reads the Compass keys. Console Reset deliberately leaves what 
 - **Code verified:** 124 unit tests (123 pass, 1 skipped live-Gemini), lint clean, `tsc` clean, `npm run build` passes.
 - **Executed:** 27 of 29 Playwright tests pass (the 2 failures are pre-existing, see section 3). Specs cover the whole loop (console to banner to review to approve to Undo), noise and prompt-injection email, ambiguous email question, Moodle outage and Retry, library booking and rules and map pull-out, room closed after booking, agent room search, AskA ticket and technician flow, 320px layouts.
 - **Observed by hand** in the built-in browser pane: banner loop across two windows, approve and undo, outage and Retry, Saturday make-up, library sheet with map, AskA card.
-- **Unverified:** live Gemini (including `extract_notice`, `find_library_rooms`, `prepare_aska_ticket` with a real model), Safari and real devices, screen readers, dark mode of the hub content panel (it looks washed out; this predates this branch).
+- **Club events (25 Nov 2026):** `tests/events.test.ts` (34 tests) and `tests-e2e/events.spec.ts` (5 tests) pass; the whole unit suite was 188 pass and 1 skipped, with lint, `tsc` and build clean. The e2e ran in Playwright's headless Chromium only. On a full run the dev server stalled and several unrelated specs timed out; they all passed when re-run alone on a quiet server (run e2e with nothing else using the folder). Also viewed by hand at 1440 and 1024 px in the in-app browser, and the PDF slip was rendered and read. Not checked in Safari or Firefox, on a real phone, with a screen reader, or in light theme on the student pages.
+- **Unverified:** live Gemini (including `prepare_event_application`, `extract_notice`, `find_library_rooms`, `prepare_aska_ticket` with a real model), Safari and real devices, screen readers, dark mode of the hub content panel (it looks washed out; this predates this branch).
 
 ---
 
@@ -216,6 +230,8 @@ The console only reads the Compass keys. Console Reset deliberately leaves what 
 ---
 
 ## 10. What to do next (suggested, in rough priority)
+
+0. **Club events follow-ups** (see 6.4): keep unsent desk answers across a refresh; add the collect and return days to the student's calendar through `applyUpdates`; separate desks for PAMO, IT and the venue office; let a student amend a submitted application; tell the adviser. The user also supplied real booking slips (kept outside the repo, they hold personal data) so check any new office or status wording against the real slips before inventing it.
 
 1. **3D interior of the A blocks** (the user asked for this "in the near future"). A task card was proposed: start with A3 Level 2 and Level 3. **Ask the user for floor plans, photos or measurements first; do not fabricate geometry and call it real.** Reuse `lib/library/rooms.ts` and `plan.ts` for room, wing and level data, extend `web/src/components/map3d/` (see `buildings.tsx`, `CampusScene.tsx`), load three.js lazily like the existing 3D map, keep a 2D fallback, respect reduced motion and 320px. Hook it into `RoomLocator.tsx` so a booked room can be shown in 3D. Ask the user for photos of areas normally open to students only, without faces or screens.
 2. **Run live Gemini** once a key exists: `GEMINI_API_KEY=... npm test` runs the extraction check; then rehearse the full demo in Gemini mode and tune prompts.
@@ -235,6 +251,7 @@ The console only reads the Compass keys. Console Reset deliberately leaves what 
 6. Show resilience: take Moodle down; the banner says so, keeps old data, Retry recovers.
 7. Library: ask "Book a study room for 2 tomorrow at 3pm", tap Book, show the map pull-out; in the console close that room and show Compass flag the booking.
 8. Hostel: say "The air-con in D3-512 is leaking"; Compass prepares an AskA ticket (not an email); submit; in the console schedule a technician; add the visit to the calendar.
+9. Club event: in the assistant say "Book 3 classrooms, 30 plastic chairs, 10 banquet tables and 2 megaphones for our Robotics Demo Night on 10 December from 4pm to 10pm, 80 people. The Robotics & AI Society is organising it." Review each step, add an adviser, submit. In the console open Event Applications (the queue holds other clubs' invented applications, one waiting 5 days), open the application, Approve what passes the checks, reject the megaphones with a reason, swap a room, Send one decision. Compass shows the banner, each line's answer and the room swap, and downloads the booking slip. The line for the pitch: one application and one decision message replace a pile of emails, so weeks become days.
 
 The closing line for judges: every record is invented, every action is proposed and approved by the student, and replacing one mock adapter per system is all it takes to go real once XMUM grants access.
 
@@ -248,4 +265,115 @@ The closing line for judges: every record is invented, every action is proposed 
 - State: `lib/state.tsx`.
 - Library and AskA: `lib/library/*`, `lib/aska.ts`, `components/library/*`, `components/helpdesk/*`, `components/agent/{AskaCard,RoomsCard,UpdatesCard,Cards,AgentPanel}.tsx`.
 - Portal: `components/portal/*`, `app/demo/**`.
+- Club events: `lib/events/` (`types`, `catalogue`, `checks`, `decisions`, `application`, `request`, `seed`, `slip`, `storage`, `summary`), `components/events/` (`EventsView`, `EventApplicationSheet`, `useEventData`, `shared`), `components/agent/EventCard.tsx`, `components/portal/EcaDeskPage.tsx`, `app/demo/eca/page.tsx`. Tests: `tests/events.test.ts`, `tests-e2e/events.spec.ts`.
 - Docs: `docs/CAMPUS_CONNECTORS_DEMO.md` (how it works and a stage script), the spec in `docs/superpowers/specs/`, `docs/ux/*` (copy and UX rules), this file.
+
+---
+
+## 13. Replacement classes and the GE planner (added 26 Nov 2026)
+
+Decisions are in `docs/ux/DECISIONS.md` (UX-ADR-005 and UX-ADR-006). Light theme screenshots: `docs/ux/evidence/2026-11-replacement-and-ge/`.
+
+### 13.1 Replacement classes
+
+- **Lecturer desk**: `/demo/lecturer` (console nav "Teaching", "Replacement Classes"). Pick the lost CST1101 class and the reason, see a heatmap of how many of the 36 invented students are free for each start time (counts only, never names), pick a room, then either set the time at once or shortlist two or three times and ask the students. Publish and Ask both confirm in a modal; Undo restores the previous requests.
+- **Rules** (`lib/replacement/availability.ts`, demo policy): Tue to Sat of the current week, 08:00 to 20:00, 24 hours' notice, not on a public holiday, the lecturer's leave day or their other teaching, a room with enough seats. `checkOption` re-checks before anything is written.
+- **Student side**: `ReplacementPanel` at the top of Timetable (answer Works or Can't per time, prefilled from the timetable; or the set time with Show in timetable, Find room, Add to calendar, and private overlap warnings). `UpdatesBanner` tells the student once. `CampusProvider` overlays the result on `data.classes` and notices (`lib/replacement/overlay.ts`), so Up next, Class changes, ICS export, the study planner and the assistant all see it.
+- **Storage**: the desk writes `compass:replacements:v1`; Compass writes `compass:replacement-answers:v1` and `compass:replacement-seen:v1`. An answer counts only for the request `stamp` it was given for.
+
+### 13.2 GE planner
+
+- Hub section `electives` ("GE planner"); Courses shows a summary card. `lib/electives/`: `parse.ts` reads the AC's time text (week ranges, dates, am and pm, several parts; anything unclear is unreadable, never free), `plan.ts` (clashes by shared weeks, stream rule, `suggestSets`, `checkShortlist`), `catalogue.ts` (19 invented courses with planted cases: TBA, full, core clashes, a weeks 8 to 14 clash, two Saturday courses that share two dates), `request.ts` (plain words to credits and interests).
+- Saving the shortlist goes through `saveElectives` in `lib/state.tsx`, which re-checks it. Nothing is registered; the copy says so.
+- **Agent**: scripted intent `ge` (checked before the room and layout intents) and card `ge-plan`; Gemini tool `suggest_general_electives` uses the same engine.
+
+### 13.3 Verification (26 Nov 2026)
+
+- `npm run check:copy`, 215 unit tests (214 pass, 1 skipped live Gemini), lint, `tsc` and `npm run build` pass.
+- New e2e specs `tests-e2e/replacement.spec.ts` (4) and `tests-e2e/electives.spec.ts` (6) pass in Playwright's headless Chromium, including 320 px at normal and 200% text size.
+- Full e2e suite on the final tree: 55 of 58 pass. The 2 known failures (section 3) remain. The third, `events.spec.ts` "the agent turns plain words into one application", is a race in that test: `getByText("DEMO-EVT-0001")` also matches the "Application DEMO-EVT-0001 saved" toast while the toast is still up. It passes when run alone (5 of 5). Adding `{ exact: true }` to that locator would fix it.
+- Writing the e2e found a real bug on the desk (the selected time panel's exit animation kept the old time's buttons clickable); fixed.
+- Checked by hand in the in-app browser at 1440 px (light and dark) and 320 px. Not checked on a real phone, in Safari or Firefox, with a screen reader, or with a live Gemini model.
+
+### 13.4 Known limits and ideas
+
+- The stream is fixed to the demo student (Science); the planner's stream switch is a demo view and disables saving.
+- Replacements stay inside the current teaching week. Next week would need the student timetable to show more than one week.
+- Fixed on 26 Nov: the updates banner no longer covers the GE planner's sticky summary (see 14.4).
+- The 200% text reflow failure on `/courses` (section 3) comes from the existing course list tags, not the new GE card.
+
+
+## 14. Event fit check, deadline and exam heads-up (added 26 Nov 2026)
+
+Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/evidence/2026-11-events-and-alerts/` (17 to 23).
+
+### 14.1 Merge with David's work
+
+`origin/main` (voice dictation, Gemini model selection, hub reflow) is merged locally in commit `c01e26d` (not pushed). Conflicts were in `AgentPanel.tsx` (imports, the run function now passes `model`) and `gemini-client.ts` (sends `model` and the campus context). `CoursesView.tsx` keeps the GE planner summary with David's smaller phone padding.
+
+### 14.2 "Can I go?" event check
+
+- **Ask:** in the assistant, paste the event's text, a link, or attach or paste a poster or screenshot. On Clubs, every "Coming up" event has a "Does it fit?" button.
+- **Read:** `lib/eventfit/read.ts` turns it into editable fields (title, date, start, end, place).
+  - It opens no links. Only the fictional `events.compass.demo` links in `lib/data/life.ts` are known; any other link gets "Compass does not open links from other sites".
+  - Without an end time it assumes 2 hours and labels the field "(assumed)".
+- **Check:** `lib/eventfit/check.ts` decides the answer.
+  - **Clashes:** classes, exams, study sessions, saved plans and library bookings.
+  - **Notes:** something within 30 minutes, an open assignment due within 24 hours after (48 for 10% or more), an exam within 48 hours, and revision or exam weeks.
+  - Normal weekly classes are projected onto other teaching weeks. This week's cancellations, room changes and replacements count for this week only.
+- **Card:** `components/agent/EventFitCard.tsx` re-checks on every edit. "Add to my plans" goes through `addPersonalEvent` in `lib/state.tsx`, with Undo, and shows on Home. "Calendar file" downloads an .ics.
+- **Pictures:**
+  - In Demo mode, Compass says plainly it cannot read them and sends nothing.
+  - In Gemini mode, `lib/eventfit/picture-client.ts` shrinks the picture to JPEG and posts it to `/api/event-picture`. That route has its own 1.5 MB limit, the same origin guards, and no tools; it uses a JSON response schema. `lib/eventfit/picture.ts` sanitises what comes back.
+  - The chip says where the picture goes before sending. Pictures are never stored.
+- **Gemini tools:** `check_event_fit` and `get_semester_status`, backed by the same code.
+
+### 14.3 Heads-up for deadlines and exams
+
+- `lib/calendar/semester.ts` holds the one demo calendar for Semester 1:
+  - week 1 is Mon 21 Sep 2026, so 23 Nov is week 10, with 14 teaching weeks;
+  - revision week is 28 Dec to 3 Jan, and exams run 4 to 17 Jan 2027;
+  - an invented exam timetable has the MAT1101 midterm on Thu 3 Dec and finals in January. ENG1101 has no final.
+- `lib/calendar/alerts.ts` sets the tiers:
+  - open items due within 24 or 72 hours;
+  - items worth 10% or more within 14 days;
+  - overdue items that still take late work;
+  - items ticked here but not submitted on Moodle;
+  - exams within 14, 3 or 1 days, or on now;
+  - the last two teaching weeks, revision week and exam weeks.
+- `components/home/HeadsUp.tsx` sits on Home, under the Ask box. Hiding a line stores `id@tier` in `compass:time-alerts-seen:v1`, so it returns at the next tier. Reset demo clears it.
+- **Agent:** a new `exams` intent ("when is my exam", "is it revision week"), checked before the room intent. The deadlines answer adds an exam heads-up line.
+- Deadline alerts are deliberately not in the floating banner (see ADR-007).
+
+### 14.4 Banner fix
+
+`UpdatesBanner` publishes its height as `--banner-cover` on `<html>` while it is visible. The GE summary sticks at `calc(var(--banner-cover, 0px) + 0.75rem)`, so Save stays clickable. The e2e checks this with `elementFromPoint`, not only `toBeInViewport`.
+
+### 14.5 Verification (26 Nov 2026)
+
+- `npm run check:copy`, 241 unit tests (240 pass, 1 skipped live Gemini), lint, `tsc` and `npm run build` pass. New: `web/tests/timewatch.test.ts` (15).
+- New e2e `web/tests-e2e/timewatch.spec.ts` (9) passes in Playwright's headless Chromium. It covers:
+  - Home alerts and their tiers;
+  - a demo link, editing, Add and Undo;
+  - poster text carrying a fake instruction;
+  - an outside link that is never requested;
+  - a picture in Demo mode, which is never sent;
+  - a picture in Gemini mode, against a mocked route;
+  - the exams answer;
+  - the banner not covering Save;
+  - 320 px at 200% text.
+- **Full suite, run against a production build:** 65 of 74 passed in a single run. That run took 27 minutes because lint was running at the same time, and 9 tests timed out or raced.
+  - Re-run on their own, all 9 pass.
+  - `events.spec.ts` "plain words into one application" was the known toast race. It is now fixed with `{ exact: true }`.
+  - The old `/courses` 200% failure also passes now.
+  - A clean full re-run on an idle machine has not been done since.
+- **Bugs found and fixed while testing:**
+  - typing a start time on an empty card did not fill in the assumed end;
+  - the card's date field and Calendar file button overflowed at 320 px with 200% text.
+- **Not checked:** a real phone, Safari or Firefox, a screen reader, or a live Gemini model, either for picture reading or for the new tools.
+
+### 14.6 Known limits
+
+- The demo clock is fixed, so exam tiers other than "14 days" and the revision and exam week states are shown only by unit tests and the fit check on December and January dates.
+- The Gemini picture path is tested with a mocked route and a fake fetch, never with a live model.
+- At 320 px with 200% text the assistant sheet's own header is cramped. That is existing layout; the new card itself fits.

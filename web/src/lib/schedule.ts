@@ -1,5 +1,5 @@
-import { CLASSES, sessionDate, type ClassSession } from "./data/academics";
-import { DEMO_NOW } from "./time";
+import { CLASSES, sessionDate, type ClassSession } from "./data/academics.ts";
+import { DEMO_NOW } from "./time.ts";
 
 export const TODAY_IDX = 0; // the demo "now" is Monday 23 Nov 2026, 13:20
 
@@ -10,4 +10,4 @@ export function upcomingClasses(from: Date = DEMO_NOW, classes: readonly ClassSe
 }
 
 export const statusText = (c: ClassSession) =>
-  c.status === "cancelled" ? "Cancelled" : c.status === "room-changed" ? "Room changed" : c.status === "makeup" ? "Make-up class" : "";
+  c.status === "cancelled" ? "Cancelled" : c.status === "room-changed" ? "Room changed" : c.status === "makeup" ? (c.replacementId ? "Replacement class" : "Make-up class") : "";

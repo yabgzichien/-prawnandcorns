@@ -7,7 +7,7 @@ import { KIND_LABEL, outstanding, totals, type LedgerEntry } from "./ledger.ts";
  * Text is limited to what the standard fonts hold; anything else becomes "?".
  */
 
-type Op = { t: "text"; x: number; y: number; size: number; bold?: boolean; s: string; right?: boolean } | { t: "line"; x1: number; y1: number; x2: number; y2: number; w?: number } | { t: "rect"; x: number; y: number; w: number; h: number; gray: number };
+export type Op = { t: "text"; x: number; y: number; size: number; bold?: boolean; s: string; right?: boolean } | { t: "line"; x1: number; y1: number; x2: number; y2: number; w?: number } | { t: "rect"; x: number; y: number; w: number; h: number; gray: number };
 
 const W = 595;
 const H = 842;

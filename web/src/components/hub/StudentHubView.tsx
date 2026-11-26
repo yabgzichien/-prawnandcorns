@@ -2,13 +2,15 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, CalendarDays, CheckSquare, ChevronDown, Landmark, Library, LifeBuoy, MapPin, Users, X } from "lucide-react";
+import { BookOpen, CalendarDays, Shapes, CalendarRange, CheckSquare, ChevronDown, Landmark, Library, LifeBuoy, MapPin, Users, X } from "lucide-react";
 import { AssignmentsView } from "@/components/pages/AssignmentsView";
 import { ClubsView } from "@/components/pages/ClubsView";
 import { CoursesView } from "@/components/pages/CoursesView";
 import { FinanceView } from "@/components/pages/FinanceView";
 import { LibraryView } from "@/components/library/LibraryView";
 import { HelpDeskView } from "@/components/helpdesk/HelpDeskView";
+import { EventsView } from "@/components/events/EventsView";
+import { ElectivesView } from "@/components/electives/ElectivesView";
 import { TimetableView } from "@/components/pages/TimetableView";
 import { MapView } from "@/components/map/MapView";
 import { DemoBadge } from "@/components/ui/kit";
@@ -22,7 +24,9 @@ const SECTIONS = [
   { id: "clubs", title: "Clubs & events", summary: "Discover your community", description: "Browse events, clubs and activities around campus.", icon: Users, tone: "green" },
   { id: "finance", title: "Finance", summary: "Fees and payment dates", description: "Review balances, instalments and payment history.", icon: Landmark, tone: "cream" },
   { id: "library", title: "Library rooms", summary: "Book a study room", description: "Reserve a study or discussion room and see where it is.", icon: Library, tone: "green" },
-  { id: "helpdesk", title: "Help desk", summary: "Report hostel problems", description: "Report a leak, air-con or other hostel fault as an AskA ticket.", icon: LifeBuoy, tone: "cream" },
+  { id: "events", title: "Club events", summary: "Book rooms and items", description: "Ask for rooms, chairs and equipment for a club event in one application.", icon: CalendarRange, tone: "cream" },
+  { id: "helpdesk", title: "Help desk", summary: "Report hostel problems", description: "Report a leak, air-con or other hostel fault as an AskA ticket.", icon: LifeBuoy, tone: "green" },
+  { id: "electives", title: "GE planner", summary: "Electives without clashes", description: "Plan next semester's general electives, checked against your timetable and credits.", icon: Shapes, tone: "cream" },
 ] as const;
 
 export type HubSection = (typeof SECTIONS)[number]["id"];
@@ -101,7 +105,9 @@ export function StudentHubView() {
             <div hidden={selected !== "clubs"}><ClubsView /></div>
             <div hidden={selected !== "finance"}><FinanceView /></div>
             {selected === "library" && <LibraryView key={params.toString()} />}
+            {selected === "events" && <EventsView />}
             {selected === "helpdesk" && <HelpDeskView />}
+            {selected === "electives" && <ElectivesView />}
           </motion.section>
         ) : (
           <motion.p key="hub-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-5 flex items-center gap-2 px-1 text-sm text-label-2">
