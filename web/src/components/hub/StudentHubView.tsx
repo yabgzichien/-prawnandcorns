@@ -44,7 +44,7 @@ export function StudentHubView() {
     <div className="hub-page">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 pt-1 sm:mb-8">
         <div>
-          <div className="mb-2 flex items-center gap-3"><p className="t-eyebrow">Your campus, in one place</p><DemoBadge /></div>
+          <div className="mb-2 flex flex-wrap items-center gap-3"><p className="t-eyebrow">Your campus, in one place</p><DemoBadge /></div>
           <h1 className="t-display">Student hub</h1>
           <p className="t-sub mt-2 max-w-2xl">Choose a section to bring its full workspace into focus.</p>
         </div>

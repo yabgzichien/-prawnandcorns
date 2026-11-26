@@ -1,15 +1,16 @@
 import type { AgentContext, AgentEvent, AgentCard } from "./agent";
 import { presentGeminiAnswer } from "./agent-presentation";
 import { campusRequest } from "./agent-tools/request";
+import type { SelectableGeminiModel } from "./gemini-model-selection";
 
 /** The client never talks directly to Google. Only this same-origin route is called. */
-export async function* runGeminiAgent(prompt: string, context: AgentContext, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
+export async function* runGeminiAgent(prompt: string, context: AgentContext, signal?: AbortSignal, model?: SelectableGeminiModel): AsyncGenerator<AgentEvent> {
   yield { type: "plan", steps: ["Ask Gemini to choose safe demo-data tools", "Run read-only tools and verify deterministic scheduling", "Present an answer and request approval before saving"] };
   yield { type: "step", index: 0 };
   const response = await fetch("/api/agent", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt, context: campusRequest(context) }),
+    body: JSON.stringify({ prompt, model, context: campusRequest(context) }),
     signal, cache: "no-store",
   });
   const payload: unknown = await response.json().catch(() => ({}));

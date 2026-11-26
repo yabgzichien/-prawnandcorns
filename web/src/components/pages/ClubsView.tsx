@@ -54,8 +54,8 @@ export function ClubsView() {
               {list.map((c) => {
                 const on = joined.includes(c.id);
                 return (
-                  <motion.article key={c.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={SPRING} className="card flex min-w-0 flex-col p-5">
-                    <div className="flex items-center justify-between gap-2"><Pill tone={c.category === "Tech" ? "blue" : c.category === "Sports" ? "green" : c.category === "Arts" ? "purple" : c.category === "Culture" ? "orange" : "teal"}>{c.category}</Pill><span className="t-caption tnum">{c.members} members</span></div>
+                  <motion.article key={c.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={SPRING} className="card flex min-w-0 flex-col p-3 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><Pill tone={c.category === "Tech" ? "blue" : c.category === "Sports" ? "green" : c.category === "Arts" ? "purple" : c.category === "Culture" ? "orange" : "teal"}>{c.category}</Pill><span className="t-caption tnum">{c.members} members</span></div>
                     <h3 className="t-headline mt-3">{c.name}</h3>
                     <p className="t-sub mt-1 flex-1">{c.blurb}</p>
                     <p className="t-caption mt-3">{c.meets}{c.room ? <>, <Link href={`/hub?section=map&q=${encodeURIComponent(c.room)}`} className="font-semibold text-accent">{c.room}</Link></> : ""}</p>
