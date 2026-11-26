@@ -22,7 +22,6 @@ import type { ElectiveShortlist } from "./electives/types";
 
 export type WidgetId = "next" | "alerts" | "due" | "today" | "fees" | "progress" | "clubs" | "find";
 export type WidgetPref = { id: WidgetId; hidden: boolean };
-export type Theme = "system" | "light" | "dark";
 
 export const WIDGET_META: Record<WidgetId, { title: string; aliases: string[] }> = {
   next: { title: "Up next", aliases: ["next class", "up next", "next"] },
@@ -48,7 +47,6 @@ export const DEFAULT_WIDGETS: WidgetPref[] = [
 
 type State = {
   hydrated: boolean;
-  theme: Theme;
   widgets: WidgetPref[];
   joined: string[];
   submitted: string[];
@@ -76,7 +74,6 @@ type State = {
 
 const initial: State = {
   hydrated: false,
-  theme: "system",
   widgets: DEFAULT_WIDGETS,
   joined: [],
   submitted: [],
@@ -97,7 +94,6 @@ const initial: State = {
 
 type Action =
   | { type: "hydrate"; saved: Partial<State> }
-  | { type: "theme"; theme: Theme }
   | { type: "widgets"; widgets: WidgetPref[] }
   | { type: "toggleClub"; id: string }
   | { type: "toggleSubmitted"; id: string }
@@ -128,7 +124,6 @@ function sanitizeEvents(raw: unknown): PersonalEvent[] {
 function reducer(s: State, a: Action): State {
   switch (a.type) {
     case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), eventApplications: sanitizeApplications(a.saved.eventApplications), electives: sanitizeShortlist(a.saved.electives), lastApply: null, hydrated: true };
-    case "theme": return { ...s, theme: a.theme };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
     case "toggleSubmitted": return { ...s, submitted: s.submitted.includes(a.id) ? s.submitted.filter((x) => x !== a.id) : [...s.submitted, a.id] };
@@ -144,22 +139,21 @@ function reducer(s: State, a: Action): State {
     case "removeReminder": return { ...s, reminders: s.reminders.filter((r) => r.id !== a.id) };
     case "removeEvent": return { ...s, personalEvents: s.personalEvents.filter((e) => e.id !== a.id) };
     case "agent": return { ...s, agentOpen: a.open, agentSeed: a.seed ? { prompt: a.seed, nonce: Date.now() } : a.open ? s.agentSeed : null };
-    case "reset": return { ...initial, hydrated: true, theme: s.theme, agentOpen: s.agentOpen };
+    case "reset": return { ...initial, hydrated: true, agentOpen: s.agentOpen };
     case "toast": return { ...s, toast: a.toast };
   }
 }
 
 const KEY = "xmum-compass:v1";
-type Persisted = Pick<State, "theme" | "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings" | "tickets" | "eventApplications" | "electives">;
+type Persisted = Pick<State, "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings" | "tickets" | "eventApplications" | "electives">;
 
 /** One place decides what is saved, so a new kind of saved data cannot be forgotten by one of the save paths. */
 const persistedOf = (s: State, over: Partial<Persisted> = {}): Persisted => ({
-  theme: s.theme, widgets: s.widgets, joined: s.joined, submitted: s.submitted,
+  widgets: s.widgets, joined: s.joined, submitted: s.submitted,
   studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, bookings: s.bookings, tickets: s.tickets, eventApplications: s.eventApplications, electives: s.electives, ...over,
 });
 
 type Ctx = State & {
-  setTheme: (t: Theme) => void;
   setWidgets: (w: WidgetPref[]) => void;
   toggleClub: (id: string) => void;
   toggleSubmitted: (id: string) => void;
@@ -211,10 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let saved: Partial<Persisted> = {};
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) saved = parsed as Partial<Persisted>;
-      }
+      if (raw) saved = JSON.parse(raw) as Partial<Persisted>;
     } catch {}
     dispatch({ type: "hydrate", saved });
   }, []);
@@ -223,13 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!state.hydrated) return;
     persistDemoSnapshot(() => localStorage, KEY, persistedOf(state));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hydrated, state.theme, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings, state.tickets, state.eventApplications, state.electives]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (state.theme === "system") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", state.theme);
-  }, [state.theme]);
+  }, [state.hydrated, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings, state.tickets, state.eventApplications, state.electives]);
 
   useEffect(() => {
     if (!state.toast) return;
@@ -256,7 +241,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => ({
     ...state,
-    setTheme: (theme) => dispatch({ type: "theme", theme }),
     setWidgets: (widgets) => dispatch({ type: "widgets", widgets }),
     toggleClub: (id) => dispatch({ type: "toggleClub", id }),
     toggleSubmitted: (id) => dispatch({ type: "toggleSubmitted", id }),

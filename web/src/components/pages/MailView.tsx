@@ -7,7 +7,7 @@ import { detectDormIssue, draftTicket } from "@/lib/aska";
 import { DEPARTMENTS, type Department } from "@/lib/data/life";
 import { composeEmail, extractNeed, mailtoHref, routeDepartment, type Tone } from "@/lib/email";
 import { useApp } from "@/lib/state";
-import { PageHeader, Segmented } from "@/components/ui/kit";
+import { PageHeader, Segmented, featureTitleStyle } from "@/components/ui/kit";
 
 const EXAMPLES = ["I can't log in to Moodle", "I have a clash between two classes", "my hostel air-con is not working", "a receipt for my tuition payment"];
 
@@ -36,14 +36,14 @@ export function MailView() {
   const dir = DEPARTMENTS.filter((d) => (d.name + d.handles + d.email).toLowerCase().includes(dirQ.toLowerCase()));
 
   return (
-    <div>
-      <PageHeader eyebrow="Departmental emails" title="Mail assistant" sub="Say what you need in your own words. Compass picks the right office and writes the first draft." />
+    <div className="mail-page">
+      <PageHeader eyebrow="Departmental emails" title="Mail assistant" titleStyle={featureTitleStyle} sub="Say what you need in your own words. Compass picks the right office and writes the first draft." />
 
       <p className="mb-5 flex items-center gap-2 rounded-2xl bg-green-soft px-4 py-3 text-[0.88rem] font-semibold text-green"><Shield size={17} /> Compass drafts, you send. Nothing leaves this page until you open it in your own mail app.</p>
 
-      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="min-w-0 space-y-5">
-          <section className="card min-w-0 p-5">
+      <div className="mail-layout grid gap-5 lg:grid-cols-[1fr_1.15fr]">
+        <div className="space-y-5">
+          <section className="card p-5">
             <label htmlFor="need" className="t-headline mb-2 block">What do you need?</label>
             <textarea id="need" value={need} onChange={(e) => { setNeed(e.target.value); setEdited(false); }} rows={4} placeholder="e.g. I can't log in to Moodle since yesterday" className="w-full resize-none rounded-2xl bg-surface-2 p-4 text-[1rem] outline-none ring-1 ring-sep placeholder:text-label-3 focus:ring-2 focus:ring-accent" />
             <div className="mt-3 flex flex-wrap gap-2">
@@ -84,7 +84,7 @@ export function MailView() {
           </section>
         </div>
 
-        <section className="card min-w-0 flex flex-col p-5">
+        <section className="card flex flex-col p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="t-headline">Draft</h2>
             <Segmented label="Tone" value={tone} onChange={(t) => { setTone(t); setEdited(false); }} options={[{ value: "formal", label: "Formal" }, { value: "brief", label: "Brief" }]} />

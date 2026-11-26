@@ -5,15 +5,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, GraduationCap, Home, Mail, MoreHorizontal, Moon, Plug, RotateCcw, Sparkles, Sun, Undo2 } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, GraduationCap, Home, Mail, MoreHorizontal, Plug, RotateCcw, Sparkles, Undo2 } from "lucide-react";
 import { useApp } from "@/lib/state";
-import { SPRING, useMediaQuery } from "@/lib/hooks";
+import { SPRING } from "@/lib/hooks";
 import { Sheet } from "@/components/ui/Sheet";
 import { DemoBadge } from "@/components/ui/kit";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import { UpdatesBanner } from "./UpdatesBanner";
 import { AskaTicketSheet } from "@/components/helpdesk/AskaTicketSheet";
 import { EventApplicationSheet } from "@/components/events/EventApplicationSheet";
+import { FloatingIconBackground } from "@/components/shell/FloatingIconBackground";
 
 const NAV = [
   { href: "/", label: "Today", icon: Home },
@@ -28,11 +29,16 @@ const active = (path: string, href: string) => (href === "/" ? path === "/" : pa
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { openAgent, agentOpen, closeAgent, theme, setTheme, toast, resetDemo, askaDraft, closeAskaTicket, eventDraft, closeEventApplication } = useApp();
+  const { openAgent, agentOpen, closeAgent, toast, resetDemo, askaDraft, closeAskaTicket, eventDraft, closeEventApplication } = useApp();
   const [moreAt, setMoreAt] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const more = moreAt === path; // the sheet belongs to the page it was opened on, so navigating closes it
   const setMore = (v: boolean) => setMoreAt(v ? path : null);
   const fullBleed = false;
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((collapsed) => !collapsed);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,19 +51,22 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [agentOpen, openAgent, closeAgent]);
 
-  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
-  const dark = theme === "dark" || (theme === "system" && prefersDark);
-
   // The presenter console is its own window: no student navigation, no assistant, no banner.
   if (path.startsWith("/demo")) return <main id="main">{children}</main>;
 
   return (
-    <div className="min-h-dvh lg:pl-[272px]">
+    <div className={`app-shell relative isolate min-h-dvh${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
+      {path === "/" ? (
+        <div className="fixed inset-0 z-0 pointer-events-none bg-bg" aria-hidden="true" />
+      ) : <FloatingIconBackground />}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:rounded-full focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-fg">Skip to content</a>
 
       {/* Sidebar (desktop): a heavier material separates structure from content */}
-      <aside className="glass-thick fixed inset-y-3 left-3 z-30 hidden w-[248px] flex-col rounded-[28px] p-3 lg:flex" aria-label="Primary">
-        <Link href="/" className="press mb-3 flex items-center gap-3 rounded-2xl px-3 py-3">
+      <aside className="app-sidebar glass-thick fixed inset-y-3 left-3 z-30 hidden w-[248px] flex-col rounded-[28px] p-3 lg:flex" aria-label="Primary">
+        <button type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed} className="sidebar-toggle press absolute grid h-11 w-9 place-items-center rounded-full border border-sep bg-surface text-accent shadow-md" title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {sidebarCollapsed ? <ChevronRight size={19} /> : <ChevronLeft size={19} />}
+        </button>
+        <Link href="/" aria-label="XMUM Compass home" className="sidebar-brand press mb-3 flex items-center gap-3 rounded-2xl px-3 py-3">
           <Image
             src="/brand/corn-prawn-logo.png"
             alt="XMUM Compass corn and prawn mascots"
@@ -71,11 +80,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="t-caption">Student super-app</span>
           </span>
         </Link>
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav className="sidebar-nav flex flex-1 flex-col gap-1">
           {NAV.map(({ href, label, icon: Icon }) => {
             const on = active(path, href);
             return (
-              <Link key={href} href={href} aria-current={on ? "page" : undefined} className="press relative flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-[0.95rem] font-medium tracking-[-0.006em]" style={{ color: on ? "var(--accent)" : "var(--label)" }}>
+              <Link key={href} href={href} aria-label={label} title={sidebarCollapsed ? label : undefined} aria-current={on ? "page" : undefined} className="press relative flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-[0.95rem] font-medium tracking-[-0.006em]" style={{ color: on ? "var(--accent)" : "var(--label)" }}>
                 {on && <motion.span layoutId="nav-pill" transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="absolute inset-0 rounded-xl bg-accent-soft" />}
                 <Icon size={19} strokeWidth={on ? 2.4 : 1.9} className="relative" />
                 <span className="relative">{label}</span>
@@ -83,21 +92,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <button onClick={() => openAgent()} className="press mt-2 flex min-h-[48px] items-center gap-3 rounded-2xl bg-accent px-4 text-accent-fg">
+        <button onClick={() => openAgent()} aria-label="Ask Compass" title={sidebarCollapsed ? "Ask Compass" : undefined} className="sidebar-ask press mt-2 flex min-h-[48px] items-center gap-3 rounded-2xl bg-accent px-4 text-accent-fg">
           <Sparkles size={18} strokeWidth={2.4} />
           <span className="flex-1 text-left font-semibold tracking-[-0.01em]">Ask Compass</span>
           <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-mono text-[0.7rem]">⌘K</kbd>
         </button>
-        <button onClick={resetDemo} className="press mt-2 flex min-h-[36px] items-center justify-center gap-2 rounded-xl text-[0.8rem] font-semibold text-label-2"><RotateCcw size={14} /> Reset demo</button>
-        <div className="mt-1 flex items-center justify-between px-1">
+        <button onClick={resetDemo} className="sidebar-reset press mt-2 flex min-h-[36px] items-center justify-center gap-2 rounded-xl text-[0.8rem] font-semibold text-label-2"><RotateCcw size={14} /> Reset demo</button>
+        <div className="sidebar-footer mt-1 flex items-center justify-between px-1">
           <DemoBadge />
-          <button aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={() => setTheme(dark ? "light" : "dark")} className="press grid h-9 w-9 place-items-center rounded-full bg-surface-3 text-label-2">
-            {dark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
         </div>
       </aside>
 
-      <main id="main" className={fullBleed ? "" : "mx-auto w-full max-w-[1240px] px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16 lg:pt-10"}>
+      <main id="main" className={fullBleed ? "relative z-10" : `app-main relative z-10 mx-auto w-full px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16 lg:pt-10${path === "/" ? " home-main" : ""}`}>
         {children}
       </main>
 
@@ -136,14 +142,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Icon size={20} className="text-accent" /> {label}
               </Link>
             ))}
-          </div>
-          <div className="mt-4 flex items-center justify-between rounded-2xl bg-surface p-4">
-            <span className="flex items-center gap-2 font-medium">{dark ? <Moon size={18} /> : <Sun size={18} />} Appearance</span>
-            <div className="flex gap-1">
-              {(["system", "light", "dark"] as const).map((t) => (
-                <button key={t} onClick={() => setTheme(t)} aria-pressed={theme === t} className="press min-h-[34px] rounded-full px-3 text-[0.8rem] font-semibold capitalize" style={{ background: theme === t ? "var(--accent-soft)" : "var(--surface-3)", color: theme === t ? "var(--accent)" : "var(--label-2)" }}>{t}</button>
-              ))}
-            </div>
           </div>
           <button onClick={() => { resetDemo(); setMoreAt(null); }} className="press mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-surface font-semibold text-label-2"><RotateCcw size={16} /> Reset demo</button>
           <div className="mt-4 flex justify-center"><DemoBadge /></div>

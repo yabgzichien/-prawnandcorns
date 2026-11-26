@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useSearchParams } from "next/navigation";
 import { BookOpen, CalendarDays, Shapes, CalendarRange, CheckSquare, ChevronDown, Landmark, Library, LifeBuoy, MapPin, Users, X } from "lucide-react";
 import { AssignmentsView } from "@/components/pages/AssignmentsView";
@@ -13,7 +13,7 @@ import { EventsView } from "@/components/events/EventsView";
 import { ElectivesView } from "@/components/electives/ElectivesView";
 import { TimetableView } from "@/components/pages/TimetableView";
 import { MapView } from "@/components/map/MapView";
-import { DemoBadge } from "@/components/ui/kit";
+import { DemoBadge, featureTitleStyle } from "@/components/ui/kit";
 import { SPRING } from "@/lib/hooks";
 
 const SECTIONS = [
@@ -35,6 +35,7 @@ const isSection = (value: string | null): value is HubSection => SECTIONS.some((
 
 export function StudentHubView() {
   const params = useSearchParams();
+  const reduceMotion = useReducedMotion();
   const selected = isSection(params.get("section")) ? params.get("section") as HubSection : null;
   const compact = selected !== null;
 
@@ -48,8 +49,8 @@ export function StudentHubView() {
     <div className="hub-page">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 pt-1 sm:mb-8">
         <div>
-          <div className="mb-2 flex flex-wrap items-center gap-3"><p className="t-eyebrow">Your campus, in one place</p><DemoBadge /></div>
-          <h1 className="t-display">Student hub</h1>
+          <div className="mb-2 flex items-center gap-3"><p className="t-eyebrow">Your campus, in one place</p><DemoBadge /></div>
+          <h1 className="t-display" style={featureTitleStyle}>Student hub</h1>
           <p className="t-sub mt-2 max-w-2xl">Choose a section to bring its full workspace into focus.</p>
         </div>
         {selected && (
@@ -72,11 +73,16 @@ export function StudentHubView() {
               aria-controls="hub-content"
               aria-pressed={active}
               className={`hub-tile press hub-tile-${tone} ${active ? "is-selected" : ""}`}
-              transition={SPRING}
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 24 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              whileHover={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
+              whileFocus={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
+              viewport={{ once: true, amount: 0.6 }}
+              transition={reduceMotion ? { duration: 0 } : SPRING}
             >
               <motion.span layout className="hub-tile-icon"><Icon aria-hidden /></motion.span>
               <motion.span layout className="hub-tile-copy">
-                <span className="hub-tile-title">{title}</span>
+                <span className="hub-tile-title" style={{ fontFamily: '"Abril Fatface", Georgia, serif', fontWeight: 700, letterSpacing: "0.01em", WebkitTextStroke: "0.25px currentColor" }}>{title}</span>
                 <span className="hub-tile-summary">{compact ? summary : description}</span>
               </motion.span>
               <motion.span layout className="hub-tile-chevron" aria-hidden><ChevronDown /></motion.span>

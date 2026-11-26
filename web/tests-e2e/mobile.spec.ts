@@ -121,15 +121,6 @@ test("connecting Moodle asks for consent, never a password, and only connects af
   await expect(page.getByText("Moodle demo connected", { exact: true })).toBeVisible();
 });
 
-test("dark theme selection survives a reload", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "dark", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-});
-
 test("modal keeps keyboard focus inside and returns it to the launcher on Escape", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   const launcher = page.getByRole("button", { name: "Ask Compass" });

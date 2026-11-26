@@ -47,17 +47,15 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
   const [focusSearch, setFocusSearch] = useState(false);
   const [kinds, setKinds] = useState<Set<PlaceKind>>(new Set(ALL_KINDS));
   const [showRoute, setShowRoute] = useState(true);
-  const { showToast, theme } = useApp();
+  const { showToast } = useApp();
   const { data: campus } = useCampus();
-  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
   const [panelOpen, setPanelOpen] = useState(false); // the route / details card starts folded away so the map is clear
   const [view, setView] = useState<"2d" | "3d">(params.get("view") === "3d" ? "3d" : "2d");
   const [visited3d, setVisited3d] = useState(params.get("view") === "3d");
   const [mode3d, setMode3d] = useState<Mode | null>(["day", "sunset", "night"].includes(params.get("mode") ?? "") ? (params.get("mode") as Mode) : null);
   const [names3d, setNames3d] = useState(false);
   const [flyNonce, setFlyNonce] = useState(0);
-  const dark = theme === "dark" || (theme === "system" && prefersDark);
-  const mode: Mode = mode3d ?? (dark ? "night" : "day");
+  const mode: Mode = mode3d ?? "day";
   // "View inside": a building's floors in their own viewer over the map (?inside=A1&room=A1-G03 opens it)
   const [inside, setInside] = useState<{ place: string; room: string | null } | null>(() => {
     const p = params.get("inside");
@@ -328,7 +326,7 @@ export function MapView({ embedded = false }: { embedded?: boolean }) {
       </motion.aside>}
       </AnimatePresence>
 
-      {inside && <InteriorView key={`${inside.place}-${inside.room ?? ""}`} place={inside.place} room={inside.room} dark={dark} onClose={() => setInside(null)} />}
+      {inside && <InteriorView key={`${inside.place}-${inside.room ?? ""}`} place={inside.place} room={inside.room} dark={mode === "night"} onClose={() => setInside(null)} />}
     </div>
   );
 }
