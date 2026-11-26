@@ -86,7 +86,7 @@ export function MailView() {
             </div>
           ) : (
             <>
-              <p className="t-caption mb-3"><span className="font-semibold text-label">To</span> · {draft.to.name} &lt;{draft.to.email}&gt;</p>
+              <p className="t-caption mb-3"><span className="font-semibold text-label">To:</span> {draft.to.name} &lt;{draft.to.email}&gt;</p>
               <label className="sr-only" htmlFor="subj">Subject</label>
               <input id="subj" value={subject} onChange={(e) => setOverride((o) => ({ subject: e.target.value, body: o?.body ?? body }))} className="mb-3 w-full rounded-xl bg-surface-2 px-4 py-3 text-[0.95rem] font-semibold outline-none ring-1 ring-sep focus:ring-2 focus:ring-accent" />
               <label className="sr-only" htmlFor="body">Message</label>

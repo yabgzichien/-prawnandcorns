@@ -25,12 +25,12 @@ function NextWidget() {
   return (
     <div className="next-content grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0">
-        <p className="t-eyebrow mb-3">Up next · {relative(start)}</p>
+        <p className="t-eyebrow mb-3">Up next: {relative(start)}</p>
         <div className="next-details flex items-start gap-3">
           <span className={`mt-2 h-12 w-1.5 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
           <div>
             <h2 className="t-title !text-[1.9rem]">{course.title}</h2>
-            <p className="t-sub mt-1">{next.kind} · {timeOf(start)}–{timeOf(end)} · {next.room}{room ? ` · ${PLACE_BY_ID[room.place].name}` : ""}</p>
+            <p className="t-sub mt-1">{next.kind}, {timeOf(start)}–{timeOf(end)} in {next.room}{room ? `, ${PLACE_BY_ID[room.place].name}` : ""}</p>
           </div>
         </div>
         {cancelledToday.length > 0 && (
@@ -91,7 +91,7 @@ function DueWidget() {
                 <span className="due-row-icon"><DueIcon size={18} /></span>
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${done ? "text-label-3 line-through" : ""}`}>{a.title}</span>
-                  <span className="t-caption block truncate">{COURSE_BY_ID[a.courseId].code} · <span style={{ color: a.status === "overdue" ? "var(--red)" : undefined, fontWeight: a.status === "overdue" ? 600 : undefined }}>{a.status === "overdue" ? "Overdue" : dueLabel(new Date(a.due))}</span></span>
+                  <span className="t-caption block truncate">{COURSE_BY_ID[a.courseId].code}, <span style={{ color: a.status === "overdue" ? "var(--red)" : undefined, fontWeight: a.status === "overdue" ? 600 : undefined }}>{a.status === "overdue" ? "Overdue" : dueLabel(new Date(a.due))}</span></span>
                 </span>
                 <span className="due-row-date">{a.status === "overdue" ? "Overdue" : dueLabel(new Date(a.due))}</span>
               </button>
@@ -118,7 +118,7 @@ function TodayWidget() {
               <span className="tnum w-11 shrink-0 text-[0.85rem] font-semibold text-label-2">{c.start}</span>
               <span className={`h-9 w-1 shrink-0 rounded-full ${cancelled ? "bg-red" : toneClass[course.tone].dot}`} aria-hidden />
               <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${cancelled ? "text-label-3 line-through" : ""}`}>{course.code} · {c.kind}</span>
+                <span className={`block truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${cancelled ? "text-label-3 line-through" : ""}`}>{course.code} {c.kind}</span>
                 <span className="t-caption block">{c.room}</span>
               </span>
               {cancelled && <Pill tone="red">Cancelled</Pill>}
@@ -148,7 +148,7 @@ export function TodayOverview() {
         <span className="today-next-icon"><BookOpen size={24} /></span>
         <div className="today-next-copy">
           <h3>{course.title} ({course.code})</h3>
-          <p>{next.kind} · {next.room}</p>
+          <p>{next.kind} in {next.room}</p>
           <p className="today-next-count"><Clock size={16} /> Starts in <strong>{Math.floor(mins / 60)} h {mins % 60} min</strong></p>
           <span>{timeOf(start)}–{timeOf(end)}</span>
         </div>
@@ -157,7 +157,7 @@ export function TodayOverview() {
       {notice && (
         <Link href="/hub?section=timetable" className="press today-notice">
           <span className="today-notice-icon"><AlertTriangle size={22} /></span>
-          <span className="min-w-0"><strong>Class change today</strong><small>{notice.title} · See all {NOTICES.length} class changes</small></span>
+          <span className="min-w-0"><strong>Class change today</strong><small>{notice.title}. See all {NOTICES.length} class changes</small></span>
           <ArrowRight size={17} className="shrink-0" />
         </Link>
       )}
@@ -170,7 +170,7 @@ export function TodayOverview() {
             <span className="today-timeline-time">{c.start}–{c.end}</span>
             <span className="today-timeline-dot" />
             <span className="today-timeline-icon"><BookOpen size={20} /></span>
-            <span className="today-timeline-copy"><strong>{entry.code} · {c.kind}</strong><small><MapPin size={13} /> {c.room}</small></span>
+            <span className="today-timeline-copy"><strong>{entry.code} {c.kind}</strong><small><MapPin size={13} /> {c.room}</small></span>
             {cancelled && <Pill tone="red">Cancelled</Pill>}
           </li>;
         })}
@@ -189,7 +189,7 @@ function FeesWidget() {
         <div>
           <p className="t-caption">Next instalment</p>
           <p className="tnum text-[1.6rem] font-bold leading-tight tracking-[-0.03em]">{money(next.amount)}</p>
-          <p className="t-caption">Due {dateShort(new Date(next.due))} · {relative(new Date(next.due))}</p>
+          <p className="t-caption">Due {dateShort(new Date(next.due))} ({relative(new Date(next.due))})</p>
         </div>
       </div>
     </>
@@ -204,7 +204,7 @@ function ProgressWidget() {
         <Ring value={14 / 120} size={72} stroke={8}><span className="tnum text-[0.85rem] font-bold">14</span></Ring>
         <div>
           <p className="text-[1.05rem] font-semibold tracking-[-0.01em]">14 of 120 credits</p>
-          <p className="t-caption">Taking 5 courses this semester · 4 core, 1 GE</p>
+          <p className="t-caption">Taking 5 courses this semester (4 core, 1 GE)</p>
         </div>
       </div>
     </>
@@ -221,13 +221,13 @@ function ClubsWidget() {
       <div className="rounded-xl bg-accent-soft p-3">
         <span className="club-fair-icon" aria-hidden="true" />
         <p className="text-[0.95rem] font-semibold tracking-[-0.01em] text-accent">{ev.title}</p>
-        <p className="t-caption">{ev.when} · {ev.where}</p>
+        <p className="t-caption">{ev.when}, {ev.where}</p>
       </div>
       <ul className="mt-2 divide-y divide-sep">
         {picks.map((c, index) => (
           <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
             <span className="club-row-icon">{index === 0 ? <Users size={19} /> : <Code2 size={19} />}</span>
-            <div className="min-w-0"><p className="truncate text-[0.92rem] font-semibold">{c.name}</p><p className="t-caption">{c.meets} · {c.members} members</p></div>
+            <div className="min-w-0"><p className="truncate text-[0.92rem] font-semibold">{c.name}</p><p className="t-caption">{c.meets}, {c.members} members</p></div>
             <Pill tone="green">Recruiting</Pill>
           </li>
         ))}

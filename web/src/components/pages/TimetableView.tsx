@@ -23,7 +23,7 @@ export function TimetableView() {
 
   return (
     <div>
-      <PageHeader eyebrow="Semester 1 · Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
+      <PageHeader eyebrow="Semester 1, Week 10" title="Timetable" sub={`${changed} changes this week — cancelled, moved and make-up classes are flagged so you never turn up to an empty room.`}
         action={<button onClick={() => { download("xmum-timetable.ics", timetableICS()); showToast("Timetable exported to calendar file"); }} className="press btn btn-plain"><CalendarPlus size={17} /> Export .ics</button>} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -66,7 +66,7 @@ export function TimetableView() {
                       <h3 className={`t-headline timetable-entry ${cancelled ? "line-through opacity-50" : ""}`}>{course.title}</h3>
                       {c.status !== "normal" && <Pill tone={cancelled ? "red" : c.status === "makeup" ? "green" : "orange"}>{statusText(c)}</Pill>}
                     </div>
-                    <p className="t-sub mt-0.5">{course.code} · {c.kind} · {c.room}{room ? ` · ${PLACE_BY_ID[room.place].name}` : ""}{c.status === "room-changed" ? ` (was ${c.originalRoom})` : ""}</p>
+                    <p className="t-sub mt-0.5">{course.code} {c.kind} in {c.room}{room ? `, ${PLACE_BY_ID[room.place].name}` : ""}{c.status === "room-changed" ? ` (was ${c.originalRoom})` : ""}</p>
                     {notice && c.status !== "normal" && (
                       <p className="mt-3 flex gap-2 rounded-xl px-3 py-2 text-[0.85rem]" style={{ background: cancelled ? "var(--red-soft)" : "var(--orange-soft)" }}>
                         {cancelled ? <CalendarX2 size={16} className="mt-0.5 shrink-0 text-red" /> : <DoorOpen size={16} className="mt-0.5 shrink-0 text-orange" />}
@@ -116,7 +116,7 @@ function WeekGrid() {
                 return (
                   <Link key={c.id} href={cancelled ? "/hub?section=timetable" : `/hub?section=map&focus=${c.room}`} className={`press absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-[0.75rem] leading-tight ${cancelled ? "bg-red-soft text-red" : `${t.bg} ${t.fg}`}`} style={{ top: top + 2, height: h - 4, outline: c.status !== "normal" && !cancelled ? "2px solid var(--orange)" : undefined }}>
                     <span className={`block font-bold ${cancelled ? "line-through" : ""}`}>{course.code}</span>
-                    <span className="block opacity-80">{c.kind} · {c.room}</span>
+                    <span className="block opacity-80">{c.kind} in {c.room}</span>
                   </Link>
                 );
               })}
