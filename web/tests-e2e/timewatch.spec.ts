@@ -34,21 +34,22 @@ async function openDemo(page: Page) {
 
 test("Home shows the semester week and deadline and exam alerts, and hiding one lasts until its next tier", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
-  const card = page.getByRole("region", { name: "Heads-up" });
+  const card = page.getByRole("region", { name: "Upcoming" });
   await expect(card.getByText("Week 10 of 14.")).toBeVisible();
   await expect(card.getByText(/Revision week starts Mon 28 Dec/)).toBeVisible();
-  await expect(card.getByText("Lab 6: Loops & Arrays is due in 11 hours")).toBeVisible();
-  await card.getByRole("button", { name: /Show \d more/ }).click();
+  await expect(card.getByText("Lab 6: Loops & Arrays", { exact: true })).toBeVisible();
+  await expect(card.getByRole("listitem")).toHaveCount(4);
+  await card.getByRole("button", { name: "View all" }).click();
   await expect(card.getByText(/MAT1101 Calculus I midterm in 10 days/)).toBeVisible();
   await shot(page, "17-home-heads-up", card);
-  await card.getByRole("button", { name: "Hide for now: Lab 6: Loops & Arrays is due in 11 hours" }).click();
-  await expect(card.getByText("Lab 6: Loops & Arrays is due in 11 hours")).toHaveCount(0);
+  await card.getByRole("button", { name: "Dismiss alert: Lab 6: Loops & Arrays" }).click();
+  await expect(card.getByRole("button", { name: "Dismiss alert: Lab 6: Loops & Arrays" })).toHaveCount(0);
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("region", { name: "Heads-up" }).getByText("Vocabulary Quiz 4 is overdue")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Heads-up" }).getByText("Lab 6: Loops & Arrays is due in 11 hours")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Upcoming" }).getByText("Vocabulary Quiz 4", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Upcoming" }).getByRole("button", { name: "Dismiss alert: Lab 6: Loops & Arrays" })).toHaveCount(0);
   // ticking it done here does not hide it: Moodle still says not submitted, which is a new tier
-  await page.getByRole("button", { name: /Lab 6: Loops & Arrays/ }).first().click();
-  await expect(page.getByRole("region", { name: "Heads-up" }).getByText("Lab 6: Loops & Arrays: Moodle still shows it as not submitted")).toBeVisible();
+  await page.getByRole("button", { name: /^Mark Lab 6: Loops & Arrays/ }).first().click();
+  await expect(page.getByRole("region", { name: "Upcoming" }).getByText(/You marked it done here, but Compass cannot submit for you/)).toBeVisible();
 });
 
 test("a demo event link: Compass reads it from the demo list, checks it, and adds it only when asked, with Undo", async ({ page }) => {
@@ -178,7 +179,7 @@ test.describe("small screens", () => {
   test.use({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   test("the heads-up card and the event check fit 320px, also at 200% text", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle" });
-    await expect(page.getByRole("region", { name: "Heads-up" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
@@ -196,12 +197,12 @@ test.describe("small screens", () => {
 test("Heads-up and My plans start switched off and appear on Today only when switched on in Customise", async ({ page }) => {
   await page.addInitScript(() => { try { const k = "xmum-compass:v1"; const s = JSON.parse(localStorage.getItem(k) ?? "{}"); delete s.widgets; localStorage.setItem(k, JSON.stringify(s)); } catch {} });
   await page.goto("/", { waitUntil: "networkidle" });
-  await expect(page.getByRole("region", { name: "Heads-up" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Upcoming" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "My plans" })).toHaveCount(0);
   await page.getByRole("button", { name: "Customise" }).click();
-  await page.getByRole("switch", { name: "Show Heads-up" }).click();
+  await page.getByRole("switch", { name: "Show Upcoming" }).click();
   await page.getByRole("dialog", { name: "Customise dashboard" }).getByRole("button", { name: "Done" }).click();
-  await expect(page.getByRole("region", { name: "Heads-up" }).getByText("Week 10 of 14.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Upcoming" }).getByText("Week 10 of 14.")).toBeVisible();
   // the cards fill the row and never sit on top of each other
   const boxes = await page.locator(".home-widget").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: (e as HTMLElement).dataset.widget, top: r.top, bottom: r.bottom, left: r.left, right: r.right }; }));
   for (const a of boxes) for (const b of boxes) {

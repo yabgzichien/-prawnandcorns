@@ -91,7 +91,7 @@ test("click an empty hour in the week grid to add something there", async ({ pag
   await openCalendar(page);
   const sat = calendar(page).getByRole("list", { name: "Sat 28 Nov, timetable" });
   const box = (await sat.boundingBox())!;
-  await sat.click({ position: { x: box.width / 2, y: (17 - 8) * 52 + 6 } });
+  await sat.click({ position: { x: box.width / 2, y: (17 - 8) * 28 + 4 } });
   const dialog = page.getByRole("dialog", { name: "Add to calendar" });
   await expect(dialog.getByLabel("Date")).toHaveValue("2026-11-28");
   await expect(dialog.getByLabel("Starts")).toHaveValue("17:00");

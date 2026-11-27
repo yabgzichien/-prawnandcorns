@@ -60,7 +60,7 @@ export function Card({ children, className = "", ...rest }: { children: ReactNod
 export function CardTitle({ icon, title, action }: { icon?: ReactNode; title: string; action?: ReactNode }) {
   return (
     <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <h2 className="t-headline flex min-w-0 items-center gap-2 break-words">{icon}{title}</h2>
+      <h2 className="t-headline flex min-w-0 items-center gap-2 break-words">{icon}<span className="card-title-text">{title}</span></h2>
       {action}
     </div>
   );

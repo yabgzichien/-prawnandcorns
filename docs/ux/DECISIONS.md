@@ -352,3 +352,6 @@ For alerts:
 **Limits:** 100 events, 100 reminders and 200 to-dos in this browser. Reset demo clears all of them.
 
 **Acceptance checks:** a sentence becomes a card with the right fields and saves only on Add; a question does not become an entry; a missing title or an end before the start is refused in words and saves nothing; edit, delete and Undo work; a to-do ticks, moves to Completed and survives a reload; a click on an empty hour opens the sheet at that day and time; at 320 px the sheet, the grid and the list do not scroll sideways and the buttons stay reachable.
+### Today dashboard consolidation, 27 November 2026
+
+A daily list inside the full-width calendar keeps classes and saved commitments together. Separate daily cards repeated the same classes. Keep Week as the initial view and retain its date navigation. Show enabled cards below in two equal columns, stacking on mobile. Check for one row per assignment, four initial attention items, independent completion and dismissal, and migration of existing visibility settings.

@@ -801,8 +801,9 @@ function planLayout(prompt: string, before: WidgetPref[]): { after: WidgetPref[]
     const idx = after.findIndex((w) => w.id === lead);
     const [w] = after.splice(idx, 1);
     w.hidden = false;
-    after.unshift(w);
-    summary.push(`Moved ${WIDGET_META[lead].title} to the top`);
+    const belowCalendar = lead !== "calendar" && after[0]?.id === "calendar";
+    after.splice(belowCalendar ? 1 : 0, 0, w);
+    summary.push(`Moved ${WIDGET_META[lead].title} ${belowCalendar && !after[0].hidden ? "below the calendar" : "to the top"}`);
   }
   const changed = JSON.stringify(after) !== JSON.stringify(before);
   return { after, summary: changed ? summary : [] };
