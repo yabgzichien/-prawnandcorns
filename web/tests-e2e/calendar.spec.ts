@@ -24,7 +24,8 @@ test("the week grid shows the classes, a Now line, the strip, an overdue notice 
   await expect(cal.getByRole("link", { name: /^Class: MAT1101 Tutorial, 14:00 to 16:00, Cancelled$/ })).toBeVisible();
   await expect(cal.getByRole("link", { name: /^Class: CST1101 Lecture, 10:00 to 12:00$/ })).toBeVisible();
   await expect(cal.getByRole("link", { name: /^Deadline: Lab 6: Loops & Arrays, 23:59$/ })).toBeVisible();
-  await expect(cal.getByRole("link", { name: /1 overdue: Vocabulary Quiz 4/ })).toBeVisible();
+  await expect(cal.getByText("1 overdue:")).toBeVisible();
+  await expect(cal.getByRole("link", { name: /^Deadline: Vocabulary Quiz 4/ })).toBeVisible();
   await expect(cal.getByRole("link", { name: /^Campus event: Hack-day/ })).toBeVisible();
 });
 
@@ -34,7 +35,7 @@ test("blocks that overlap in time sit side by side, never on top of each other",
   });
   const cal = await open(page);
   const a = await cal.getByRole("link", { name: /^Class: CST1101 Lecture, 10:00 to 12:00$/ }).boundingBox();
-  const b = await cal.getByRole("link", { name: /^Calendar entry: Dentist/ }).boundingBox();
+  const b = await cal.getByRole("button", { name: /^Calendar entry: Dentist/ }).boundingBox();
   expect(a && b).toBeTruthy();
   expect(a!.x + a!.width <= b!.x + 1 || b!.x + b!.width <= a!.x + 1, "the two blocks share the day column without covering each other").toBe(true);
 });
@@ -121,7 +122,7 @@ test("a saved reminder shows up marked as saved in this browser", async ({ page 
     try { const k = "xmum-compass:v1"; const s = JSON.parse(localStorage.getItem(k) ?? "{}"); s.reminders = [{ id: "r-cal", title: "Bring ID to the library", at: "2026-11-24T08:30:00+08:00" }]; localStorage.setItem(k, JSON.stringify(s)); } catch {}
   });
   const cal = await open(page);
-  await expect(cal.getByRole("link", { name: /^Reminder: Bring ID to the library.*saved in this browser$/ })).toBeVisible();
+  await expect(cal.getByRole("button", { name: /^Reminder: Bring ID to the library.*saved in this browser\. Edit$/ })).toBeVisible();
 });
 
 test("no view scrolls sideways on a 320 px phone, and the week shows three days", async ({ page }) => {

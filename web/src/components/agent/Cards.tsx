@@ -19,6 +19,7 @@ import { EventCard, EventStatusCard } from "./EventCard";
 import { RoomsCard } from "./RoomsCard";
 import { DocumentsCard } from "./DocumentsCard";
 import { EventFitCard } from "./EventFitCard";
+import { PlanEntryCard } from "./PlanEntryCard";
 import { examName } from "@/lib/calendar/semester";
 import { GraduationCap } from "lucide-react";
 import { GE_BY_CODE } from "@/lib/electives/catalogue";
@@ -193,6 +194,9 @@ export function AgentCardView({ card, onNavigate, onUndoLayout }: { card: AgentC
 
     case "event-fit":
       return <EventFitCard card={card} />;
+
+    case "plan-entry":
+      return <PlanEntryCard card={card} />;
 
     case "exams":
       return (

@@ -35,6 +35,8 @@ import { ALLOWED_STREAMS, DEFAULT_PREFS, type Interest, type Stream } from "./el
 import { EXAMS, examName, semesterStatus, type Exam, type SemesterStatus } from "./calendar/semester";
 import { timeAlerts, type TimeAlert } from "./calendar/alerts";
 import { checkEventFit } from "./eventfit/check";
+import { dateLabel } from "./events/checks";
+import { parsePlanRequest, type PlanReading } from "./plans/parse";
 import { findUrl, isEventFitQuestion, readEventLink, readEventText, type EventReading } from "./eventfit/read";
 import type { PersonalEvent } from "./updates/types";
 
@@ -65,6 +67,8 @@ export type AgentCard =
   | { kind: "ge-plan"; stream: Stream; target: number; interests: Interest[]; sets: SetSuggestion[]; href: string }
   /** The fields are a proposal the student can edit; the card runs the check itself, so editing re-checks. */
   | { kind: "event-fit"; reading: EventReading; picture?: { name: string; read: boolean } }
+  /** What the student said, read into fields they can edit. The card saves only when they press Add. */
+  | { kind: "plan-entry"; reading: PlanReading }
   | { kind: "exams"; status: SemesterStatus; exams: Exam[]; alerts: TimeAlert[] }
   | { kind: "suggest"; prompts: string[] };
 
@@ -106,6 +110,8 @@ export const SUGGESTIONS = [
   "I like robotics and photography — which clubs fit?",
   "The air-con in my room is leaking water",
   "Book a study room for 2 tomorrow at 3pm",
+  "I have a dentist appointment this Friday at 3pm",
+  "Remind me to print my lab report tomorrow",
   EVENT_EXAMPLE,
   "Find my tuition invoice and download it",
   "Which electives fit my timetable? I need 4 credits and like languages",
@@ -155,7 +161,7 @@ async function* say(text: string, signal?: AbortSignal): AsyncGenerator<AgentEve
 const money = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const has = (t: string, re: RegExp) => re.test(t);
 
-type Intent = "review" | "eventfit" | "exams" | "event" | "eventstatus" | "booking" | "invoice" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
+type Intent = "review" | "eventfit" | "plan" | "exams" | "event" | "eventstatus" | "booking" | "invoice" | "dorm" | "study" | "ge" | "next" | "layout" | "email" | "room" | "class" | "deadlines" | "fees" | "clubs" | "schedule" | "help";
 
 function detectIntent(raw: string, ctx?: AgentContext): Intent {
   const t = raw.toLowerCase();
@@ -172,6 +178,8 @@ function detectIntent(raw: string, ctx?: AgentContext): Intent {
   // before layout and room: "add 4 credits of electives" and "find me electives" are elective questions
   if (parseGeRequest(raw).isGeRequest) return "ge";
   if (/\b(plan (my|the|this|next|our)?\s*week|weekly plan|study plan|study schedule|schedule (my|some|a)?\s*study|when can i (study|work on)|help me plan|plan (my|some) (study|assignment)|prioriti[sz]e my week|top priorities this week|priorities this week)\b/.test(t)) return "study";
+  // "I have a dentist appointment on Friday at 3pm", "remind me to buy a calculator tomorrow": a statement, never a question
+  if (parsePlanRequest(raw).isRequest) return "plan";
   const aliasHit = Object.values(WIDGET_META).some((m) => m.aliases.some((a) => t.includes(a)));
   if (has(t, /\b(widget|widgets|dashboard|home ?screen|layout|personali[sz]e|customi[sz]e)\b/) ||
       (aliasHit && has(t, /\b(add|show|hide|remove|move|put|only|pin|reorder|first|top)\b/) && !has(t, /\b(email|mail|draft)\b/) && !has(t, /\bwhere\b/))) return "layout";
@@ -437,6 +445,24 @@ export async function* runAgent(prompt: string, ctx: AgentContext, signal?: Abor
           ? `${lead}I need the date and start time of ${name} before I can check it. Fill them in below and I will check at once.`
           : `${lead}For ${name}: ${result.headline}${extra}${reading.assumedEnd ? " No end time was given, so I assumed 2 hours. Change it below if you know it." : ""} You decide whether to go; nothing is booked.`, signal);
         yield { type: "card", card: { kind: "event-fit", reading, ...(ctx.attachment ? { picture: { name: ctx.attachment.name, read: false } } : {}) } };
+        break;
+      }
+
+      case "plan": {
+        yield { type: "plan", steps: ["Read what you want to add", "Check it against your timetable"] };
+        yield { type: "step", index: 0 };
+        const reading = yield* tool<PlanReading>("calendar.read_entry", "your words", () => {
+          const r = parsePlanRequest(prompt);
+          return { output: `${r.kind === "todo" ? "to-do" : "event"}${r.missing.length ? `, missing ${r.missing.join(" and ")}` : ""}`, value: r };
+        }, signal);
+        yield { type: "step", index: 1 };
+        const d = reading.draft;
+        const when = d.date ? `${dateLabel(d.date)}${d.start ? `, ${d.start}${reading.kind === "event" && d.end ? ` to ${d.end}` : ""}` : ""}` : "";
+        const need = reading.missing.filter((m) => m !== "title").map((m) => (m === "date" ? "the date" : "the start time"));
+        yield* say(reading.kind === "todo"
+          ? `I read this as a **to-do**: ${d.title ? `**${d.title}**` : "a task"}${when ? `, due ${when}` : ", with no due date"}. Check it below and press **Add to-do**. **Nothing is saved until you do.**`
+          : `I read this as a **calendar event**: ${d.title ? `**${d.title}**` : "an event"}${when ? `, ${when}` : ""}${d.place ? ` at ${d.place}` : ""}.${need.length ? ` I still need ${need.join(" and ")}, so fill ${need.length === 1 ? "it" : "them"} in below.` : " It will show a warning if it overlaps a class or something you saved."} **Nothing is saved until you press Add to calendar.**`, signal);
+        yield { type: "card", card: { kind: "plan-entry", reading } };
         break;
       }
 

@@ -20,6 +20,7 @@ import { checkShortlist, sanitizeShortlist } from "./electives/plan";
 import { STUDENT_STREAM } from "./electives/catalogue";
 import type { ElectiveShortlist } from "./electives/types";
 
+import { eventFromDraft, LIMITS, newEntryId, reminderFromDraft, sanitizeTodos, todoFromDraft, upsert, validateDraft, type EntryDraft, type EntryKind, type Todo } from "./plans/entries";
 import { DEFAULT_WIDGETS, mergeWidgets, REFERENCE_LAYOUT, type WidgetId, type WidgetPref } from "./widget-layout";
 export { DEFAULT_WIDGETS, mergeWidgets, REFERENCE_LAYOUT, type WidgetId, type WidgetPref };
 
@@ -45,6 +46,8 @@ type State = {
   studySessions: StudySession[];
   reminders: Reminder[];
   personalEvents: PersonalEvent[];
+  /** The student's own to-do list. Saved in this browser only. */
+  todos: Todo[];
   /** Library rooms the student has booked. Saved in this browser only. */
   bookings: LibraryBooking[];
   /** Help desk tickets the student has submitted. Saved in this browser only. */
@@ -72,6 +75,7 @@ const initial: State = {
   studySessions: [],
   reminders: [],
   personalEvents: [],
+  todos: [],
   bookings: [],
   tickets: [],
   eventApplications: [],
@@ -90,6 +94,7 @@ type Action =
   | { type: "toggleClub"; id: string }
   | { type: "toggleSubmitted"; id: string }
   | { type: "studySessions"; sessions: StudySession[] }
+  | { type: "todos"; todos: Todo[] }
   | { type: "plan"; plan: Pick<State, "studySessions" | "reminders" | "personalEvents">; lastApply: State["lastApply"] }
   | { type: "bookings"; bookings: LibraryBooking[] }
   | { type: "tickets"; tickets: AskaTicket[] }
@@ -106,20 +111,21 @@ type Action =
 const tooLong = (v: unknown, max: number) => typeof v !== "string" || v.length === 0 || v.length > max;
 function sanitizeReminders(raw: unknown): Reminder[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((r): r is Reminder => !!r && typeof r === "object" && !tooLong((r as Reminder).id, 150) && !tooLong((r as Reminder).title, 120) && isMyIso((r as Reminder).at)).slice(0, 30);
+  return raw.filter((r): r is Reminder => !!r && typeof r === "object" && !tooLong((r as Reminder).id, 150) && !tooLong((r as Reminder).title, 120) && isMyIso((r as Reminder).at)).slice(0, LIMITS.reminders);
 }
 function sanitizeEvents(raw: unknown): PersonalEvent[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((e): e is PersonalEvent => !!e && typeof e === "object" && !tooLong((e as PersonalEvent).id, 150) && !tooLong((e as PersonalEvent).title, 120) && isMyIso((e as PersonalEvent).start) && isMyIso((e as PersonalEvent).end)).slice(0, 30);
+  return raw.filter((e): e is PersonalEvent => !!e && typeof e === "object" && !tooLong((e as PersonalEvent).id, 150) && !tooLong((e as PersonalEvent).title, 120) && isMyIso((e as PersonalEvent).start) && isMyIso((e as PersonalEvent).end)).slice(0, LIMITS.events);
 }
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case "hydrate": return { ...s, ...a.saved, widgets: mergeWidgets(a.saved.widgets), studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), eventApplications: sanitizeApplications(a.saved.eventApplications), electives: sanitizeShortlist(a.saved.electives), lastApply: null, hydrated: true };
+    case "hydrate": return { ...s, ...a.saved, widgets: mergeWidgets(a.saved.widgets), studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), todos: sanitizeTodos(a.saved.todos), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), eventApplications: sanitizeApplications(a.saved.eventApplications), electives: sanitizeShortlist(a.saved.electives), lastApply: null, hydrated: true };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
     case "toggleSubmitted": return { ...s, submitted: s.submitted.includes(a.id) ? s.submitted.filter((x) => x !== a.id) : [...s.submitted, a.id] };
     case "studySessions": return { ...s, studySessions: a.sessions };
+    case "todos": return { ...s, todos: a.todos };
     case "plan": return { ...s, ...a.plan, lastApply: a.lastApply };
     case "bookings": return { ...s, bookings: a.bookings };
     case "tickets": return { ...s, tickets: a.tickets };
@@ -137,12 +143,12 @@ function reducer(s: State, a: Action): State {
 }
 
 const KEY = "xmum-compass:v1";
-type Persisted = Pick<State, "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "bookings" | "tickets" | "eventApplications" | "electives">;
+type Persisted = Pick<State, "widgets" | "joined" | "submitted" | "studySessions" | "reminders" | "personalEvents" | "todos" | "bookings" | "tickets" | "eventApplications" | "electives">;
 
 /** One place decides what is saved, so a new kind of saved data cannot be forgotten by one of the save paths. */
 const persistedOf = (s: State, over: Partial<Persisted> = {}): Persisted => ({
   widgets: s.widgets, joined: s.joined, submitted: s.submitted,
-  studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, bookings: s.bookings, tickets: s.tickets, eventApplications: s.eventApplications, electives: s.electives, ...over,
+  studySessions: s.studySessions, reminders: s.reminders, personalEvents: s.personalEvents, todos: s.todos, bookings: s.bookings, tickets: s.tickets, eventApplications: s.eventApplications, electives: s.electives, ...over,
 });
 
 type Ctx = State & {
@@ -171,6 +177,11 @@ type Ctx = State & {
   clearElectives: () => void;
   removeReminder: (id: string) => void;
   removeEvent: (id: string) => void;
+  /** Adds or edits a calendar event, reminder or to-do the student wrote. Checks it first, saves in this browser only, and offers an Undo. */
+  saveEntry: (draft: EntryDraft) => { ok: true; id: string; summary: string } | { ok: false; error: string };
+  /** Removes an event, reminder or to-do the student wrote, with an Undo. */
+  deleteEntry: (kind: EntryKind, id: string) => void;
+  setTodoDone: (id: string, done: boolean) => void;
   /** Saves approved fixes to the student's own plan, with one undo step for the whole batch. */
   applyUpdates: (fixes: Fix[]) => { ok: true; summary: string; applyId: number } | { ok: false; error: string };
   undoLastApply: () => boolean;
@@ -206,7 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!state.hydrated) return;
     persistDemoSnapshot(() => localStorage, KEY, persistedOf(state));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hydrated, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.bookings, state.tickets, state.eventApplications, state.electives]);
+  }, [state.hydrated, state.widgets, state.joined, state.submitted, state.studySessions, state.reminders, state.personalEvents, state.todos, state.bookings, state.tickets, state.eventApplications, state.electives]);
 
   useEffect(() => {
     if (!state.toast) return;
@@ -227,7 +238,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!persistDemoSnapshot(() => localStorage, KEY, snapshot)) return false;
     dispatch({ type: "plan", plan: last.before, lastApply: null });
     c.unacknowledge(last.ackIds);
-    showToast("Plan restored to how it was before the approval.");
+    showToast(`Undone: ${last.summary}`);
     return true;
   }, [showToast]);
 
@@ -358,6 +369,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     removeReminder: (id) => dispatch({ type: "removeReminder", id }),
     removeEvent: (id) => dispatch({ type: "removeEvent", id }),
+    saveEntry: (draft) => {
+      if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
+      const problem = validateDraft(draft);
+      if (problem) return { ok: false, error: problem };
+      const editing = !!draft.id;
+      const id = draft.id ?? newEntryId(draft.kind, `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`);
+      const title = draft.title.trim();
+      const failed = { ok: false as const, error: "Unable to save in this browser. Check that site storage is enabled and space is available, then try again." };
+      if (draft.kind === "todo") {
+        if (!editing && state.todos.length >= LIMITS.todos) return { ok: false, error: `Your to-do list is full (${LIMITS.todos}). Remove one first.` };
+        const prev = state.todos;
+        const next = upsert(prev, todoFromDraft(draft, id, prev.find((t) => t.id === id)?.done ?? false));
+        if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { todos: next }))) return failed;
+        dispatch({ type: "todos", todos: next });
+        const summary = `${editing ? "Updated" : "Added"} to-do: ${title}`;
+        showToast(summary, () => {
+          if (persistDemoSnapshot(() => localStorage, KEY, persistedOf(latest.current.state, { todos: prev }))) { dispatch({ type: "todos", todos: prev }); showToast(`Undone: ${summary}`); }
+        });
+        return { ok: true, id, summary };
+      }
+      const before = { studySessions: state.studySessions, reminders: state.reminders, personalEvents: state.personalEvents };
+      let plan = before;
+      if (draft.kind === "event") {
+        if (!editing && state.personalEvents.length >= LIMITS.events) return { ok: false, error: `Your calendar is full (${LIMITS.events} entries). Remove one first.` };
+        plan = { ...before, personalEvents: upsert(state.personalEvents, eventFromDraft(draft, id)) };
+      } else {
+        if (!editing && state.reminders.length >= LIMITS.reminders) return { ok: false, error: `You already have ${LIMITS.reminders} reminders. Remove one first.` };
+        plan = { ...before, reminders: upsert(state.reminders, reminderFromDraft(draft, id, state.reminders.find((r) => r.id === id))) };
+      }
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, plan))) return failed;
+      const applyId = ++applySeq.current;
+      const summary = `${editing ? "Updated" : "Added"} ${draft.kind === "event" ? "calendar entry" : "reminder"}: ${title}`;
+      dispatch({ type: "plan", plan, lastApply: { id: applyId, before, ackIds: [], summary } });
+      showToast(summary, () => { undoApply(applyId); });
+      return { ok: true, id, summary };
+    },
+    deleteEntry: (kind, id) => {
+      if (kind === "todo") {
+        const prev = state.todos;
+        const gone = prev.find((t) => t.id === id);
+        if (!gone) return;
+        const next = prev.filter((t) => t.id !== id);
+        if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { todos: next }))) { showToast("Unable to save in this browser, so nothing was removed."); return; }
+        dispatch({ type: "todos", todos: next });
+        const summary = `Removed to-do: ${gone.title}`;
+        showToast(summary, () => {
+          if (persistDemoSnapshot(() => localStorage, KEY, persistedOf(latest.current.state, { todos: prev }))) { dispatch({ type: "todos", todos: prev }); showToast(`Undone: ${summary}`); }
+        });
+        return;
+      }
+      const before = { studySessions: state.studySessions, reminders: state.reminders, personalEvents: state.personalEvents };
+      const title = (kind === "event" ? state.personalEvents.find((e) => e.id === id)?.title : state.reminders.find((r) => r.id === id)?.title);
+      if (title === undefined) return;
+      const plan = kind === "event" ? { ...before, personalEvents: before.personalEvents.filter((e) => e.id !== id) } : { ...before, reminders: before.reminders.filter((r) => r.id !== id) };
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, plan))) { showToast("Unable to save in this browser, so nothing was removed."); return; }
+      const applyId = ++applySeq.current;
+      const summary = `Removed ${kind === "event" ? "calendar entry" : "reminder"}: ${title}`;
+      dispatch({ type: "plan", plan, lastApply: { id: applyId, before, ackIds: [], summary } });
+      showToast(summary, () => { undoApply(applyId); });
+    },
+    setTodoDone: (id, done) => {
+      const next = state.todos.map((t) => (t.id === id ? { ...t, done } : t));
+      if (!persistDemoSnapshot(() => localStorage, KEY, persistedOf(state, { todos: next }))) { showToast("Unable to save in this browser, so the tick was not kept."); return; }
+      dispatch({ type: "todos", todos: next });
+    },
     applyUpdates: (fixes) => {
       if (!state.hydrated) return { ok: false, error: "Demo is still loading. Please try again." };
       const before = { studySessions: state.studySessions, reminders: state.reminders, personalEvents: state.personalEvents };

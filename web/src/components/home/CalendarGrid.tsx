@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { Check } from "lucide-react";
 import { dateLabel } from "@/lib/events/checks";
 import { hourRange, isPast, itemsOnDate, layoutDay, monthWeeks, stripItems, timeText, type TimelineItem } from "@/lib/calendar/timeline";
 import { DEMO_NOW, timeOf } from "@/lib/time";
@@ -26,6 +27,41 @@ export function useNarrow(): boolean {
 
 const sayItem = (i: TimelineItem) => `${i.label}: ${i.title}, ${timeText(i)}${i.stateLabel ? `, ${i.stateLabel}` : ""}${i.saved ? ", saved in this browser" : ""}`;
 
+export type EntryRef = NonNullable<TimelineItem["edit"]>;
+/** What the calendar can do besides show things: open the editor, start a new entry, tick a to-do. */
+export type CalendarActions = {
+  onEdit: (ref: EntryRef) => void;
+  onCreate: (date: string, start: string) => void;
+  onToggleTodo: (id: string, done: boolean) => void;
+};
+
+/** What the student wrote opens the editor. Everything else opens the page that owns it. */
+export function ItemTarget({ item, actions, className, style, children }: { item: TimelineItem; actions: CalendarActions; className: string; style?: CSSProperties; children: ReactNode }) {
+  const say = sayItem(item);
+  if (item.edit) {
+    const ref = item.edit;
+    return <button type="button" onClick={() => actions.onEdit(ref)} aria-label={`${say}. Edit`} title={say} className={`${className} w-full text-left`} style={style}>{children}</button>;
+  }
+  return <Link href={item.href} aria-label={say} title={say} className={className} style={style}>{children}</Link>;
+}
+
+/** The round tick. Responds on press, and says its state in words. */
+export function CheckButton({ checked, label, onToggle, size = 18 }: { checked: boolean; label: string; onToggle: () => void; size?: number }) {
+  return (
+    <button type="button" role="checkbox" aria-checked={checked} aria-label={label} onClick={onToggle} className="press relative grid h-9 w-9 shrink-0 place-items-center">
+      <span className="grid place-items-center rounded-full border-2 transition-[background-color,border-color] duration-150" style={{ width: size, height: size, borderColor: checked ? "var(--green)" : "var(--label-3)", background: checked ? "var(--green)" : "transparent" }}>
+        {checked && <Check size={size - 6} color="#fff" strokeWidth={3.5} />}
+      </span>
+    </button>
+  );
+}
+
+export function TodoCheck({ item, actions, size = 18 }: { item: TimelineItem; actions: CalendarActions; size?: number }) {
+  const ref = item.edit;
+  if (!ref) return null;
+  return <CheckButton checked={!!item.done} label={`Done: ${item.title}`} onToggle={() => actions.onToggleTodo(ref.id, !item.done)} size={size} />;
+}
+
 function DayHead({ date, today, narrow }: { date: string; today: string; narrow: boolean }) {
   const isToday = date === today;
   return (
@@ -37,7 +73,7 @@ function DayHead({ date, today, narrow }: { date: string; today: string; narrow:
 }
 
 /** A day column of hours. Blocks are links to the page that owns the item. */
-export function WeekGrid({ items, days, today, narrow }: { items: readonly TimelineItem[]; days: string[]; today: string; narrow: boolean }) {
+export function WeekGrid({ items, days, today, narrow, actions }: { items: readonly TimelineItem[]; days: string[]; today: string; narrow: boolean; actions: CalendarActions }) {
   const perDay = days.map((d) => itemsOnDate(items, d));
   const laid = perDay.map((list) => layoutDay(list));
   const { from, to } = hourRange(laid.flat());
@@ -59,12 +95,22 @@ export function WeekGrid({ items, days, today, narrow }: { items: readonly Timel
           {days.map((d, i) => (
             <ul key={d} aria-label={`${dateLabel(d)}, all day and due`} className="min-w-0 space-y-0.5 border-l border-sep p-0.5">
               {stripItems(perDay[i]).map((item) => {
-                const t = toneClass[item.state === "overdue" ? "red" : item.tone];
+                const toneKey = item.state === "overdue" ? "red" : item.tone;
+                const t = toneClass[toneKey];
+                const prefix = item.kind === "deadline" || (item.kind === "todo" && !item.allDay) ? `Due ${item.start.slice(11, 16)} ` : "";
+                const text = <span className={`line-clamp-2 [overflow-wrap:anywhere] ${item.done ? "line-through" : ""}`}>{prefix}{item.title}</span>;
+                const box = `press block rounded-md px-1 py-0.5 text-[0.66rem] font-semibold leading-tight sm:text-[0.72rem] ${t.bg} ${t.fg}`;
+                const edge = { borderLeft: `3px solid ${TONE_VAR[toneKey]}` };
                 return (
-                  <li key={item.id}>
-                    <Link href={item.href} aria-label={sayItem(item)} className={`press block rounded-md px-1 py-0.5 text-[0.66rem] font-semibold leading-tight sm:text-[0.72rem] ${t.bg} ${t.fg}`} style={{ borderLeft: `3px solid ${TONE_VAR[item.state === "overdue" ? "red" : item.tone]}` }}>
-                      <span className="line-clamp-2 [overflow-wrap:anywhere]">{item.kind === "deadline" ? `Due ${item.start.slice(11, 16)} ` : ""}{item.title}</span>
-                    </Link>
+                  <li key={item.id} style={{ opacity: item.done ? 0.55 : 1 }}>
+                    {item.kind === "todo" ? (
+                      <div className={`flex items-start rounded-md ${t.bg} ${t.fg}`} style={edge}>
+                        <TodoCheck item={item} actions={actions} size={14} />
+                        <ItemTarget item={item} actions={actions} className="press block min-w-0 flex-1 py-1 pr-1 text-[0.66rem] font-semibold leading-tight sm:text-[0.72rem]">{text}</ItemTarget>
+                      </div>
+                    ) : (
+                      <ItemTarget item={item} actions={actions} className={box} style={edge}>{text}</ItemTarget>
+                    )}
                   </li>
                 );
               })}
@@ -78,7 +124,18 @@ export function WeekGrid({ items, days, today, narrow }: { items: readonly Timel
           {hours.map((h, i) => i > 0 && <span key={h} className="tnum t-caption absolute right-1.5 -translate-y-1/2 text-[0.62rem] sm:text-[0.72rem]" style={{ top: i * ROW }}>{String(h).padStart(2, "0")}:00</span>)}
         </div>
         {days.map((d, di) => (
-          <ul key={d} aria-label={`${dateLabel(d)}, timetable`} className="relative border-l border-sep" style={d === today ? { background: "color-mix(in srgb, var(--accent) 5%, transparent)" } : undefined}>
+          <ul
+            key={d}
+            aria-label={`${dateLabel(d)}, timetable`}
+            className="relative cursor-cell border-l border-sep"
+            style={d === today ? { background: "color-mix(in srgb, var(--accent) 5%, transparent)" } : undefined}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a, button")) return;
+              const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+              const minutes = Math.min(23 * 60 + 30, Math.max(0, Math.floor(((from * 60) + (y / ROW) * 60) / 30) * 30));
+              actions.onCreate(d, `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`);
+            }}
+          >
             {hours.map((h, i) => i > 0 && <li aria-hidden key={h} className="absolute inset-x-0 border-t border-sep" style={{ top: i * ROW }} />)}
             {d === today && nowMin >= from * 60 && nowMin <= to * 60 && (
               <li aria-label={`Now, ${timeOf(DEMO_NOW)}`} className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: ((nowMin - from * 60) / 60) * ROW }}>
@@ -95,11 +152,11 @@ export function WeekGrid({ items, days, today, narrow }: { items: readonly Timel
               const tall = height >= 44;
               return (
                 <li key={b.item.id} className="absolute" style={{ top: top + 1, height: height - 2, left: `calc(${b.lane * w}% + 1px)`, width: `calc(${w}% - 2px)`, opacity: isPast(b.item, DEMO_NOW) ? 0.55 : 1 }}>
-                  <Link href={b.item.href} aria-label={sayItem(b.item)} title={sayItem(b.item)} className={`press block h-full overflow-hidden rounded-lg px-1 py-0.5 text-[0.66rem] leading-tight sm:px-1.5 sm:py-1 sm:text-[0.72rem] ${t.bg} ${t.fg}`} style={{ borderLeft: `3px solid ${TONE_VAR[b.item.tone]}`, outline: cancelled ? "2px solid var(--red)" : undefined, outlineOffset: -2 }}>
+                  <ItemTarget item={b.item} actions={actions} className={`press block h-full overflow-hidden rounded-lg px-1 py-0.5 text-[0.66rem] leading-tight sm:px-1.5 sm:py-1 sm:text-[0.72rem] ${t.bg} ${t.fg}`} style={{ borderLeft: `3px solid ${TONE_VAR[b.item.tone]}`, outline: cancelled ? "2px solid var(--red)" : undefined, outlineOffset: -2 }}>
                     <span className={`block truncate font-bold ${cancelled ? "line-through" : ""}`}>{b.item.title}</span>
                     {b.item.stateLabel && tall && <span className="block truncate font-bold" style={{ color: b.item.state === "cancelled" ? "var(--red)" : undefined }}>{b.item.stateLabel}</span>}
                     {tall && <span className="line-clamp-2 block opacity-80 [overflow-wrap:anywhere]">{b.item.detail}</span>}
-                  </Link>
+                  </ItemTarget>
                 </li>
               );
             })}

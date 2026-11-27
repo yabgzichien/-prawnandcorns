@@ -324,3 +324,31 @@ For alerts:
 **Options reviewed:** a month grid only (hides the hours of a busy day), a week grid only (cannot show a fee date or a January exam without paging), a horizontal scroll of 7 columns on a phone (hides most of the week), or the three-view control above, which keeps each view honest about what it is good at.
 
 **Acceptance checks:** Week opens on the demo week with the Now line at 13:20; the cancelled tutorial is struck through and says Cancelled; two overlapping blocks do not cover each other; Next and Previous change the label; Month shows January exams after moving forward; choosing a month day opens its week; Agenda still lists Overdue first; no horizontal scroll at 320 px in any view; every block is a link to the page that owns it.
+
+## UX-ADR-010: Adding and editing calendar entries and to-dos, by words or by hand
+
+**Date:** 27 November 2026
+**Status:** Implemented 27 November 2026 on the working branch, pending team review. Checked in headless Chromium and the built-in browser only.
+
+**Problem:** The master calendar could show what the student had saved, but the student could not write into it. Saying "I have a dentist appointment this Friday at 3pm" produced no entry, and there was no to-do list at all. A calendar the student cannot edit is a poster.
+
+**Rules that do not move:** nothing is saved until the student presses a button (AGENTS.md: confirm before saving plans). The assistant proposes, code validates, the student decides. Everything is saved in this browser only, and the interface says so. A failed storage write is reported and never shown as saved. Every add, edit and delete has an Undo.
+
+**Options reviewed:**
+
+- Assistant only. Smooth for a sentence, but a student cannot fix a typo or add a to-do without retyping.
+- Forms only. Reliable, but slow, and it wastes the agent.
+- One shared editor reached three ways. Chosen: the assistant fills the same form the student uses by hand, so what the assistant read is always visible and editable before saving.
+
+**Decision:**
+
+- **By words:** a sentence such as "I have a dentist appointment this Friday at 3pm", "add team meeting on 4 Dec from 2 to 4pm in B1 Hall" or "remind me to print my lab report tomorrow" is read by plain code (`lib/plans/parse.ts`) into a title, a date, a time range and a place. Questions ("Do I have a class on Friday?") and every older request type keep their old routes. With a Gemini key, a new tool `prepare_calendar_entry` returns the same card from the model's fields, which code checks and falls back to the student's words for anything malformed. A missing date or time is asked for, never invented. An unspecified end becomes one hour and says so. A date that has passed this year moves to next year and says so. The reply is a card with the editor; **Add to calendar** or **Add to-do** saves, **Cancel** discards.
+- **By hand:** an **Add** button (event or to-do, one segmented control), a click on an empty hour in the week grid (prefilled with that day and time, rounded down to 30 minutes), a quick add line in the to-do list (Enter adds an undated to-do), and a tap on anything the student wrote opens the same editor with Delete.
+- **What is editable:** the student's own events, reminders and to-dos. Classes, deadlines, exams, fees, library bookings and study sessions are not, because another page owns them. They keep opening that page.
+- **To-dos:** a title, an optional due date, and an optional time that needs a date. They sit in the all-day strip of their day with a tick, in the agenda, and in a list under the calendar with Completed collapsed. Overdue to-dos turn red and join the overdue line.
+- **Feedback:** an event that overlaps a class, exam or saved item shows which one before saving, as a warning that does not block. Cancelled classes do not count. Errors are one plain sentence in a role alert, and the typed values stay. Ticks respond on press. Toasts say what changed and offer Undo.
+- **Sheet:** the editor is a bottom sheet on a phone and a side panel on a desktop, rendered in a portal so no card can cover it, with its buttons pinned in view. Inputs are 16 px so a phone does not zoom, and targets are at least 44 px.
+
+**Limits:** 100 events, 100 reminders and 200 to-dos in this browser. Reset demo clears all of them.
+
+**Acceptance checks:** a sentence becomes a card with the right fields and saves only on Add; a question does not become an entry; a missing title or an end before the start is refused in words and saves nothing; edit, delete and Undo work; a to-do ticks, moves to Completed and survives a reload; a click on an empty hour opens the sheet at that day and time; at 320 px the sheet, the grid and the list do not scroll sideways and the buttons stay reachable.

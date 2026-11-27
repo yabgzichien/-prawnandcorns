@@ -1,3 +1,4 @@
+import { readingFromArgs } from "./plans/parse.ts";
 import { ASSIGNMENTS } from "./data/academics.ts";
 import { DEPARTMENTS } from "./data/life.ts";
 import { searchCampus } from "./data/campus.ts";
@@ -167,6 +168,15 @@ export function createDemoExecutor(options: DemoExecutorOptions) {
           },
           summary: found.options.length ? `${found.options.length} free room${found.options.length === 1 ? "" : "s"}${found.alternatives ? " (nearest match)" : ""}; not booked` : "No free room matched",
           card: { kind: "rooms", summary: parsed.summary, options: found.options, alternatives: found.alternatives },
+        };
+      }
+      case "prepare_calendar_entry": {
+        const request = typeof args.request === "string" ? args.request.slice(0, 600) : "";
+        const reading = readingFromArgs(args, request, DEMO_NOW);
+        return {
+          value: { kind: reading.kind, entry: reading.draft, missing: reading.missing, notes: reading.notes, saved: false },
+          summary: `Prepared a ${reading.kind === "todo" ? "to-do" : "calendar event"}, not saved`,
+          card: { kind: "plan-entry", reading },
         };
       }
       case "check_event_fit": {

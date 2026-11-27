@@ -5,6 +5,7 @@ import { LIBRARY_ROOM_BY_ID, whereIs } from "../library/rooms.ts";
 import { SLOTS, slotWindow, ymd, type LibraryBooking } from "../library/policy.ts";
 import type { StudySession } from "../planning.ts";
 import type { PersonalEvent, Reminder } from "../updates/types.ts";
+import type { EntryKind, Todo } from "../plans/entries.ts";
 import { DEMO_NOW } from "../time.ts";
 import { EXAMS, SEMESTER_1, examName, type Exam } from "./semester.ts";
 
@@ -13,7 +14,7 @@ import { EXAMS, SEMESTER_1, examName, type Exam } from "./semester.ts";
 // already holds. Nothing here is fetched, and the dates are the demo's.
 // ──────────────────────────────────────────────────────────────────────
 
-export type TimelineKind = "class" | "deadline" | "exam" | "fee" | "event" | "semester" | "saved";
+export type TimelineKind = "class" | "deadline" | "exam" | "fee" | "event" | "semester" | "saved" | "todo";
 
 export type TimelineItem = {
   id: string;
@@ -35,6 +36,10 @@ export type TimelineItem = {
   stateLabel?: string;
   /** True for things the student confirmed and this browser holds. */
   saved?: boolean;
+  /** Set for what the student wrote themselves: the calendar opens the editor for these instead of a page. */
+  edit?: { kind: EntryKind; id: string };
+  /** A to-do the student ticked off. */
+  done?: boolean;
 };
 
 export type TimelineInput = {
@@ -48,6 +53,7 @@ export type TimelineInput = {
   studySessions?: readonly StudySession[];
   reminders?: readonly Reminder[];
   personalEvents?: readonly PersonalEvent[];
+  todos?: readonly Todo[];
   bookings?: readonly LibraryBooking[];
   exams?: readonly Exam[];
   events?: readonly EventItem[];
@@ -139,10 +145,10 @@ function savedItems(input: Pick<TimelineInput, "studySessions" | "reminders" | "
     out.push({ id: `saved:study:${s.id}`, kind: "saved", label: "Study session", title: s.title, detail: "From the study plan you confirmed", start: s.start, end: s.end, allDay: false, date: s.start.slice(0, 10), href: "/hub?section=assignments", tone: "blue", saved: true });
   }
   for (const r of input.reminders ?? []) {
-    out.push({ id: `saved:reminder:${r.id}`, kind: "saved", label: "Reminder", title: r.title, detail: "Reminder you saved", start: r.at, allDay: false, date: r.at.slice(0, 10), href: "/hub?section=timetable", tone: "orange", saved: true });
+    out.push({ id: `saved:reminder:${r.id}`, kind: "saved", label: "Reminder", title: r.title, detail: "Reminder you saved", start: r.at, allDay: false, date: r.at.slice(0, 10), href: "/hub?section=timetable", tone: "orange", saved: true, edit: { kind: "reminder", id: r.id } });
   }
   for (const e of input.personalEvents ?? []) {
-    out.push({ id: `saved:entry:${e.id}`, kind: "saved", label: "Calendar entry", title: e.title, detail: e.place ?? "Entry you saved", start: e.start, end: e.end, allDay: false, date: e.start.slice(0, 10), href: "/hub?section=timetable", tone: "blue", saved: true });
+    out.push({ id: `saved:entry:${e.id}`, kind: "saved", label: "Calendar entry", title: e.title, detail: e.place ?? "Entry you saved", start: e.start, end: e.end, allDay: false, date: e.start.slice(0, 10), href: "/hub?section=timetable", tone: "blue", saved: true, edit: { kind: "event", id: e.id } });
   }
   for (const b of input.bookings ?? []) {
     const room = LIBRARY_ROOM_BY_ID[b.roomId];
@@ -151,6 +157,20 @@ function savedItems(input: Pick<TimelineInput, "studySessions" | "reminders" | "
     out.push({ id: `saved:booking:${b.id}`, kind: "saved", label: "Library booking", title: room.name, detail: `A3 ${whereIs(room)}`, start: w.start, end: w.end, allDay: false, date: b.date, href: "/hub?section=library", tone: "green", saved: true });
   }
   return out;
+}
+
+function todoItems(todos: readonly Todo[], now: Date): TimelineItem[] {
+  return todos.filter((t) => t.due).map((t) => {
+    const due = t.due as string;
+    const start = t.time ? `${due}T${t.time}:00+08:00` : dayStart(due);
+    const late = !t.done && (t.time ? Date.parse(start) < now.getTime() : due < ymd(now.getTime()));
+    return {
+      id: `todo:${t.id}`, kind: "todo" as const, label: "To-do", title: t.title,
+      detail: t.done ? "Done" : "Your to-do, saved in this browser",
+      start, allDay: !t.time, date: due, href: "/", tone: late ? "red" as const : "green" as const, saved: true, done: t.done, edit: { kind: "todo" as const, id: t.id },
+      ...(late ? { state: "overdue" as const, stateLabel: "Overdue" } : {}),
+    };
+  });
 }
 
 const order = (a: TimelineItem, b: TimelineItem) =>
@@ -167,6 +187,7 @@ export function buildTimeline(input: TimelineInput): TimelineItem[] {
     ...campusEventItems(input.events ?? EVENTS),
     ...semesterItems(),
     ...savedItems(input),
+    ...todoItems(input.todos ?? [], now),
   ].sort(order);
 }
 
@@ -221,7 +242,7 @@ export function groupTimeline(items: readonly TimelineItem[], now: Date = DEMO_N
 
 /** `hhmm` of an item for the time column: "All day" or "10:00" or "10:00 to 12:00". */
 export function timeText(item: TimelineItem): string {
-  if (item.allDay) return "All day";
+  if (item.allDay) return item.kind === "todo" ? "Due" : "All day";
   return item.end && item.end.slice(0, 10) === item.start.slice(0, 10) ? `${hhmm(item.start)} to ${hhmm(item.end)}` : hhmm(item.start);
 }
 
@@ -261,7 +282,7 @@ export function monthWeeks(anchor: string): string[][] {
 export const itemsOnDate = (items: readonly TimelineItem[], date: string): TimelineItem[] => items.filter((i) => i.date === date);
 
 /** True when the item is drawn as a block with hours (it has a duration, or it is a reminder). Deadlines and all-day items go in the strip. */
-export const isBlock = (item: TimelineItem): boolean => !item.allDay && item.kind !== "deadline";
+export const isBlock = (item: TimelineItem): boolean => !item.allDay && item.kind !== "deadline" && item.kind !== "todo";
 
 export type GridBlock = { item: TimelineItem; startMin: number; endMin: number; lane: number; lanes: number };
 
