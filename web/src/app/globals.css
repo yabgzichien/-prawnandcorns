@@ -127,12 +127,42 @@ body {
 }
 
 /* Today dashboard, scoped so other pages keep their existing layout. */
-.home-grid { grid-template-columns: minmax(0, 1fr); }
+.home-card-grid { position: relative; grid-template-columns: minmax(0, 1fr); }
+.home-card-grid[hidden] { display: none; }
+.home-card-grid[data-packed] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1px;
+  row-gap: 0;
+}
+.home-card-grid[data-packed] > .home-widget { min-height: 7rem; }
+.home-card-size {
+  border: 1px solid var(--sep);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--label-2);
+  min-height: 32px;
+  padding-inline: 9px;
+  font-size: .82rem;
+}
+.home-card-size:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.home-plans-wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 16px; }
 .app-shell:has(.home-view) .floating-icon-background { background: #ffffff; }
 .app-shell:has(.home-view) .floating-icon { opacity: .16; }
+.home-widget .card-title-text { background-color: #E8F2FC; border-radius: 6px; padding: 4px 10px; min-width: 0; }
 .home-widget { position: relative; min-width: 0; overflow: hidden; }
-.home-widget[data-widget="calendar"], .home-widget[data-widget="next"], .home-widget[data-widget="headsup"], .home-widget[data-widget="plans"] { grid-column: 1 / -1; }
+.home-widget[data-widget="calendar"] { grid-column: 1 / -1; }
+@media (min-width: 1024px) {
+  .home-widget[data-widget="calendar"] { min-height: 575px; }
+  .home-widget[data-widget="calendar"] [aria-label^="Week grid"],
+  .home-widget[data-widget="calendar"] [aria-label="Month grid"] { zoom: 0.83; }
+}
 .home-widget-art { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; object-position: right bottom; opacity: .16; filter: grayscale(1) sepia(.38) hue-rotate(175deg) saturate(1.2); pointer-events: none; border-radius: inherit; }
+.home-widget[data-widget="plans"] > .home-widget-art {
+  inset: auto 0 0 auto;
+  width: min(75%, 22rem);
+  height: 80%;
+  filter: none;
+}
 .home-widget > :not(.home-widget-art) { position: relative; z-index: 2; }
 .home-header { position: relative; isolation: isolate; min-height: 144px; display: flex; align-items: flex-start; padding: 4px 0 18px; background: #ffffff; }
 .home-header-copy { position: relative; top: 12px; z-index: 2; }
@@ -190,7 +220,6 @@ body {
 .home-widget[data-widget="clubs"] .club-fair-icon { grid-row: span 2; display: block; width: 36px; height: 38px; background: url("/brand/club-tent.png") center / contain no-repeat; }
 .home-widget[data-widget="clubs"] li > div { flex: 1; }
 .club-row-icon { background: var(--accent-soft); color: var(--accent); }
-@media (min-width: 768px) { .home-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 1200px) {
   .app-shell { padding-left: 190px; }
   .app-sidebar { width: 166px; }
@@ -221,7 +250,7 @@ body {
   .home-widget[data-widget="due"] .due-row-date { display: inline; }
   .home-widget[data-widget="due"] li .t-caption span { display: none; }
   .home-widget[data-widget="alerts"] li { padding-block: 8px; }
-  .home-widget[data-widget="alerts"] .t-caption { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .home-widget[data-widget="alerts"]:not([data-size="wide"]) .t-caption { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
   .home-widget[data-widget="clubs"] li { padding-block: 8px; }
   .home-widget[data-widget="find"]::after { content: none; }
   .home-widget[data-widget="find"] form,.home-widget[data-widget="find"] .mt-3 { position: relative; z-index: 2; }

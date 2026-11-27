@@ -8,7 +8,7 @@ import { DEMO_NOW, timeOf } from "@/lib/time";
 import { toneClass } from "@/components/ui/kit";
 import type { Tone } from "@/lib/data/academics";
 
-const ROW = 52;
+
 const TONE_VAR: Record<Tone, string> = { blue: "var(--accent)", orange: "var(--orange)", purple: "var(--purple)", green: "var(--green)", teal: "var(--teal)", red: "var(--red)" };
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const dayName = (date: string) => dateLabel(date).split(" ")[0];
@@ -38,6 +38,7 @@ function DayHead({ date, today, narrow }: { date: string; today: string; narrow:
 
 /** A day column of hours. Blocks are links to the page that owns the item. */
 export function WeekGrid({ items, days, today, narrow }: { items: readonly TimelineItem[]; days: string[]; today: string; narrow: boolean }) {
+  const rowHeight = narrow ? 34 : 28;
   const perDay = days.map((d) => itemsOnDate(items, d));
   const laid = perDay.map((list) => layoutDay(list));
   const { from, to } = hourRange(laid.flat());
@@ -54,10 +55,10 @@ export function WeekGrid({ items, days, today, narrow }: { items: readonly Timel
       </div>
 
       {hasStrip && (
-        <div className="grid border-t border-sep" style={{ gridTemplateColumns: cols }}>
+        <div className="grid border-t border-sep/50" style={{ gridTemplateColumns: cols }}>
           <p className="t-caption pr-1.5 pt-1.5 text-right text-[0.62rem] leading-tight sm:text-[0.7rem]">All day</p>
           {days.map((d, i) => (
-            <ul key={d} aria-label={`${dateLabel(d)}, all day and due`} className="min-w-0 space-y-0.5 border-l border-sep p-0.5">
+            <ul key={d} aria-label={`${dateLabel(d)}, all day and due`} className="min-w-0 space-y-0.5 border-l border-sep/50 p-0.5">
               {stripItems(perDay[i]).map((item) => {
                 const t = toneClass[item.state === "overdue" ? "red" : item.tone];
                 return (
@@ -73,23 +74,23 @@ export function WeekGrid({ items, days, today, narrow }: { items: readonly Timel
         </div>
       )}
 
-      <div className="relative grid border-t border-sep" style={{ gridTemplateColumns: cols, height: (to - from) * ROW }}>
+      <div className="relative grid border-t border-sep/50" style={{ gridTemplateColumns: cols, height: (to - from) * rowHeight }}>
         <div className="relative" aria-hidden>
-          {hours.map((h, i) => i > 0 && <span key={h} className="tnum t-caption absolute right-1.5 -translate-y-1/2 text-[0.62rem] sm:text-[0.72rem]" style={{ top: i * ROW }}>{String(h).padStart(2, "0")}:00</span>)}
+          {hours.map((h, i) => i > 0 && <span key={h} className="tnum t-caption absolute right-1.5 -translate-y-1/2 text-[0.62rem] sm:text-[0.72rem]" style={{ top: i * rowHeight }}>{String(h).padStart(2, "0")}:00</span>)}
         </div>
         {days.map((d, di) => (
-          <ul key={d} aria-label={`${dateLabel(d)}, timetable`} className="relative border-l border-sep" style={d === today ? { background: "color-mix(in srgb, var(--accent) 5%, transparent)" } : undefined}>
-            {hours.map((h, i) => i > 0 && <li aria-hidden key={h} className="absolute inset-x-0 border-t border-sep" style={{ top: i * ROW }} />)}
+          <ul key={d} aria-label={`${dateLabel(d)}, timetable`} className="relative border-l border-sep/50" style={d === today ? { background: "color-mix(in srgb, var(--accent) 5%, transparent)" } : undefined}>
+            {hours.map((h, i) => i > 0 && <li aria-hidden key={h} className="absolute inset-x-0 border-t border-sep/50" style={{ top: i * rowHeight }} />)}
             {d === today && nowMin >= from * 60 && nowMin <= to * 60 && (
-              <li aria-label={`Now, ${timeOf(DEMO_NOW)}`} className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: ((nowMin - from * 60) / 60) * ROW }}>
+              <li aria-label={`Now, ${timeOf(DEMO_NOW)}`} className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: ((nowMin - from * 60) / 60) * rowHeight }}>
                 <span aria-hidden className="-ml-1 h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--red)" }} />
                 <span aria-hidden className="h-px flex-1" style={{ background: "var(--red)" }} />
               </li>
             )}
             {laid[di].map((b) => {
               const t = toneClass[b.item.tone];
-              const top = ((b.startMin - from * 60) / 60) * ROW;
-              const height = Math.max(((b.endMin - b.startMin) / 60) * ROW, 22);
+              const top = ((b.startMin - from * 60) / 60) * rowHeight;
+              const height = Math.max(((b.endMin - b.startMin) / 60) * rowHeight, 22);
               const w = 100 / b.lanes;
               const cancelled = b.item.state === "cancelled";
               const tall = height >= 44;
@@ -120,9 +121,9 @@ export function MonthGrid({ items, anchor, today, narrow, onOpenDay }: { items: 
       <div className="grid grid-cols-7">
         {WEEKDAYS.map((n) => <p key={n} className="t-eyebrow pb-1.5 text-center">{narrow ? n.slice(0, 1) : n}</p>)}
       </div>
-      <div className="overflow-hidden rounded-xl border border-sep">
+      <div className="overflow-hidden rounded-xl border border-sep/50">
         {weeks.map((week, wi) => (
-          <div key={week[0]} className={`grid grid-cols-7 ${wi > 0 ? "border-t border-sep" : ""}`}>
+          <div key={week[0]} className={`grid grid-cols-7 ${wi > 0 ? "border-t border-sep/50" : ""}`}>
             {week.map((d, di) => {
               const list = itemsOnDate(items, d);
               const inMonth = d.startsWith(month);
@@ -135,7 +136,7 @@ export function MonthGrid({ items, anchor, today, narrow, onOpenDay }: { items: 
                   type="button"
                   onClick={() => onOpenDay(d)}
                   aria-label={`${dateLabel(d)}, ${list.length === 0 ? "nothing scheduled" : `${list.length} ${list.length === 1 ? "item" : "items"}`}. Open this week`}
-                  className={`press-row flex min-h-[64px] min-w-0 flex-col items-stretch gap-0.5 p-1 text-left sm:min-h-[92px] ${di > 0 ? "border-l border-sep" : ""}`}
+                  className={`press-row flex min-h-[44px] min-w-0 flex-col items-stretch gap-0.5 p-1 text-left sm:min-h-[58px] ${di > 0 ? "border-l border-sep/50" : ""}`}
                   style={{ opacity: inMonth ? 1 : 0.45 }}
                 >
                   <span className={`tnum grid h-6 w-6 place-items-center self-center rounded-full text-[0.8rem] font-semibold sm:self-start ${isToday ? "text-white" : "text-label"}`} style={isToday ? { background: "var(--accent)" } : undefined}>{dayNumber(d)}</span>

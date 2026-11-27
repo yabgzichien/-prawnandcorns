@@ -84,7 +84,7 @@ Student app (shell: `web/src/components/shell/AppShell.tsx`, providers in `Provi
 
 | Route | What it is |
 | --- | --- |
-| `/` | Today: ask bar, then the **master calendar** (default, the only card shown on a fresh visit, a Google Calendar style week grid with Month and Agenda views, see 15). The older cards (next class, class changes, due soon, today, fees, degree progress, clubs, find a room, Heads-up, My plans) are switched on in Customise |
+| `/` | Today opens with the full-width Master calendar. Choose Today, Week (default) or Month. Customise adds Upcoming, Class changes, Fees, Degree progress, Clubs & events, Find a room and My plans below it. Desktop cards pack into available space and offer size presets while Customise is open. On mobile they stack at full width. |
 | `/hub` | Student hub: tiles for Timetable, Assignments, Campus map (2D and 3D), Courses, Clubs, Finance, **Library rooms**, **Help desk**. Sections open under the tiles (`?section=...`) |
 | `/mail` | Mail assistant: drafts emails to the right university office. Shows an AskA pointer for hostel faults |
 | `/connections` | Connect or disconnect the four mock systems through a mock consent screen. Shows last read time and failures. On a first visit to `/`, a sheet (`components/onboarding/OnboardingSheet.tsx`) offers to connect all four at once, see 15 |
@@ -291,7 +291,7 @@ Decisions are in `docs/ux/DECISIONS.md` (UX-ADR-005 and UX-ADR-006). Light theme
 
 - **Lecturer desk**: `/demo/lecturer` (console nav "Teaching", "Replacement Classes"). Pick the lost CST1101 class and the reason, see a heatmap of how many of the 36 invented students are free for each start time (counts only, never names), pick a room, then either set the time at once or shortlist two or three times and ask the students. Publish and Ask both confirm in a modal; Undo restores the previous requests.
 - **Rules** (`lib/replacement/availability.ts`, demo policy): Tue to Sat of the current week, 08:00 to 20:00, 24 hours' notice, not on a public holiday, the lecturer's leave day or their other teaching, a room with enough seats. `checkOption` re-checks before anything is written.
-- **Student side**: `ReplacementPanel` at the top of Timetable (answer Works or Can't per time, prefilled from the timetable; or the set time with Show in timetable, Find room, Add to calendar, and private overlap warnings). `UpdatesBanner` tells the student once. `CampusProvider` overlays the result on `data.classes` and notices (`lib/replacement/overlay.ts`), so Up next, Class changes, ICS export, the study planner and the assistant all see it.
+- **Student side**: `ReplacementPanel` at the top of Timetable (answer Works or Can't per time, prefilled from the timetable; or the set time with Show in timetable, Find room, Add to calendar, and private overlap warnings). `UpdatesBanner` tells the student once. `CampusProvider` overlays the result on `data.classes` and notices (`lib/replacement/overlay.ts`), so the calendar’s next class, Class changes, ICS export, the study planner and the assistant all see it.
 - **Storage**: the desk writes `compass:replacements:v1`; Compass writes `compass:replacement-answers:v1` and `compass:replacement-seen:v1`. An answer counts only for the request `stamp` it was given for.
 
 ### 13.2 GE planner
@@ -354,7 +354,7 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
   - items ticked here but not submitted on Moodle;
   - exams within 14, 3 or 1 days, or on now;
   - the last two teaching weeks, revision week and exam weeks.
-- `components/home/HeadsUp.tsx` sits on Home, under the Ask box. Hiding a line stores `id@tier` in `compass:time-alerts-seen:v1`, so it returns at the next tier. Reset demo clears it.
+- `components/home/HeadsUp.tsx` renders Upcoming below the calendar when enabled. Dismissing an alert retains its assignment and stores the dismissal tier. Compass stores `id@tier` in `compass:time-alerts-seen:v1`, so it returns at the next tier. Reset demo clears it.
 - **Agent:** a new `exams` intent ("when is my exam", "is it revision week"), checked before the room intent. The deadlines answer adds an exam heads-up line.
 - Deadline alerts are deliberately not in the floating banner (see ADR-007).
 
@@ -394,6 +394,51 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
 ---
 
 ## 15. Change log (newest first, add an entry for every change)
+
+### 27 Nov 2026, softer calendar grid lines
+
+- CalendarGrid.tsx halves the opacity of the Week and Month grid borders. Production build passed. The E2E dev server was blocked by the running instance. No visual browser check.
+
+### 27 Nov 2026, 575 px desktop Master calendar
+
+- Updated globals.css to size the desktop card and scale its Week and Month grids. Content can grow naturally. Chrome measured all three views at 575 px at 1366 x 768. At 375 x 667, Week, Month and Today measured 824, 610 and 744 px. Production build passed. The full E2E suite was blocked by the active development server lock.
+
+### 27 Nov 2026, content-sized Master calendar
+
+- Removed the card height cap and internal scroll area in globals.css and MasterCalendar.tsx. Adjusted the Week and Month grid rows in CalendarGrid.tsx and the Today list spacing. Card height follows content.
+- Checked the production assets in Chrome at 1366 x 768 and 375 x 667. Week, Month and Today measured 642/643/514 px on desktop and 824/610/744 px on mobile, with no internal vertical scrolling. The E2E suite was blocked by the dev server lock, and Chromium download failed DNS resolution.
+
+### 27 Nov 2026, shorter Master calendar
+
+- MasterCalendar.tsx puts the events and caption in a keyboard-focusable scrolling area below the controls. globals.css caps the calendar card at 78% of viewport height, up to 720 px.
+- Production build passed. In installed Chrome with built assets, checked Today, Week and Month at 1366 x 768 and 375 x 667. The card reached 599 px on desktop and 520 px on mobile. Scrolling reached the bottom and the controls held position. The full E2E suite was blocked by the existing dev server lock, and the bundled Chromium download failed. Physical devices were unverified.
+
+### 27 Nov 2026, Today card title highlights
+
+- Wrapped the title text in kit.tsx and scoped the pale-blue highlight to dashboard cards in globals.css.
+- Production build succeeded. Headless Chrome loaded the built dashboard assets directly and confirmed all eight highlights fit at 1440, 375 and 320 px. The full E2E suite could not start its dev server because another instance held the project lock. Chromium download also failed DNS resolution.
+
+### 27 Nov 2026, watercolor artwork for My plans
+
+- Added the attached transparent PNG as `web/public/brand/today-art/my-plans.png`. Registered it in `HomeView.tsx` and sized it in `globals.css` for My plans only. The inherited opacity and bottom-right alignment keep it behind the content, and the PNG retains its pale blue palette and proportions.
+- Copy check and production build passed. Unit tests passed (269 passed, one skipped). Lint reported zero errors and two existing warnings. In headless Chrome 157, checked the artwork visually and measured it at 1440, 375 and 320 px, including wide and compact desktop cards, populated and empty cards, and the View all and Remove controls.
+- Playwright's bundled Chromium download failed DNS resolution. The full end-to-end run used installed Chrome and stopped after five passing tests. Other browsers and physical devices were not checked.
+
+### 27 Nov 2026, Today card packing and sizes
+
+- Decision before implementation: equal-height rows leave gaps, and CSS-only dense placement can separate visual and keyboard order. Use measured card heights to fit cards into the earliest available space and render them in visual order. Keep the preference order for ties, the Customise list and the single-column layout.
+- Compact and Standard use one track and adjust content height. Wide spans both tracks and can show more of the existing content. Use preset controls in Customise and on desktop cards while the panel is open. Preserve the calendar's saved visibility and first position when shown.
+- Acceptance checks: verify packing, visual and DOM order, keyboard sizing, persistence and migration, content by preset, sidebar widths, single-column mobile and reduced motion in Chromium.
+- Files changed: `HomeView.tsx`, `widgets.tsx`, `HeadsUp.tsx`, `PlansWidget.tsx`, `globals.css`, `widget-layout.ts`, `state.tsx`, `widget-layout.test.ts`, `calendar.spec.ts`, `campus.spec.ts`, `timewatch.spec.ts` and this file. The renamed Upcoming card keeps its storage ID and existing alert actions. Older layout entries use Standard when no preset is stored.
+- Copy check and production build passed. Unit tests: 269 passed, one skipped. ESLint: zero errors and two existing warnings. Playwright Chromium download failed DNS resolution. All 28 targeted Playwright tests passed on the final build in installed headless Chrome 157 (calendar, timewatch and campus). Desktop and simulated mobile widths were checked with reduced motion. Visual review at normal motion, Safari, Firefox and physical devices remain unverified.
+
+### 27 Nov 2026, Today dashboard consolidation
+
+- HomeView, MasterCalendar, widgets and globals.css place the calendar first at full width, with equal columns below on desktop and one column on mobile. Today includes the next class, room link and daily commitments. Week remains the initial view. Agenda and its ranges are removed.
+- HeadsUp.tsx now renders Needs attention. Assignment rows and exam alerts share the existing urgency tiers and date ordering. The list initially shows four items. Completion is local to Compass, and dismissing a tier leaves the assignment available. Semester status is in the footer.
+- widget-layout.ts, state.tsx and agent.ts migrate and customise the consolidated cards. Calendar-only remains the fresh default. docs/ux/DECISIONS.md records the interaction decision. Updated widget-layout, calendar, campus and timewatch tests.
+- Copy check and production build passed. Unit tests: 267 passed, 1 skipped. Lint: no errors, two existing warnings. The configured Chromium download failed DNS resolution and another dev server held the default lock. Tested the production build locally with installed headless Chrome 157: 94 of 95 browser tests passed on the full run, with one onboarding connection timeout. All ten calendar tests and the onboarding retry passed on the final build with one worker. Desktop and simulated mobile layouts were exercised. Safari, Firefox and physical devices were unverified.
+
 
 Entry format: **date, title.** Files. What and why. Verified. Not verified or unfinished.
 

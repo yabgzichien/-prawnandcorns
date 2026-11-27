@@ -324,3 +324,7 @@ For alerts:
 **Options reviewed:** a month grid only (hides the hours of a busy day), a week grid only (cannot show a fee date or a January exam without paging), a horizontal scroll of 7 columns on a phone (hides most of the week), or the three-view control above, which keeps each view honest about what it is good at.
 
 **Acceptance checks:** Week opens on the demo week with the Now line at 13:20; the cancelled tutorial is struck through and says Cancelled; two overlapping blocks do not cover each other; Next and Previous change the label; Month shows January exams after moving forward; choosing a month day opens its week; Agenda still lists Overdue first; no horizontal scroll at 320 px in any view; every block is a link to the page that owns it.
+
+### Today dashboard consolidation, 27 November 2026
+
+A daily list inside the full-width calendar keeps classes and saved commitments together. Separate daily cards repeated the same classes. Keep Week as the initial view and retain its date navigation. Show enabled cards below in two equal columns, stacking on mobile. Check for one row per assignment, four initial attention items, independent completion and dismissal, and migration of existing visibility settings.
