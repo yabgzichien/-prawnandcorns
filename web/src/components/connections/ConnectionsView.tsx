@@ -10,7 +10,7 @@ import { SYSTEM_IDS, SYSTEM_LABEL, type SystemId } from "@/lib/world/types";
 import { Item, PageHeader, Pill, Stagger } from "@/components/ui/kit";
 import { ConsentSheet } from "./ConsentSheet";
 
-const ICON: Record<SystemId, typeof BookOpen> = { moodle: BookOpen, ac: CalendarDays, finance: Landmark, mail: Mail };
+export const SYSTEM_ICON: Record<SystemId, typeof BookOpen> = { moodle: BookOpen, ac: CalendarDays, finance: Landmark, mail: Mail };
 const timeOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "");
 
 export function ConnectionsView() {
@@ -32,7 +32,7 @@ export function ConnectionsView() {
 
       <Stagger className="space-y-3">
         {SYSTEM_IDS.map((system) => {
-          const Icon = ICON[system];
+          const Icon = SYSTEM_ICON[system];
           const on = Boolean(connections[system]);
           const problem = failed.find((f) => f.system === system);
           const last = snapshot?.fetchedAt[system];

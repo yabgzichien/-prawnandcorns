@@ -216,7 +216,11 @@ export function createDemoExecutor(options: DemoExecutorOptions) {
       case "prepare_event_application": {
         const request = typeof args.request === "string" ? args.request.slice(0, 600) : "";
         const parsed = parseEventRequest(request, DEMO_NOW);
-        if (!parsed.isEventRequest) return { value: { error: "That does not look like a request for rooms or items for a club event. Do not prepare an event application." }, summary: "Not a club event request" };
+        if (!parsed.isEventRequest && !parsed.looksLikeEvent) {
+          // The model writes this argument, so keep a short trace of what it sent when the check refuses it.
+          console.warn(`prepare_event_application refused ${request.length} characters: ${JSON.stringify(request.slice(0, 200))}`);
+          return { value: { error: "Code could not find a room or item and an event detail (date, time, head count or club) in that text. If the student did ask for rooms or items for a club event, call prepare_event_application again with their message copied word for word. Otherwise do not prepare an event application." }, summary: "Not a club event request" };
+        }
         const made = draftFromRequest(parsed, SEEDED_APPLICATIONS, SEEDED_DECISIONS);
         const issues = checkApplication(made.draft, SEEDED_APPLICATIONS, SEEDED_DECISIONS, DEMO_NOW);
         const problems = problemsOf(issues);

@@ -20,10 +20,11 @@ import { checkShortlist, sanitizeShortlist } from "./electives/plan";
 import { STUDENT_STREAM } from "./electives/catalogue";
 import type { ElectiveShortlist } from "./electives/types";
 
-export type WidgetId = "next" | "alerts" | "due" | "today" | "fees" | "progress" | "clubs" | "find";
-export type WidgetPref = { id: WidgetId; hidden: boolean };
+import { DEFAULT_WIDGETS, mergeWidgets, REFERENCE_LAYOUT, type WidgetId, type WidgetPref } from "./widget-layout";
+export { DEFAULT_WIDGETS, mergeWidgets, REFERENCE_LAYOUT, type WidgetId, type WidgetPref };
 
 export const WIDGET_META: Record<WidgetId, { title: string; aliases: string[] }> = {
+  calendar: { title: "Master calendar", aliases: ["master calendar", "calendar", "timeline", "agenda", "everything coming up"] },
   next: { title: "Up next", aliases: ["next class", "up next", "next"] },
   alerts: { title: "Class changes", aliases: ["alerts", "changes", "cancellation", "cancellations", "replacement", "notices", "class changes"] },
   due: { title: "Due soon", aliases: ["assignments", "assignment", "deadlines", "deadline", "due", "moodle", "homework"] },
@@ -32,18 +33,9 @@ export const WIDGET_META: Record<WidgetId, { title: string; aliases: string[] }>
   progress: { title: "Degree progress", aliases: ["progress", "degree", "credits", "courses", "core"] },
   clubs: { title: "Clubs & events", aliases: ["clubs", "club", "eca", "events", "activities", "societies"] },
   find: { title: "Find a room", aliases: ["map", "find", "rooms", "room", "campus"] },
+  headsup: { title: "Heads-up", aliases: ["heads-up", "heads up", "headsup", "semester", "week", "exams", "exam", "alerts bar"] },
+  plans: { title: "My plans", aliases: ["plans", "my plans", "study plan", "reminders", "reminder", "bookings", "booking"] },
 };
-
-export const DEFAULT_WIDGETS: WidgetPref[] = [
-  { id: "next", hidden: false },
-  { id: "alerts", hidden: false },
-  { id: "due", hidden: false },
-  { id: "today", hidden: false },
-  { id: "clubs", hidden: false },
-  { id: "find", hidden: false },
-  { id: "fees", hidden: true },
-  { id: "progress", hidden: true },
-];
 
 type State = {
   hydrated: boolean;
@@ -123,7 +115,7 @@ function sanitizeEvents(raw: unknown): PersonalEvent[] {
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case "hydrate": return { ...s, ...a.saved, studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), eventApplications: sanitizeApplications(a.saved.eventApplications), electives: sanitizeShortlist(a.saved.electives), lastApply: null, hydrated: true };
+    case "hydrate": return { ...s, ...a.saved, widgets: mergeWidgets(a.saved.widgets), studySessions: sanitizeDemoStudySessions(a.saved.studySessions), reminders: sanitizeReminders(a.saved.reminders), personalEvents: sanitizeEvents(a.saved.personalEvents), bookings: sanitizeBookings(a.saved.bookings), tickets: sanitizeTickets(a.saved.tickets), eventApplications: sanitizeApplications(a.saved.eventApplications), electives: sanitizeShortlist(a.saved.electives), lastApply: null, hydrated: true };
     case "widgets": return { ...s, widgets: a.widgets };
     case "toggleClub": return { ...s, joined: s.joined.includes(a.id) ? s.joined.filter((x) => x !== a.id) : [...s.joined, a.id] };
     case "toggleSubmitted": return { ...s, submitted: s.submitted.includes(a.id) ? s.submitted.filter((x) => x !== a.id) : [...s.submitted, a.id] };

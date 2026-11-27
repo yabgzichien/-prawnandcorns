@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { showTodayCards } from "./support";
 
 test.use({ viewport: { width: 1280, height: 860 }, isMobile: false, colorScheme: "light" });
 
@@ -12,7 +13,8 @@ const shot = async (page: Page, name: string, el?: ReturnType<Page["locator"]>) 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGP43+CAFTEMLQkA2g1vwT86DrUAAAAASUVORK5CYII=", "base64");
 
 // No test here may reach a real model: Gemini reads as not configured unless a test mocks it (later routes win).
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }) => {
+  await showTodayCards(context);
   await page.route("**/api/agent", (route) => route.request().method() === "GET"
     ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false, data: "fictional_demo" }) })
     : route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Gemini API key not configured." }) }));
@@ -189,4 +191,22 @@ test.describe("small screens", () => {
     const wide = await card.evaluate((el) => [...el.querySelectorAll("*")].filter((c) => c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map((c) => `${c.tagName}.${c.className}`.slice(0, 80)));
     expect(wide).toEqual([]);
   });
+});
+
+test("Heads-up and My plans start switched off and appear on Today only when switched on in Customise", async ({ page }) => {
+  await page.addInitScript(() => { try { const k = "xmum-compass:v1"; const s = JSON.parse(localStorage.getItem(k) ?? "{}"); delete s.widgets; localStorage.setItem(k, JSON.stringify(s)); } catch {} });
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Heads-up" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "My plans" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Customise" }).click();
+  await page.getByRole("switch", { name: "Show Heads-up" }).click();
+  await page.getByRole("dialog", { name: "Customise dashboard" }).getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("region", { name: "Heads-up" }).getByText("Week 10 of 14.")).toBeVisible();
+  // the cards fill the row and never sit on top of each other
+  const boxes = await page.locator(".home-widget").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: (e as HTMLElement).dataset.widget, top: r.top, bottom: r.bottom, left: r.left, right: r.right }; }));
+  for (const a of boxes) for (const b of boxes) {
+    if ((a.id ?? "") >= (b.id ?? "")) continue;
+    const overlap = a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+    expect(overlap, `${a.id} overlaps ${b.id}`).toBe(false);
+  }
 });

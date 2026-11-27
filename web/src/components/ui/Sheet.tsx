@@ -42,6 +42,8 @@ export function Sheet({ open, onClose, label, children, wide = false, modalOnDes
   const off = desktop ? { x: "108%", y: 0 } : { x: 0, y: "104%" };
 
   const restoreFocus = () => {
+    // Another dialog opened while this one closed (for example the assistant after the first-run sheet): leave focus there.
+    if (document.querySelector('[role="dialog"]')) return;
     const invoker = returnFocusRef.current;
     const accessibleName = invoker?.getAttribute("aria-label");
     // The mobile Ask launcher is conditionally rendered, so its original DOM

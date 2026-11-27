@@ -14,6 +14,7 @@ import { AgentPanel } from "@/components/agent/AgentPanel";
 import { UpdatesBanner } from "./UpdatesBanner";
 import { AskaTicketSheet } from "@/components/helpdesk/AskaTicketSheet";
 import { EventApplicationSheet } from "@/components/events/EventApplicationSheet";
+import { OnboardingSheet } from "@/components/onboarding/OnboardingSheet";
 import { FloatingIconBackground } from "@/components/shell/FloatingIconBackground";
 
 const NAV = [
@@ -150,6 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <UpdatesBanner />
       <AgentPanel />
+      <OnboardingSheet enabled={path === "/"} />
       <AskaTicketSheet draft={askaDraft} onClose={closeAskaTicket} />
       <EventApplicationSheet draft={eventDraft} onClose={closeEventApplication} />
 

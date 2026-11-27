@@ -211,3 +211,116 @@ For alerts:
 - `web/tests-e2e/timewatch.spec.ts` (9) ran in Playwright's headless Chromium. It also checks that the banner never covers the GE planner's Save button, using `elementFromPoint`.
 - Light theme screenshots are in `docs/ux/evidence/2026-11-events-and-alerts/` (17 to 23).
 - Not checked on a real phone, in Safari or Firefox, with a screen reader, or with a live Gemini model.
+
+## UX-ADR-008: First-run connection step as a sheet over Today
+
+**Date:** 27 November 2026
+**Status:** Implemented 27 November 2026 on the working branch, pending team review. Checked in headless Chromium and the built-in browser only.
+
+**Problem:** The demo script starts with "connect all four systems", but today that happens on the Connections page, which a first-time viewer may never open. Without connected systems, Compass shows only its built-in sample data, so the headline feature (noticing changes in the campus systems) cannot be seen. The first minute of a run also does not state that every system is invented and read only.
+
+**What the step must not do:**
+
+- Ask for a student ID, password, course list or any typed credential. The invented connectors supply the student and the courses. Fake credential fields would look like real access, which `AGENTS.md` forbids.
+- Claim access to Moodle, the academic system, payments or email.
+- Block the app. A student who skips must still reach every screen.
+
+**Options reviewed:**
+
+- A full-screen route such as `/welcome`, with a redirect on first visit. Clear and spacious, but it breaks deep links and the presenter's shortcuts, and needs redirect handling in tests.
+- A sheet over Today on first run, reusing the existing `Sheet` and `connect` logic. Keeps URLs working, small change, matches the existing consent pattern.
+- A banner on Today that links to Connections. Least intrusive, but easy to miss, which is the problem we already have.
+
+**Decision:** Use the sheet. It opens only on Today (`/`), when the app has hydrated, no system is connected and the student has not already finished or skipped it. Other routes never show it, so deep links keep working. It is mounted in `AppShell` after the `/demo` early return, so the presenter console never shows it.
+
+**Content, in one sheet with two states:**
+
+1. Ask: a heading ("Connect your campus systems"), the line "Signed in as {STUDENT.name} (demo student)", then one row per system with its icon, name and a one-line summary of what it reads. All four are selected by default and each can be switched off. A paragraph states that the systems are invented, read only, stored in this browser and can be disconnected. Buttons: **Allow and connect** and **Skip for now**.
+2. Result: for each selected system, "Connected" or the reason it failed, with a **Try again** for failures. Primary action **Plan my week with Compass**, which opens the assistant and sends that request, secondary **Done**.
+
+**State:**
+
+- One localStorage key, for example `compass.onboarding.v1`, holding `done` or `skipped`. Reads and writes are wrapped in try and catch, and the sheet still works for the session if storage is blocked.
+- `resetDemo` and `resetAll` clear the key so Reset scenario brings the step back for the next run.
+- Connecting uses a new `connectMany` in `CampusProvider`: one storage write and one sync for all selected systems, instead of four `connect` calls that each start a sync.
+
+**Accessibility and layout:**
+
+- Focus moves into the dialog and returns on close. Escape behaves like **Skip for now** on the first state and like **Done** on the result.
+- Connection progress and results use `role="status"` so they are announced without moving focus.
+- Touch targets are at least 44px. The sheet works at 320 CSS px and at large text sizes, scrolling instead of shrinking labels.
+- Motion follows the existing reduced-motion handling in `Sheet`.
+
+**Acceptance checks:**
+
+- First visit with empty storage shows the sheet. A visit after **Skip for now** or after connecting does not, including after reload.
+- **Allow and connect** connects the selected systems and the Connections page then lists them as connected. Switching a row off leaves that system disconnected.
+- A forced storage failure shows a message and keeps the sheet open with **Try again**. It never reports success.
+- **Reset scenario** in the app shows the step again. `/demo` never shows it.
+- No text field, password field or student ID input exists in the sheet.
+- Existing end-to-end tests still pass. `playwright.config.ts` presets the onboarding key for every spec, so the sheet does not cover the screens they test. Result on 27 November 2026: all 85 specs pass in headless Chromium, including 11 new ones for this sheet.
+- After Plan my week, keyboard focus is in the assistant, not on a control behind it.
+- `check:copy`, tests, lint and build pass. Keyboard use, 320 px and dark theme are reported as observed or unverified, separately from code checks.
+
+**Left for later:**
+
+- A quiet reminder on Today for students who skipped.
+- A persona or course picker in this sheet, if the team adds more than one invented student.
+- Plain-language triggers in the presenter console, which is a separate decision.
+
+## UX-ADR-009: A master calendar as the default Today
+
+**Date:** 27 November 2026
+**Status:** Implemented 27 November 2026 on the working branch, pending team review. Checked in headless Chromium and the built-in browser only.
+
+**Problem:** Today is a grid of separate cards (Up next, Class changes, Due soon, Clubs, Find a room). To answer "what is coming up for me?" a student has to read five cards and merge them in their head: a quiz, a fee instalment, a club event and a midterm all live in different places. Several of those things are time-based and belong on one line of time.
+
+**Options reviewed:**
+
+- A month grid. Familiar, but at phone width the cells are too small to read a title, and it hides the order of a busy day.
+- A week grid like the Timetable page. Good for classes, but it cannot hold a fee date or an exam in January without paging.
+- A day-grouped agenda (a vertical timeline) with a "Now" marker. Reads in order, works at 320 px, scrolls naturally, and each row can link to the page that owns it.
+
+**Decision:** Add a `calendar` widget, the master calendar, as a day-grouped agenda. It is the only card shown by default. Every older card stays available and is switched on from Customise. The calendar can be switched off like any other card.
+
+**What it merges (all from existing data, no new source):**
+
+- Classes this week, including cancelled, room changed and replacement classes. The demo timetable covers one week, so classes are not repeated into later weeks, and the card says so.
+- Assignment deadlines that are not submitted (overdue ones sit in their own group at the top), fee instalments that are not paid, campus events, exams and the revision and exam weeks.
+- What the student saved in this browser: confirmed study sessions, reminders, library bookings and calendar entries. These are labelled "Saved in this browser".
+
+**Behaviour:**
+
+- Groups by day with "Today" and "Tomorrow" labels, a "Now" line at the demo time, and earlier items today dimmed.
+- A range control: Next 7 days, Next 30 days (default), Whole semester.
+- Every row names its kind in text as well as by colour and icon, and links to the page that owns it.
+- Reduced motion turns off the entrance slide. Nothing is gesture driven, so there is no drag or momentum.
+
+**State and migration:**
+
+- Saved layouts that were never changed (exactly the old default) move to the new default, so a returning browser also sees only the calendar. A layout the student did customise keeps its choices and gains the calendar at the top.
+- The reference layout (the Today overview and the five curated cards) is kept for when exactly the old six cards are switched on, with or without the calendar.
+- The assistant understands "master calendar" and "timeline". The word "calendar" alone now means the master calendar, not My plans.
+
+**Acceptance checks:**
+
+- A fresh visit shows the master calendar and none of the other cards.
+- Customise lists the master calendar first. Switching it off removes it and nothing else changes.
+- Unconfirmed items never appear. Submitted assignments and paid fees do not appear.
+- Cancelled classes are labelled as cancelled in text.
+- No horizontal scroll at 320 px.
+- Existing end-to-end tests that need the old cards still pass because they switch those cards on explicitly.
+
+### UX-ADR-009 amendment: the master calendar opens as a week grid, like Google Calendar
+
+**Date:** 27 November 2026. The first version (a day-grouped agenda only) was rejected on review: the team wants the master calendar in timetable form, with a choice of range, like Google Calendar.
+
+**Decision:** The calendar has three views in one control: **Week** (default), **Month** and **Agenda**.
+
+- **Week:** hours down the side (08:00 to 20:00, growing to fit anything later), days across, a red Now line on today. Classes, exams, events, study sessions and library bookings are blocks sized by their duration. Overlapping blocks sit side by side, never underneath. Deadlines, fee dates and semester dates have no duration, so they sit in an "all day" strip above the grid, with the due time written on deadlines. Previous, Next and Today buttons move the window. On a phone the grid shows 3 days, because 7 columns cannot hold a readable title at 320 px.
+- **Month:** a Monday-first month grid. Each day shows up to three entries and "+N more". Choosing a day opens the week that contains it. On a phone the cells show coloured dots and a count, because titles cannot fit.
+- **Agenda:** the earlier list grouped by day, with 7 days, 30 days and Semester. It stays as the reading-order view and the one that suits a screen reader best.
+
+**Options reviewed:** a month grid only (hides the hours of a busy day), a week grid only (cannot show a fee date or a January exam without paging), a horizontal scroll of 7 columns on a phone (hides most of the week), or the three-view control above, which keeps each view honest about what it is good at.
+
+**Acceptance checks:** Week opens on the demo week with the Now line at 13:20; the cancelled tutorial is struck through and says Cancelled; two overlapping blocks do not cover each other; Next and Previous change the label; Month shows January exams after moving forward; choosing a month day opens its week; Agenda still lists Overdue first; no horizontal scroll at 320 px in any view; every block is a link to the page that owns it.

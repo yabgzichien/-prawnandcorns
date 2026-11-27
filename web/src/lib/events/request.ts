@@ -18,6 +18,13 @@ export const EVENT_EXAMPLE = "Book 3 classrooms, 30 plastic chairs, 10 banquet t
 export type EventRequest = {
   /** The message really is asking to book rooms or items for a club event. */
   isEventRequest: boolean;
+  /**
+   * A looser reading for text a model has already chosen to send to the event tool. A model often rewrites the
+   * student's words and drops the ask word ("book") or the event word, so this asks only for a room or item
+   * plus one other sign of an event (a date, times, a head count, a club or an event word).
+   * It is not used to route the offline demo, where the strict check above decides.
+   */
+  looksLikeEvent: boolean;
   name: string;
   organisers: string;
   date: string;
@@ -159,6 +166,10 @@ export function parseEventRequest(text: string, now: Date = DEMO_NOW): EventRequ
   const organisers = parseOrganisers(t);
   const participants = people ? Number(people[1]) : 0;
 
+  const asksForSomething = codes.length > 0 || roomCount > 0 || items.length > 0 || (VENUE_WORD.test(t) && ASK_WORD.test(t));
+  const eventSign = strong || weak || organisers !== "" || participants > 0 || Boolean(date) || Boolean(start && end);
+  const looksLikeEvent = !/\b(e-?mail|mail)\b/.test(t) && asksForSomething && eventSign && !(LIBRARY_WORD.test(t) && !strong);
+
   const venueIds = [...new Set(codes)];
   const parts = [
     name || "an event",
@@ -175,7 +186,7 @@ export function parseEventRequest(text: string, now: Date = DEMO_NOW): EventRequ
     start && end ? "" : "the start and end time",
     participants ? "" : "how many people are coming",
   ].filter(Boolean);
-  return { isEventRequest, name, organisers, date, start, end, participants, roomCount, wantsRooms: hasVenueAsk, venueIds, items, summary: parts.join(", "), missing };
+  return { isEventRequest, looksLikeEvent, name, organisers, date, start, end, participants, roomCount, wantsRooms: hasVenueAsk, venueIds, items, summary: parts.join(", "), missing };
 }
 
 export type DraftResult = { draft: EventDraft; notes: string[] };

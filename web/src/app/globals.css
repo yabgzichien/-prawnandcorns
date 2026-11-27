@@ -131,6 +131,7 @@ body {
 .app-shell:has(.home-view) .floating-icon-background { background: #ffffff; }
 .app-shell:has(.home-view) .floating-icon { opacity: .16; }
 .home-widget { position: relative; min-width: 0; overflow: hidden; }
+.home-widget[data-widget="calendar"], .home-widget[data-widget="next"], .home-widget[data-widget="headsup"], .home-widget[data-widget="plans"] { grid-column: 1 / -1; }
 .home-widget-art { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; object-position: right bottom; opacity: .16; filter: grayscale(1) sepia(.38) hue-rotate(175deg) saturate(1.2); pointer-events: none; border-radius: inherit; }
 .home-widget > :not(.home-widget-art) { position: relative; z-index: 2; }
 .home-header { position: relative; isolation: isolate; min-height: 144px; display: flex; align-items: flex-start; padding: 4px 0 18px; background: #ffffff; }
@@ -207,7 +208,8 @@ body {
 }
 @media (min-width: 1200px) and (min-height: 720px) {
   .home-main,.is-sidebar-collapsed .home-main { max-width: none; padding: 12px 18px 16px; }
-  .home-view { display: flex; flex-direction: column; height: calc(100dvh - 28px); }
+  /* Only the default five-card layout is fitted to the screen. Any other set of cards flows and scrolls. */
+  .home-view:has(.is-reference-layout) { display: flex; flex-direction: column; height: calc(100dvh - 28px); }
   .home-header { flex: none; }
   .home-search { flex: none; margin-bottom: 20px; }
   .home-grid.is-reference-layout { flex: 1; min-height: 0; grid-template-columns: minmax(0,1.18fr) repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 14px; }
@@ -419,7 +421,7 @@ body {
 }
 
 /* Size-specific tracking: tighter as type grows, open when small. */
-.t-display { font-size: clamp(2.1rem, 4.6vw, 3.25rem); line-height: 1.04; letter-spacing: -0.03em; font-weight: 700; }
+.t-display { font-size: clamp(2.1rem, 4.6vw, 3.25rem); line-height: 1.04; letter-spacing: -0.03em; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
 .t-title   { font-size: clamp(1.75rem, 3.2vw, 2.25rem); line-height: 1.1; letter-spacing: -0.025em; font-weight: 700; }
 .t-headline{ font-family: "Newsreader", Georgia, serif; font-size: 1.3rem; line-height: 1.25; letter-spacing: 0; font-weight: 700; }
 .timetable-entry { font-family: var(--font-sans); }

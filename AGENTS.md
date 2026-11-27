@@ -25,3 +25,9 @@ Keep the existing generated `web/AGENTS.md` Next.js instructions intact and read
 - Report actual test results and unverified browser/device checks separately.
 - Never expose or commit `.env.local` or API keys. Do not push, merge, deploy or enable remote Gemini access without explicit authorization.
 - Do not change the original competition handbook just to enforce our product's copy style: it is a supplied source document.
+
+## Handoff
+
+- `HANDOFF.md` at the repository root is the shared record for every AI agent session. Read section 0 and the change log in section 15 before you start, and run `git status` first because another session may have uncommitted work.
+- After every change that touches a file, add an entry to section 15 of `HANDOFF.md` before you end the turn. State what changed, what you ran and what it showed, and what is unverified. Fix any other section your change makes wrong.
+- Do not rewrite other sessions' entries, and do not record a check as passing unless you ran it.

@@ -2,20 +2,17 @@
 
 import { AnimatePresence, LayoutGroup, motion, Reorder, useDragControls } from "motion/react";
 import { useEffect, useState } from "react";
-import { ArrowUp, CalendarDays, GripVertical, RotateCcw, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
-import { useApp, WIDGET_META, DEFAULT_WIDGETS, type WidgetPref } from "@/lib/state";
+import { ArrowUp, CalendarDays, GripVertical, RotateCcw, Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import { useApp, WIDGET_META, DEFAULT_WIDGETS, REFERENCE_LAYOUT, type WidgetPref } from "@/lib/state";
 import { STUDENT } from "@/lib/data/academics";
-import { dayLong, dayShort, dateShort, timeOf, DEMO_NOW } from "@/lib/time";
+import { dayLong, dateShort, DEMO_NOW } from "@/lib/time";
 import { SPRING } from "@/lib/hooks";
 import { SUGGESTIONS } from "@/lib/agent";
 import { Sheet } from "@/components/ui/Sheet";
-import { SLOTS, slotWindow } from "@/lib/library/policy";
-import { LIBRARY_ROOM_BY_ID, whereIs } from "@/lib/library/rooms";
 import { Switch } from "@/components/ui/kit";
 import { TodayOverview, WIDGETS } from "./widgets";
-import { HeadsUp } from "./HeadsUp";
 
-const WIDGET_ART: Record<WidgetPref["id"], string> = {
+const WIDGET_ART: Partial<Record<WidgetPref["id"], string>> = {
   next: "/brand/today-art/up-next.png",
   alerts: "/brand/today-art/class-changes.png",
   fees: "/brand/today-art/fees.png",
@@ -27,7 +24,7 @@ const WIDGET_ART: Record<WidgetPref["id"], string> = {
 };
 
 export function HomeView() {
-  const { widgets, openAgent, setWidgets, hydrated, studySessions, removeStudySession, reminders, personalEvents, removeReminder, removeEvent, bookings, cancelLibraryBooking } = useApp();
+  const { widgets, openAgent, setWidgets, hydrated } = useApp();
   const [customise, setCustomise] = useState(false);
   const [ask, setAsk] = useState("");
   const [greeting, setGreeting] = useState("Good afternoon");
@@ -41,7 +38,8 @@ export function HomeView() {
     return () => window.clearInterval(timer);
   }, []);
   const visible = widgets.filter((w) => !w.hidden);
-  const defaultOrder = visible.length === 6 && visible.every((w, i) => w.id === DEFAULT_WIDGETS[i].id);
+  // The reference layout is exactly the six classic cards in their classic order, and nothing else. The master calendar needs the full width, so it is never mixed in.
+  const defaultOrder = visible.length === REFERENCE_LAYOUT.length && visible.every((w, i) => w.id === REFERENCE_LAYOUT[i]);
   const displayed = defaultOrder
     ? (["today", "due", "alerts", "clubs", "find"] as const).map((id) => visible.find((w) => w.id === id)!)
     : visible;
@@ -68,7 +66,7 @@ export function HomeView() {
         <div className="flex items-center gap-3">
           <Search size={20} className="text-label-2" />
           <input value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Compass" placeholder="Ask Compass…  e.g. “When is my next class?”, “Find a room in A3”" className="min-w-0 flex-1 bg-transparent py-3 text-[1.05rem] tracking-[-0.01em] outline-none placeholder:text-label-3" />
-          <button aria-label="Ask Compass" className="press btn btn-primary home-ask-button"><Sparkles size={17} /> <span>Ask</span><ArrowUp size={16} className="sm:hidden" /></button>
+          <button className="press btn btn-primary home-ask-button"><Sparkles size={17} /> <span>Ask</span><ArrowUp size={16} className="sm:hidden" /></button>
         </div>
         <div className="rail -mx-1 mt-1 flex gap-2 overflow-x-auto px-1 pb-2 pt-1">
           {SUGGESTIONS.map((s) => (
@@ -76,52 +74,6 @@ export function HomeView() {
           ))}
         </div>
       </motion.form>
-
-      <HeadsUp />
-
-      {hydrated && studySessions.length > 0 && (
-        <section className="card mb-6 p-5" aria-label="Confirmed study plan">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="t-title">Your study plan</h2>
-            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
-          </div>
-          <ul className="divide-y divide-sep">
-            {[...studySessions].sort((a, b) => a.start.localeCompare(b.start)).map((session) => (
-              <li key={session.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-[0.92rem] font-semibold">{session.title}</p>
-                  <p className="t-caption">{session.start.slice(0, 10)}, {session.start.slice(11, 16)}–{session.end.slice(11, 16)}</p>
-                </div>
-                <button type="button" onClick={() => removeStudySession(session.id)} aria-label={`Remove saved study session for ${session.title}`} className="press btn btn-sm btn-plain"><X size={15} /> Remove</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {hydrated && (reminders.length > 0 || personalEvents.length > 0 || bookings.length > 0) && (
-        <section className="card mb-6 p-5" aria-label="Reminders and calendar entries">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="t-title">Reminders, bookings and calendar</h2>
-            <span className="t-caption">Saved in this browser (demo data, MYT)</span>
-          </div>
-          <ul className="divide-y divide-sep">
-            {[
-              ...reminders.map((r) => ({ key: `r-${r.id}`, kind: "Reminder", title: r.title, at: r.at, when: `${dayShort(new Date(r.at))} ${dateShort(new Date(r.at))}, ${timeOf(new Date(r.at))}`, remove: () => removeReminder(r.id) })),
-              ...bookings.map((b) => { const w = slotWindow(b.date, b.slot); const r = LIBRARY_ROOM_BY_ID[b.roomId]; return { key: `b-${b.id}`, kind: "Library booking", title: r.name, at: w.start, when: `${dayShort(new Date(w.start))} ${dateShort(new Date(w.start))}, ${SLOTS[b.slot].start} to ${SLOTS[b.slot].end}, A3 ${whereIs(r)}`, remove: () => { cancelLibraryBooking(b.id); } }; }),
-              ...personalEvents.map((e) => ({ key: `e-${e.id}`, kind: "Calendar", title: e.title, at: e.start, when: `${dayShort(new Date(e.start))} ${dateShort(new Date(e.start))}, ${timeOf(new Date(e.start))} to ${timeOf(new Date(e.end))}${e.place ? `, ${e.place}` : ""}`, remove: () => removeEvent(e.id) })),
-            ].sort((a, b) => a.at.localeCompare(b.at)).map((item) => (
-              <li key={item.key} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="break-words text-[0.92rem] font-semibold">{item.title}</p>
-                  <p className="t-caption">{item.kind}, {item.when}</p>
-                </div>
-                <button type="button" onClick={item.remove} aria-label={`${item.kind === "Library booking" ? "Cancel" : "Remove"} ${item.kind.toLowerCase()}: ${item.title}`} className="press btn btn-sm btn-plain shrink-0"><X size={15} /> {item.kind === "Library booking" ? "Cancel" : "Remove"}</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <LayoutGroup>
         <motion.div layout className={`home-grid grid gap-4 md:grid-cols-2${defaultOrder ? " is-reference-layout" : ""}${visible.length > 6 ? " has-extra-widgets" : ""}`} style={{ opacity: hydrated ? 1 : 0.999 }}>
@@ -140,7 +92,7 @@ export function HomeView() {
                   data-widget={w.id}
                   className={`home-widget card p-5 ${def.hero ? "sm:p-6" : ""}`}
                 >
-                  <img className="home-widget-art" src={WIDGET_ART[w.id]} alt="" aria-hidden="true" />
+                  {WIDGET_ART[w.id] && <img className="home-widget-art" src={WIDGET_ART[w.id]} alt="" aria-hidden="true" />}
                   {defaultOrder && w.id === "today" ? <TodayOverview /> : def.render()}
                 </motion.section>
               );
@@ -152,7 +104,7 @@ export function HomeView() {
       {visible.length === 0 && (
         <div className="card grid place-items-center px-6 py-14 text-center">
           <p className="t-headline">Your dashboard is empty</p>
-          <p className="t-sub mt-1">Add widgets with Customise — or ask Compass to build it for you.</p>
+          <p className="t-sub mt-1">Switch cards on with Customise, or ask Compass to build it for you.</p>
         </div>
       )}
 

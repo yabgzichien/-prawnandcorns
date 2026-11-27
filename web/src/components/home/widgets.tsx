@@ -11,6 +11,9 @@ import { DEMO_NOW, dateShort, dueLabel, minutesBetween, relative, timeOf } from 
 import { classesOn, TODAY_IDX, upcomingClasses } from "@/lib/schedule";
 import { useApp, type WidgetId } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
+import { HeadsUp } from "./HeadsUp";
+import { MasterCalendar } from "./MasterCalendar";
+import { PlansWidget } from "./PlansWidget";
 import { markedHereOnly, MOODLE_NOT_SUBMITTED } from "@/lib/sync/view";
 import { CardTitle, Pill, Ring, toneClass } from "@/components/ui/kit";
 
@@ -268,6 +271,7 @@ function FindWidget() {
 }
 
 export const WIDGETS: Record<WidgetId, { span: 1 | 2; hero?: boolean; render: () => ReactNode }> = {
+  calendar: { span: 2, render: () => <MasterCalendar /> },
   next: { span: 2, hero: true, render: () => <NextWidget /> },
   alerts: { span: 1, render: () => <AlertsWidget /> },
   due: { span: 1, render: () => <DueWidget /> },
@@ -276,4 +280,6 @@ export const WIDGETS: Record<WidgetId, { span: 1 | 2; hero?: boolean; render: ()
   progress: { span: 1, render: () => <ProgressWidget /> },
   clubs: { span: 1, render: () => <ClubsWidget /> },
   find: { span: 1, render: () => <FindWidget /> },
+  headsup: { span: 2, render: () => <HeadsUp /> },
+  plans: { span: 2, render: () => <PlansWidget /> },
 };

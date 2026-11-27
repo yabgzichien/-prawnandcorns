@@ -4,6 +4,19 @@ Written 24 Nov 2026 for any AI agent (or human) picking this work up. Read it fu
 
 ---
 
+## 0. Keeping this file current (mandatory for every agent session)
+
+Several AI agent sessions work on this repo, often at the same time or one after another, and none of them can see the others' conversations. This file is how they find out what changed. It only works if everyone keeps it true.
+
+- **After every change that touches a file** (code, tests, docs, config), add an entry at the top of the change log in section 15 **before you end your turn**. Do not batch entries for later, and do not skip a change because it seems small.
+- Each entry says: the date, a short title, which files changed, what and why in plain sentences, what you actually ran and what it showed, and what is unfinished or unverified. Report test results as they were. Do not write "passes" for something you did not run.
+- If your change makes another section of this file wrong (a route table, a storage key, a test count, a known issue), fix that section in the same turn. A stale section is worse than a missing one.
+- Before you start, read section 15 and run `git status` and `git log -5`. Another session may be editing the same files. Do not overwrite uncommitted work you did not write.
+- Edit the file in place. Do not rewrite or reorder other sessions' entries. Newer entries go on top of section 15.
+- The copy rules still apply here: no decorative middle dots or bullet glyphs.
+
+---
+
 ## 1. What this project is
 
 **XMUM Compass** is a student super-app prototype for the **XMUM AI Agent Innovation Competition 2026** (handbook: `XMUM_AI_Agent_Innovation_Competition_2026_Handbook.md`). XMUM is Xiamen University Malaysia. The app gives a student one calm place for timetable, deadlines, fees, campus map, clubs, library room booking, hostel problem reporting, and an **AI agent** that reads what changed across university systems, works out what it means for the student's week, and proposes fixes that the student approves.
@@ -54,7 +67,7 @@ npm test                    # copy-style check + node:test unit tests (124 tests
 npm run lint
 npx tsc --noEmit
 npm run build
-npm run test:e2e            # Playwright; Chromium is installed; needs port 3456 and NO other dev server in this folder
+npm run test:e2e            # Playwright (playwright.config.ts presets compass:onboarding:v1=done for every spec; onboarding.spec.ts opts out); Chromium is installed; needs port 3456 and NO other dev server in this folder
 ```
 
 - Unit tests live in `web/tests/*.test.ts`. Shared helpers: `web/tests/campus-helpers.ts` (routes connector fetches straight into the mock handlers with no network).
@@ -71,10 +84,10 @@ Student app (shell: `web/src/components/shell/AppShell.tsx`, providers in `Provi
 
 | Route | What it is |
 | --- | --- |
-| `/` | Today: ask bar, widgets (next class, class changes, due soon, today, fees, clubs, find a room), "Your study plan", and "Reminders, bookings and calendar" |
+| `/` | Today: ask bar, then the **master calendar** (default, the only card shown on a fresh visit, a Google Calendar style week grid with Month and Agenda views, see 15). The older cards (next class, class changes, due soon, today, fees, degree progress, clubs, find a room, Heads-up, My plans) are switched on in Customise |
 | `/hub` | Student hub: tiles for Timetable, Assignments, Campus map (2D and 3D), Courses, Clubs, Finance, **Library rooms**, **Help desk**. Sections open under the tiles (`?section=...`) |
 | `/mail` | Mail assistant: drafts emails to the right university office. Shows an AskA pointer for hostel faults |
-| `/connections` | Connect or disconnect the four mock systems through a mock consent screen. Shows last read time and failures |
+| `/connections` | Connect or disconnect the four mock systems through a mock consent screen. Shows last read time and failures. On a first visit to `/`, a sheet (`components/onboarding/OnboardingSheet.tsx`) offers to connect all four at once, see 15 |
 | `/timetable`, `/assignments`, `/map`, `/courses`, `/clubs`, `/finance` | Redirect into the hub |
 | `/library`, `/helpdesk` | Redirect into the hub sections |
 | Assistant | Slide-over panel (Ctrl or Cmd + K, or the Ask button). This is the agent |
@@ -190,7 +203,7 @@ Why: a club committee that needs rooms and items files separate applications, an
 | --- | --- | --- |
 | `xmum-compass:v1` (settings, study sessions, reminders, calendar entries, library bookings, AskA tickets, club event applications) | Compass window (`lib/state.tsx`, single `persistedOf` helper so no save path forgets a field) | Compass "Reset demo" |
 | `compass:scenario-events:v1`, `compass:custom-mail:v1`, `compass:aska-updates:v1`, `compass:eca-decisions:v1` | Console window | Console "Reset scenario" and Compass "Reset demo" |
-| `compass:connections:v1`, `compass:sync:v1`, `compass:acknowledged:v1`, `compass:aska-seen:v1`, `compass:eca-seen:v1` | Compass window | Compass "Reset demo" |
+| `compass:connections:v1`, `compass:sync:v1`, `compass:acknowledged:v1`, `compass:aska-seen:v1`, `compass:eca-seen:v1`, `compass:onboarding:v1` (`done` or `skipped`, written by the first-run sheet) | Compass window | Compass "Reset demo" |
 
 The console only reads the Compass keys. Console Reset deliberately leaves what the student saved.
 
@@ -377,3 +390,55 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
 - The demo clock is fixed, so exam tiers other than "14 days" and the revision and exam week states are shown only by unit tests and the fit check on December and January dates.
 - The Gemini picture path is tested with a mocked route and a fake fetch, never with a live model.
 - At 320 px with 200% text the assistant sheet's own header is cramped. That is existing layout; the new card itself fits.
+
+---
+
+## 15. Change log (newest first, add an entry for every change)
+
+Entry format: **date, title.** Files. What and why. Verified. Not verified or unfinished.
+
+### 27 Nov 2026, master calendar changed to a week grid with Month and Agenda views
+
+- Files: new `web/src/components/home/CalendarGrid.tsx`. Changed `web/src/components/home/MasterCalendar.tsx`, `web/src/lib/calendar/timeline.ts` (grid helpers), `web/tests/timeline.test.ts`, `web/tests-e2e/calendar.spec.ts` (rewritten), `docs/ux/DECISIONS.md` (amendment under UX-ADR-009), this file.
+- Why: the team wanted the master calendar in timetable form, like Google Calendar, with a choice of range, not only a list.
+- What it does: a **Week** / **Month** / **Agenda** control. Week (default) is an hour grid (08:00 to 20:00, wider if something falls outside) with Mon to Sun columns, a red Now line, blocks sized by duration, and overlapping blocks in side by side lanes (`layoutDay`, same idea as `electives/WeekPreview.tsx`). Deadlines, fee dates and semester dates have no duration, so they sit in an "all day" strip with the due time written on deadlines. Overdue work also shows as a red notice above the grid. Previous, Next and Today move by a week (or a month). Month is a Monday first grid with up to three entries per day and "+N more", and choosing a day opens its week. Agenda is the earlier day grouped list with 7 days, 30 days and Semester. Every block and strip entry is a link to the page that owns it and has a full text label (kind, title, time, state, saved in this browser). On a phone (under 640 px, `useNarrow`) the week shows 3 days and the month shows dots, because 7 columns of titles do not fit at 320 px.
+- Verified (after the last code change): `npm run check:copy`, `npx tsc --noEmit`, `npm run lint` (0 errors, 2 warnings that are not from this work), `npm test` (268 tests, 267 pass, 1 skipped live Gemini, 4 more new grid tests), `npm run build`. `calendar.spec.ts`: 10 of 10 pass in headless Chromium against a production build on port 3458. Looked at in the built-in browser at 1280 px (week and month) and 375 px (week). Full `npx playwright test` (headless Chromium, production build on port 3458 with a temporary config because the user's dev server on 3000 blocked the configured one, run after the last code change): 95 passed, 0 failed, 4.4 minutes.
+- Not verified: Safari, Firefox, a real phone, a screen reader on the grid, 200% text size, a month with more than 3 entries on a phone (only the dot count is shown), keyboard use of the Month cells beyond Tab and Enter. The week grid shows only the one demo week of classes, because the demo timetable covers one week.
+
+### 27 Nov 2026, master calendar as the default Today (UX-ADR-009)
+
+- Files: new `web/src/lib/calendar/timeline.ts`, `web/src/lib/widget-layout.ts`, `web/src/components/home/MasterCalendar.tsx`, `web/tests/timeline.test.ts`, `web/tests/widget-layout.test.ts`, `web/tests-e2e/calendar.spec.ts`. Changed `web/src/lib/state.tsx` (widget types, defaults and `mergeWidgets` moved to `widget-layout.ts` and re-exported; new `calendar` entry in `WIDGET_META`; the alias "calendar" moved from My plans to the master calendar), `web/src/components/home/HomeView.tsx`, `web/src/components/home/widgets.tsx`, `web/src/app/globals.css` (one selector: the calendar spans the full row), `web/tests-e2e/support.ts`, `docs/ux/DECISIONS.md`, this file.
+- What it does: Today now opens with one card, the master calendar, a day-grouped agenda of everything coming up in time order: classes this week (cancelled, moved and replacement classes say so in words), unsubmitted deadlines (overdue ones in a group on top), exams, unpaid fee dates, campus events, revision, exam and Semester 2 dates, and what this browser holds (study sessions, reminders, library bookings, calendar entries, labelled saved in this browser and read only after hydration). A red Now line sits at the demo time, earlier items today are dimmed, and a range control offers 7 days, 30 days (default) and Semester. Each row links to the page that owns it. The classes are the demo's one week and are not repeated into later weeks, and the card says so. Event applications (the ECA desk) are not on it yet.
+- Defaults and migration: `DEFAULT_WIDGETS` is now the calendar visible and the other ten cards hidden. `mergeWidgets` turns a saved layout that equals the old default (never customised) into the new default, so a returning browser also sees the calendar alone. A customised layout keeps every choice and gains the calendar visible on top. A layout that already lists the calendar is respected, including switched off. The reference layout (Today overview plus five curated cards) is kept for exactly the six classic cards switched on and the calendar off (`REFERENCE_LAYOUT`). It is never mixed with the calendar, because it fills the viewport height.
+- **For other agents:** specs that need the old cards must switch them on. `tests-e2e/support.ts` `showTodayCards` now writes the old explicit layout (calendar off, six classic cards, Heads-up and My plans on). Saying "calendar" to the assistant now changes the master calendar, not My plans (My plans keeps plans, reminders, bookings, study plan).
+- Verified (run after the last code change unless noted): `npm run check:copy`, `npx tsc --noEmit`, `npm run lint` (0 errors, 2 warnings that are not from this work), `npm test` (264 tests, 263 pass, 1 skipped live Gemini, 16 new), `npm run build` pass. Looked at in the built-in browser from a production build (`next start`, port 3458) at about 1280 px and 375 px wide: full width card, Now line, dimmed past items, cancelled class struck through with a Cancelled label, the state label under the row on a phone. E2E (headless Chromium, run against a production build on port 3458 with a temporary config, because the user's dev server on 3000 blocked the configured one): full `npx playwright test` gave 91 passed and 1 failed. The failure was in my new `calendar.spec.ts`, not the app: the state label is rendered once per breakpoint, so a text locator matched two elements. I scoped the locator to the visible one and reran `calendar.spec.ts` and `timewatch.spec.ts`: 17 of 17 pass. The full suite was not rerun after that test-only edit.
+- Not verified: dark mode (none exists in this app), Safari, Firefox, a real phone, a screen reader, 200% text size inside the card, the interaction of the card with the Ask Compass layout command in a live Gemini session. The user's dev server on port 3000 served a stale stylesheet while I worked (it had no `data-widget="calendar"` rule even after a touch), so check the layout from a fresh `npm run dev` or `next start`, not from that server.
+
+### 27 Nov 2026, first-run connection sheet (UX-ADR-008), built
+
+- Files: new `web/src/components/onboarding/OnboardingSheet.tsx`, `web/src/lib/onboarding.ts`, `web/tests/onboarding.test.ts`, `web/tests-e2e/onboarding.spec.ts`. Changed `web/src/components/shell/AppShell.tsx` (mounts the sheet), `web/src/lib/sync/CampusProvider.tsx` (new `connectMany`; `resetAll` calls `clearOnboarding`), `web/src/lib/connectors/connections.ts` (new `connectSystems`, one write for several systems), `web/src/components/connections/ConnectionsView.tsx` (exports `SYSTEM_ICON` so the sheet and the page use the same icons), `web/src/components/ui/Sheet.tsx` (see the focus fix below), `web/playwright.config.ts`, `docs/ux/DECISIONS.md`.
+- What it does: on `/` only, once storage has loaded and nothing is connected and `compass:onboarding:v1` is unset, a sheet offers the four systems (all ticked). Allow connects the ticked ones with one write and one sync, then shows each system as Reading, Connected or Unavailable (with Try again). Primary button after that: "Plan my week with Compass", which opens the assistant with that prompt and sends it. Skip, Escape, a scrim click and a drag all save `skipped`; Done saves `done`. Reset demo clears the key so the sheet returns. It never shows on `/demo`, `/connections` or other routes. No student ID, password or course field.
+- If storage is blocked, Allow shows "Could not save the connections" and stays open. A blocked write of the onboarding key is kept for the page session only.
+- Design: heading `t-title`, then one `t-sub` line, then an eyebrow, then four rows, then a quiet read-only note, with one primary button and a plain Skip in a footer that stays in view. All colours are the app's tokens. No dark theme rule was found in `globals.css` or anywhere under `src` (`grep prefers-color-scheme` finds nothing), so dark mode was not checked. The read-only note says that no real XMUM system is contacted; the footer caption that said it again was removed so more rows fit at 320 px.
+- **For other agents:** `playwright.config.ts` now presets `compass:onboarding:v1=done` for origin `http://127.0.0.1:3456`. If you change the e2e `baseURL` or port, change that origin too or every spec will meet the sheet. A spec that wants a first visit uses `test.use({ storageState: { cookies: [], origins: [] } })`.
+- **Focus fix in the shared `Sheet`:** after Reset demo, pressing Plan my week left keyboard focus on the Reset demo button behind the assistant, because `Sheet` restores focus to the last control pressed when it finishes closing. `restoreFocus` now does nothing if another `[role="dialog"]` is open. Seen in the built-in browser before the fix (focus on Reset demo) and after (focus in the "Message Compass" box), and covered by two e2e tests.
+- Verified (run after the last code change): `npm run check:copy`, `npm test` (248 tests, 247 pass, 1 skipped live Gemini, 5 new), `npm run lint` (0 errors; the 2 warnings are in `src/app/layout.tsx` and `src/components/home/HomeView.tsx`, which this work did not change), `tsc --noEmit` and `npm run build` pass. Full `npx playwright test`: **85 passed, 0 failed, 4.7 minutes**, headless Chromium, on an idle machine, started after stopping other dev servers. That includes `onboarding.spec.ts` (11 tests) and the specs that were failing on other branches (`desktop` cross-origin and `mobile` 200% text); they passed in this run, so do not assume those two still fail. Looked at in the built-in browser at about 800 px and at 320 px wide, in the ask and result states.
+- Not verified: Safari, Firefox, a real phone, a screen reader, 200% text size inside the sheet, a live Gemini model for the Plan my week step.
+
+### 27 Nov 2026, UX-ADR-008 proposed
+
+- Files: `docs/ux/DECISIONS.md`.
+- A first-run sheet over Today that connects the four invented systems, with Skip for now. No student ID, password or course field, because the connectors supply the student and an input would look like real access.
+- Verified: `npm run check:copy` passes. Nothing else was run, because no code changed.
+
+### 27 Nov 2026, icons on the demo console Announcements page
+
+- Files: `web/src/components/portal/EventsPage.tsx`.
+- Group icons on the filter chips and on a tinted tile on each event card, a system icon on "Shows in", a play icon on Trigger, a green check tile once triggered, and icons on the "Triggered so far" and "Suggested run" titles and the empty state. Icons come from `lucide-react`. Tile colours reuse the existing group tones.
+- Verified: `tsc --noEmit`, `npm run check:copy` and `eslint` on the file pass. Looked at in the built-in browser at about 800 px wide, including the triggered state.
+- Not verified: `npm test`, `npm run build`, e2e, narrow phone widths, other browsers. At about 800 px the tile makes card titles wrap onto more lines.
+
+### 27 Nov 2026, handoff rule added
+
+- Files: `HANDOFF.md` (sections 0 and 15), `AGENTS.md`.
+- Every agent session must add a change log entry here after each change, as section 0 describes. `AGENTS.md` now points to it so a session sees the rule before it edits anything.

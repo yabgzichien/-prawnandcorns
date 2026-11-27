@@ -3,9 +3,10 @@
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { clearMailCache } from "../connectors/connectors.ts";
-import { connectSystem, disconnectSystem, getConnections, CONNECTIONS_KEY, type Connections } from "../connectors/connections.ts";
+import { connectSystem, connectSystems, disconnectSystem, getConnections, CONNECTIONS_KEY, type Connections } from "../connectors/connections.ts";
 import { SYSTEM_IDS, type SystemId } from "../world/types.ts";
 import { ASKA_SEEN_KEY } from "../aska.ts";
+import { clearOnboarding } from "../onboarding.ts";
 import { EVENTS_SEEN_KEY } from "../events/types";
 import { getCustomNotices, getTriggeredEvents, resetScenario, subscribeScenario, subscribeStorage } from "../world/storage.ts";
 import { applyReplacements } from "../replacement/overlay.ts";
@@ -39,6 +40,8 @@ type CampusCtx = {
   /** Replacement class requests from lecturers that touch this student's timetable. */
   replacements: ReplacementRequest[];
   connect: (system: SystemId) => boolean;
+  /** Connects several systems with one write and one sync. */
+  connectMany: (systems: readonly SystemId[]) => boolean;
   disconnect: (system: SystemId) => void;
   syncNow: () => Promise<void>;
   acknowledge: (ids: string[]) => void;
@@ -148,6 +151,14 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     return true;
   }, [syncNow]);
 
+  const connectMany = useCallback((systems: readonly SystemId[]) => {
+    const next = connectSystems(systems, new Date().toISOString());
+    if (!next) return false;
+    dispatch({ type: "connections", connections: next });
+    void syncNow();
+    return true;
+  }, [syncNow]);
+
   const disconnect = useCallback((system: SystemId) => {
     dispatch({ type: "connections", connections: disconnectSystem(system) });
     const prev = stateRef.current;
@@ -174,6 +185,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
 
   const resetAll = useCallback(() => {
     try { localStorage.removeItem(CONNECTIONS_KEY); localStorage.removeItem(ACK_KEY); localStorage.removeItem(ASKA_SEEN_KEY); localStorage.removeItem(EVENTS_SEEN_KEY); localStorage.removeItem(REPLACEMENT_ANSWERS_KEY); localStorage.removeItem(REPLACEMENT_SEEN_KEY); } catch {}
+    clearOnboarding();
     clearSyncState();
     resetScenario();
     clearMailCache();
@@ -200,8 +212,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CampusCtx>(() => ({
     hydrated, connections, connected, syncing, lastSyncAt: sync.lastSyncAt, failed: sync.failed, snapshot: sync.snapshot,
-    changes, acknowledged, data, replacements, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll,
-  }), [hydrated, connections, connected, syncing, sync, changes, acknowledged, data, replacements, connect, disconnect, syncNow, acknowledge, unacknowledge, resetAll]);
+    changes, acknowledged, data, replacements, connect, connectMany, disconnect, syncNow, acknowledge, unacknowledge, resetAll,
+  }), [hydrated, connections, connected, syncing, sync, changes, acknowledged, data, replacements, connect, connectMany, disconnect, syncNow, acknowledge, unacknowledge, resetAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

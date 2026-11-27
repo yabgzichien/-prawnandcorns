@@ -1,4 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
+import { showTodayCards } from "./support";
+
+test.beforeEach(async ({ context }) => { await showTodayCards(context); });
 
 test.use({ viewport: { width: 1280, height: 800 }, isMobile: false });
 

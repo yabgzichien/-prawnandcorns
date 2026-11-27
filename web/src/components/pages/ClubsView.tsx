@@ -25,7 +25,7 @@ export function ClubsView() {
       <Stagger className="space-y-8">
         <Item>
           <h2 className="t-headline mb-3 px-1">Coming up</h2>
-          <div className="rail -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="rail flex min-w-0 max-w-full gap-3 overflow-x-auto">
             {EVENTS.map((e) => (
               <article key={e.id} className="card w-[260px] shrink-0 p-4">
                 <p className="t-eyebrow text-accent">{e.when}</p>
@@ -42,23 +42,23 @@ export function ClubsView() {
 
         <Item>
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="rail flex gap-1.5 overflow-x-auto" role="tablist" aria-label="Category">
+            <div className="rail flex min-w-0 max-w-full gap-1.5 overflow-x-auto" role="tablist" aria-label="Category">
               {CATS.map((c) => (
                 <button key={c} role="tab" aria-selected={cat === c} onClick={() => setCat(c)} className="press min-h-[38px] shrink-0 rounded-full px-4 text-[0.88rem] font-semibold" style={{ background: cat === c ? "var(--label)" : "var(--surface)", color: cat === c ? "var(--bg)" : "var(--label)", boxShadow: "var(--shadow-sm)" }}>{c}</button>
               ))}
             </div>
-            <label className="ml-auto flex min-w-[200px] items-center gap-2 rounded-full bg-surface px-4 ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent">
+            <label className="ml-auto flex min-w-0 w-full items-center gap-2 rounded-full bg-surface px-4 ring-1 ring-sep focus-within:ring-2 focus-within:ring-accent sm:w-auto sm:min-w-[200px]">
               <Search size={16} className="text-label-3" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search clubs" aria-label="Search clubs" className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-label-3" />
             </label>
           </div>
-      <motion.div layout className="clubs-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div layout className="clubs-grid grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {list.map((c) => {
                 const on = joined.includes(c.id);
                 return (
-                  <motion.article key={c.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={SPRING} className="card flex flex-col p-5">
-                    <div className="flex items-center justify-between gap-2"><Pill tone={c.category === "Tech" ? "blue" : c.category === "Sports" ? "green" : c.category === "Arts" ? "purple" : c.category === "Culture" ? "orange" : "teal"}>{c.category}</Pill><span className="t-caption tnum">{c.members} members</span></div>
+                  <motion.article key={c.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={SPRING} className="card flex min-w-0 flex-col p-3 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><Pill tone={c.category === "Tech" ? "blue" : c.category === "Sports" ? "green" : c.category === "Arts" ? "purple" : c.category === "Culture" ? "orange" : "teal"}>{c.category}</Pill><span className="t-caption tnum">{c.members} members</span></div>
                     <h3 className="t-headline mt-3">{c.name}</h3>
                     <p className="t-sub mt-1 flex-1">{c.blurb}</p>
                     <p className="t-caption mt-3">{c.meets}{c.room ? <>, <Link href={`/hub?section=map&q=${encodeURIComponent(c.room)}`} className="font-semibold text-accent">{c.room}</Link></> : ""}</p>

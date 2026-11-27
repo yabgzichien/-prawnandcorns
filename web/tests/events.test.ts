@@ -47,6 +47,30 @@ describe("request parser", () => {
     assert.equal(parseEventRequest("What is due this week?").isEventRequest, false);
   });
 
+  it("still accepts the event when a model rewrites the request and drops the ask word or the event word", () => {
+    const rewrites = [
+      "3 classrooms, 30 plastic chairs, 10 banquet tables and 2 megaphones for Robotics Demo Night on 10 December, 4pm to 10pm, 80 people",
+      "Book 3 classrooms and 30 plastic chairs for Robotics Night on 10 December",
+      "Draft an application to book 3 classrooms and 30 chairs for our Robotics Demo Night",
+      "Robotics Demo Night, 10 December, 16:00 to 22:00, 80 people, 3 classrooms, 30 plastic chairs, 10 banquet tables",
+    ];
+    for (const text of rewrites) assert.equal(parseEventRequest(text).looksLikeEvent, true, text);
+    // the strict check that routes the offline demo is unchanged
+    assert.equal(parseEventRequest(rewrites[0]).isEventRequest, false);
+  });
+
+  it("does not stretch the lenient check to library rooms, emails, faults or ordinary questions", () => {
+    const others = [
+      "Book a study room for 2 tomorrow at 3pm",
+      "The air-con in D3-512 is leaking",
+      "What is due this week?",
+      "Draft an email to ECA about our venue booking and 30 chairs",
+      "Hello, can you help me?",
+      "The Robotics & AI Society is organising it on 10 December from 4pm to 10pm, 80 people.",
+    ];
+    for (const text of others) assert.equal(parseEventRequest(text).looksLikeEvent, false, text);
+  });
+
   it("leaves emails, library rooms and ordinary questions alone", () => {
     assert.equal(parseEventRequest("Draft an email to ECA about our venue booking and 30 chairs").isEventRequest, false);
     assert.equal(isEventStatusQuestion("What is the status of my event application?"), true);

@@ -49,6 +49,14 @@ export function connectSystem(system: SystemId, now: string, storage: StorageLik
   return write(storage, next) ? next : null;
 }
 
+/** Connects several systems with one write, so one sync can read them all. Systems already connected keep their token. */
+export function connectSystems(systems: readonly SystemId[], now: string, storage: StorageLike | null = store()): Connections | null {
+  if (!storage || systems.length === 0) return null;
+  const next = { ...getConnections(storage) };
+  for (const system of systems) if (!next[system]) next[system] = { token: makeToken(), connectedAt: now };
+  return write(storage, next) ? next : null;
+}
+
 export function disconnectSystem(system: SystemId, storage: StorageLike | null = store()): Connections {
   const next = { ...getConnections(storage) };
   delete next[system];

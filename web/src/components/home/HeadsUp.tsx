@@ -10,6 +10,7 @@ import { SPRING } from "@/lib/hooks";
 import { useApp } from "@/lib/state";
 import { useCampus } from "@/lib/sync/CampusProvider";
 import { DEMO_NOW } from "@/lib/time";
+import { CardTitle } from "@/components/ui/kit";
 
 export const ALERTS_SEEN_KEY = "compass:time-alerts-seen:v1";
 const CHANGED = "compass:time-alerts-seen";
@@ -48,14 +49,13 @@ export function HeadsUp() {
   const urgent = alerts.filter((a) => a.level === "urgent").length;
 
   return (
-    <section className="card mb-6 p-4 sm:p-5" aria-labelledby="heads-up-title">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1 basis-[14rem]">
-          <h2 id="heads-up-title" className="t-title flex items-center gap-2"><AlarmClock size={20} className="text-accent" /> Heads-up</h2>
-          <p className="t-sub mt-1 [overflow-wrap:anywhere]"><span className="font-semibold text-label">{status.label}.</span> {status.detail}</p>
-        </div>
-        {hydrated && alerts.length > 0 && <span className="t-caption mt-1 font-semibold">{urgent > 0 ? `${urgent} need${urgent === 1 ? "s" : ""} you now` : `${alerts.length} coming up`}</span>}
-      </div>
+    <div>
+      <CardTitle
+        icon={<AlarmClock size={18} className="text-accent" />}
+        title="Heads-up"
+        action={hydrated && alerts.length > 0 ? <span className="t-caption font-semibold">{urgent > 0 ? `${urgent} need${urgent === 1 ? "s" : ""} you now` : `${alerts.length} coming up`}</span> : undefined}
+      />
+      <p className="t-sub -mt-1 [overflow-wrap:anywhere]"><span className="font-semibold text-label">{status.label}.</span> {status.detail}</p>
 
       {hydrated && (
         <ul className="mt-3 grid grid-cols-1 gap-2" aria-label="Deadline and exam alerts">
@@ -86,6 +86,6 @@ export function HeadsUp() {
         </button>
       )}
       <p className="t-caption mt-2">Demo semester dates and exam timetable. Deadlines from {data.live.includes("moodle") ? "Moodle (demo sync)" : "the demo data"}.</p>
-    </section>
+    </div>
   );
 }
