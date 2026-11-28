@@ -400,7 +400,7 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
 - New web/src/lib/data/a5-upper.ts (lab floors); A5 ground uses a-block-ground.ts. A5-L1 and L2 are on Level 1, A5-L3 on Level 2 (positions assumed); Level 1 classrooms A5-101 to 106 (assumed). A5-G01 to G12 no longer exist (confirmed rooms 21 to 9).
 - No A block floor is generic now: interiors.test.ts replaced the G01 to G12 test, and interior.spec.ts opens A4-G05. The generic aBlock builder in interiors.ts is now only used as a shell and could be removed.
 - Type check passed. npm test: 287 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked A5 plan view in the desktop app's browser. 3D view not checked.
-- Browser tests: still running when written.
+- Browser tests with installed Chrome (temporary config, since removed): full run with all four blocks, 105 passed, 0 failed.
 
 ### 28 Nov 2026, Block A4 from its evacuation plans
 
