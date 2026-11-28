@@ -395,6 +395,77 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
 
 ## 15. Change log (newest first, add an entry for every change)
 
+### 28 Nov 2026, Block A5 from its evacuation plans
+
+- New web/src/lib/data/a5-upper.ts (lab floors); A5 ground uses a-block-ground.ts. A5-L1 and L2 are on Level 1, A5-L3 on Level 2 (positions assumed); Level 1 classrooms A5-101 to 106 (assumed). A5-G01 to G12 no longer exist (confirmed rooms 21 to 9).
+- No A block floor is generic now: interiors.test.ts replaced the G01 to G12 test, and interior.spec.ts opens A4-G05. The generic aBlock builder in interiors.ts is now only used as a shell and could be removed.
+- Type check passed. npm test: 287 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked A5 plan view in the desktop app's browser. 3D view not checked.
+- Browser tests: still running when written.
+
+### 28 Nov 2026, Block A4 from its evacuation plans
+
+- a2-ground.ts is now a-block-ground.ts, shared by A2 and A4; a-block-upper.ts also builds A4. A4 ground rooms are numbered A4-G01 to G11 (assumed) so the club event venues A4-G05 to G10 stay on classrooms; Level 1's fourth classroom is A4-105. Level 5 names the Cold water pump room. A4-G12 no longer exists.
+- Tests that used A4 as a generic block now use A5. interiors.test.ts covers A4.
+- Type check passed. npm test: 286 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked A4 plan view labels on all floors in the desktop app's browser. 3D view not checked.
+- Browser tests: still running when written. The earlier A2 run was stopped part way (39 passed, none failed at that point).
+
+### 28 Nov 2026, Block A2 from its evacuation plans
+
+- New web/src/lib/data/a2-ground.ts. a1-first.ts and a1-upper.ts are merged into a-block-upper.ts, which builds Levels 1 to 5 for A1 and A2 (same layout on both signs). A2-G01 to G12 no longer exist (confirmed rooms 36 to 24). Level 3's fourth classroom is A2-305 so the demo timetable rooms stay.
+- A2 ground follows how A1 was simplified, plus labelled stairs (A1's ground floor has none).
+- Tests that used A2 as a generic block now use A4 (interior-layout.test.ts, interior.spec.ts); interiors.test.ts covers A2.
+- Type check passed. npm test: 285 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked A2 plan view ground, 1 and 3 in the desktop app's browser. 3D view not checked.
+- Browser tests: still running when written. The earlier run for the A1 upper floors was stopped part way (33 passed, none failed at that point).
+
+### 28 Nov 2026, Block A1 Levels 2 to 5 from the evacuation plan
+
+- New web/src/lib/data/a1-upper.ts. Every A1 floor now comes from the posted plan (interiors.ts also updates A1's summary and sources). No porches on these floors, at the user's request. Classrooms A1-201 to 203 and A1-210 (kept for the demo timetable), A1-301 to 304, A1-401 to 404; Level 5 has meeting rooms, stairs, lifts and a plant area. Room numbers are assumed and Level 5 names were hard to read.
+- Type check passed. npm test: 284 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked plan view Levels 2 to 5 in the desktop app's browser. 3D view not checked.
+- Browser tests: still running when written.
+
+### 28 Nov 2026, A1 Level 1 porches
+
+- a1-first.ts: added a porch in the middle of each of the four sides (the sign calls them terraces) and resized the side classrooms. New porch space kind in interiors.ts, colors.ts and InteriorScene.tsx; interiors.test.ts checks four porches.
+- Type check passed. npm test: 283 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Browser tests not rerun.
+
+### 28 Nov 2026, A1 Level 1 second staircase
+
+- a1-first.ts: added the staircase beside the lift lobby, at the user's request.
+- Type check passed. npm test: 283 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Browser tests not rerun.
+
+### 28 Nov 2026, A1 Level 1 stairs added, middle left open
+
+- a1-first.ts: at the user's request, added the back right staircase and removed the Central hall block.
+- Type check passed. npm test: 283 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Browser tests not rerun.
+
+### 28 Nov 2026, Block A1 Level 1 from its evacuation plan
+
+- New web/src/lib/data/a1-first.ts traces the square block on Level 1 (auditorium left out at the user's request): four classrooms numbered A1-101 to A1-104 (assumed), eight offices, meeting room, toilets, lift lobby, central hall. Terraces, stairs and small service rooms are left out. A1-105 to A1-112 no longer exist.
+- interiors.ts, FloorPlan2D.tsx (labelled floors show all labels) and interiors.test.ts updated.
+- Type check passed. npm test: 283 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked the plan view in the desktop app's browser. Browser tests and 3D view not checked.
+
+### 28 Nov 2026, A1 sky well removed
+
+- a1-ground.ts: removed the Sky well at the user's request. interiors.test.ts no longer expects it; interior-layout.test.ts now takes its courtyard from A2.
+- Type check passed. npm test: 282 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Browser tests not rerun.
+
+### 28 Nov 2026, A1 porches removed, classrooms renamed
+
+- a1-ground.ts: at the user's request, removed the entrance porches (and the porch bump in the outline), renamed the Common Rooms and Study Lounges to Classroom, and restored the sign's shapes for the three top right rooms. The small blocks removed earlier stay removed. interiors.test.ts updated.
+- Type check passed. npm test: 282 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked the plan view in the desktop app's browser. Browser tests not rerun.
+
+### 28 Nov 2026, simpler A1 ground floor
+
+- a1-ground.ts: at the user's request, rooms now sit on shared columns and rows, the auditorium wing is one Auditorium block, and stairs, small service rooms, lobbies and the wing's rooms are removed. This replaces the detail described in the entry below. interiors.test.ts updated.
+- Type check passed. npm test: 282 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. Checked the plan view in the desktop app's browser. Browser tests not rerun. 3D view not checked: that browser had blocked WebGL.
+
+### 28 Nov 2026, Block A1 ground floor from its evacuation plan
+
+- New web/src/lib/data/a1-ground.ts traces the posted fire evacuation plan (team photo, not committed): the square block and the auditorium wing. It replaces A1's generic ground floor, so A1-G01 to A1-G12 no longer exist (interiors.test.ts updated; confirmed rooms 48 to 36). A1 upper floors stay generic.
+- Floors can now have their own outline (interiors.ts, InteriorScene.tsx, FloorPlan2D.tsx), rooms can have a short label, and there is a Service room kind (colors.ts, labels.ts).
+- Type check passed. npm test: 282 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. interior.spec.ts with installed Chrome: 2 passed (full browser suite not run). Checked the A1 plan view and 3D view at 1400 px; phone width not checked.
+- Unverified: unreadable labels are guesses (dressing rooms, equipment room, foyer), the compass orientation, the scale (matched to the OSM block width). The outdoor 3D campus model does not show the auditorium wing.
+
 ### 28 Nov 2026, Student hub section bar and no Saturday classes
 
 - Replaces the panel-under-the-row layout in the entry below. StudentHubView.tsx shows the tile grid until a section is chosen, then a sticky bar of all ten sections above the content (globals.css). ElectivesView.tsx offsets its sticky summary by the bar height.

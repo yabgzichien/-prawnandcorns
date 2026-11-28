@@ -3,32 +3,30 @@ import { test, expect } from "@playwright/test";
 test.use({ viewport: { width: 1280, height: 800 }, isMobile: false });
 
 /**
- * The building interiors (UX-ADR-003): opened from a room on the campus map, with the ground floor classrooms G01 to
- * G12 listed three to a corner, floors and buildings switchable, a flat plan, and Escape back to the map.
+ * The building interiors (UX-ADR-003): opened from a room on the campus map, with the floor's rooms listed, floors and buildings switchable, a flat plan, and Escape back to the map.
  */
 test("view a room inside its block from the map, switch floor and building, then go back with Escape", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/hub?section=map", { waitUntil: "networkidle" });
 
-  await page.getByRole("textbox", { name: "Search campus" }).fill("A2-G05");
-  await page.getByRole("button", { name: /A2-G05/ }).first().click();
-  const open = page.getByRole("button", { name: "View A2-G05 inside" });
+  await page.getByRole("textbox", { name: "Search campus" }).fill("A4-G05");
+  await page.getByRole("button", { name: /A4-G05/ }).first().click();
+  const open = page.getByRole("button", { name: "View A4-G05 inside" });
   await open.click();
 
-  const viewer = page.getByRole("region", { name: "Inside Block A2" });
+  const viewer = page.getByRole("region", { name: "Inside Block A4" });
   await expect(viewer).toBeVisible();
   await expect(viewer.getByRole("button", { name: "Back to the campus map" })).toBeFocused();
-  await expect(viewer.getByText("A2-G05, Classroom G05")).toBeVisible();
+  await expect(viewer.getByText("A4-G05, Classroom G05")).toBeVisible();
 
   const rooms = viewer.getByRole("list", { name: "Rooms on this floor" });
-  await expect(rooms.getByRole("listitem")).toHaveCount(12);
-  const codes = await rooms.getByRole("button").evaluateAll((els) => els.map((el) => el.querySelector("span span")?.textContent));
-  expect(codes).toEqual(Array.from({ length: 12 }, (_, i) => `A2-G${String(i + 1).padStart(2, "0")}`));
+  await expect(rooms.getByRole("listitem")).toHaveCount(15);
+  for (const code of ["A4-G05", "A4-G10"]) await expect(rooms.getByRole("button", { name: new RegExp(code) })).toBeVisible();
 
   await viewer.getByRole("button", { name: /^Level 1/ }).click();
   await expect(viewer.getByRole("button", { name: /^Level 1/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(rooms.getByRole("button").first()).toContainText("A2-101");
+  await expect(rooms.getByRole("button").first()).toContainText("Toilets");
   await expect(viewer.getByText(/Not confirmed|not confirmed/).first()).toBeVisible();
 
   await viewer.getByRole("button", { name: "Block A3" }).click();

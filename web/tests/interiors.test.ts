@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  A_CORNER_ORDER,
   CONFIRMED_INTERIOR_ROOMS,
   edgeDistance,
   findSpace,
@@ -64,20 +63,78 @@ function convex(p: Pt[]): boolean {
   return true;
 }
 
-const A_BLOCKS = ["A1", "A2", "A4", "A5"];
-
-test("A1, A2, A4 and A5 each have ground floor classrooms G01 to G12, three in each corner", () => {
-  for (const place of A_BLOCKS) {
-    const ground = INTERIOR_BY_PLACE[place].levels[0];
-    assert.equal(ground.short, "G");
-    const rooms = ground.spaces.filter((s) => s.kind === "classroom");
-    assert.deepEqual(rooms.map((r) => r.code), Array.from({ length: 12 }, (_, i) => `${place}-G${String(i + 1).padStart(2, "0")}`));
-    for (const { corner } of A_CORNER_ORDER) assert.equal(rooms.filter((r) => r.corner === corner).length, 3, `${place} ${corner}`);
-    // numbered round the corners in A_CORNER_ORDER: 01 to 03 in the first corner, 10 to 12 in the last
-    rooms.forEach((r, i) => assert.equal(r.corner, A_CORNER_ORDER[Math.floor(i / 3)].corner));
-    assert.ok(rooms.every((r) => r.walled && !r.assumed), "the ground floor numbers are the team's, not assumed");
-    assert.ok(ground.spaces.some((s) => s.kind === "courtyard"), `${place} has its open courtyard`);
+test("every A block floor comes from a posted plan", () => {
+  for (const place of ["A1", "A2", "A4", "A5"]) {
+    const levels = INTERIOR_BY_PLACE[place].levels;
+    assert.deepEqual(levels.map((l) => l.short), ["G", "1", "2", "3", "4", "5"], place);
+    for (const level of levels) {
+      assert.ok(!level.spaces.some((s) => s.kind === "courtyard"), `${place} ${level.label} has no generic courtyard`);
+      assert.ok(level.note?.includes("evacuation plan"), `${place} ${level.label}`);
+    }
   }
+});
+
+test("A5 follows its posted plans and keeps the computing and electronics labs", () => {
+  for (const [code, level] of [["A5-L1", 1], ["A5-L2", 1], ["A5-L3", 2]] as const) assert.equal(findSpace(code)?.level, level, code);
+  const names = INTERIOR_BY_PLACE.A5.levels.flatMap((l) => l.spaces.map((s) => s.name));
+  for (const name of ["Marine Study Lab", "Processing Lab", "Aquatic Breeding Room", "Cold water pump room"]) assert.ok(names.includes(name), name);
+  assert.equal(INTERIOR_BY_PLACE.A5.levels[1].spaces.filter((s) => s.kind === "porch").length, 4);
+  assert.ok(INTERIOR_BY_PLACE.A5.levels.slice(2).every((l) => !l.spaces.some((s) => s.kind === "porch")));
+});
+
+test("A1's ground floor follows its posted plan, not the generic classrooms", () => {
+  const ground = INTERIOR_BY_PLACE.A1.levels[0];
+  const names = ground.spaces.map((s) => s.name);
+  for (const name of ["Central Machine Room", "Computer Centre", "Lecture Hall", "Lift lobby", "Classroom, north", "Auditorium"]) assert.ok(names.includes(name), name);
+  assert.equal(ground.spaces.filter((s) => s.name.startsWith("Dressing")).length, 0, "the auditorium is one block");
+  assert.ok(!ground.spaces.some((s) => s.code), "the plan shows no room numbers");
+  assert.equal(findSpace("A1-G01"), null);
+  assert.equal(findSpace("A1-102")?.level, 1);
+});
+
+test("A1's Level 1 follows the posted plan and keeps the classroom numbers", () => {
+  const first = INTERIOR_BY_PLACE.A1.levels[1];
+  assert.deepEqual(first.spaces.filter((s) => s.kind === "classroom").map((s) => s.code).sort(), ["A1-101", "A1-102", "A1-103", "A1-104"]);
+  assert.ok(first.spaces.some((s) => s.name === "Meeting Room"));
+  assert.equal(first.spaces.filter((s) => s.name.startsWith("Office")).length, 8);
+  assert.equal(first.spaces.filter((s) => s.kind === "porch").length, 4, "a porch on each side");
+  assert.equal(findSpace("A1-105"), null);
+});
+
+test("A1's Levels 2 to 5 follow the posted plan, without porches", () => {
+  const levels = INTERIOR_BY_PLACE.A1.levels;
+  assert.equal(levels.length, 6);
+  for (const level of levels.slice(2)) {
+    assert.ok(!level.spaces.some((s) => s.kind === "porch"), level.label);
+    assert.equal(level.spaces.filter((s) => s.kind === "stairs").length, 2, level.label);
+  }
+  const codes = (i: number) => levels[i].spaces.filter((s) => s.kind === "classroom").map((s) => s.code).sort();
+  assert.deepEqual(codes(2), ["A1-201", "A1-202", "A1-203", "A1-210"]);
+  assert.deepEqual(codes(3), ["A1-301", "A1-302", "A1-303", "A1-304"]);
+  assert.deepEqual(codes(4), ["A1-401", "A1-402", "A1-403", "A1-404"]);
+  assert.deepEqual(codes(5), []);
+  assert.equal(findSpace("A1-210")?.level, 2);
+});
+
+test("A2 follows its posted plans and keeps the demo timetable's rooms", () => {
+  const levels = INTERIOR_BY_PLACE.A2.levels;
+  assert.equal(levels.length, 6);
+  const names = levels[0].spaces.map((s) => s.name);
+  for (const name of ["Lecture Hall, back", "Lecture Hall, front", "Lift lobby", "Stairs"]) assert.ok(names.includes(name), name);
+  assert.equal(findSpace("A2-G05"), null);
+  assert.equal(levels[1].spaces.filter((s) => s.kind === "porch").length, 4);
+  assert.ok(levels.slice(2).every((l) => !l.spaces.some((s) => s.kind === "porch")));
+  for (const [code, level] of [["A2-104", 1], ["A2-203", 2], ["A2-305", 3]] as const) assert.equal(findSpace(code)?.level, level, code);
+});
+
+test("A4 follows its posted plans and keeps the event venues and demo rooms", () => {
+  const levels = INTERIOR_BY_PLACE.A4.levels;
+  assert.equal(levels.length, 6);
+  for (const code of ["A4-G05", "A4-G06", "A4-G07", "A4-G08", "A4-G09", "A4-G10"]) assert.equal(findSpace(code)?.space.kind, "classroom", code);
+  assert.equal(findSpace("A4-105")?.level, 1);
+  assert.equal(findSpace("A4-301")?.level, 3);
+  assert.ok(levels[5].spaces.some((s) => s.name === "Cold water pump room"));
+  assert.ok(levels.slice(2).every((l) => !l.spaces.some((s) => s.kind === "porch")));
 });
 
 test("A3 has no G01 to G12 classrooms; its ground floor follows the campus map", () => {
@@ -99,7 +156,7 @@ test("every space lies inside its building, and walled rooms are convex", () => 
   for (const interior of INTERIORS) {
     for (const level of interior.levels) {
       for (const space of level.spaces) {
-        for (const p of space.shape) assert.ok(inside(interior.footprint, p, 0.05), `${interior.place} ${level.short} ${space.id} at ${p}`);
+        for (const p of space.shape) assert.ok(inside(level.footprint ?? interior.footprint, p, 0.05), `${interior.place} ${level.short} ${space.id} at ${p}`);
         if (space.walled) assert.ok(convex(space.shape), `${space.id} is convex`);
         assert.ok(polygonArea(space.shape) > 1, `${space.id} has an area`);
       }
@@ -191,7 +248,7 @@ test("D6 has 4, 5 and 7 stalls on its three levels plus a convenience store; LY3
 });
 
 test("the confirmed classrooms are searchable, and only real places have interiors", () => {
-  assert.equal(CONFIRMED_INTERIOR_ROOMS.length, 48);
+  assert.equal(CONFIRMED_INTERIOR_ROOMS.length, 9);
   for (const r of CONFIRMED_INTERIOR_ROOMS) assert.equal(ROOM_BY_CODE[r.code]?.place, r.place, r.code);
   assert.equal(searchCampus("A4-G07", 1)[0]?.type, "room");
   for (const p of ["A1", "A2", "A3", "A4", "A5", "CANTEEN", "LY3"]) assert.ok(hasInterior(p), p);

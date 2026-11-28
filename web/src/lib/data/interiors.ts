@@ -1,4 +1,8 @@
 import { courtyardArcs, GABLE_PLAN } from "./a-block-plan.ts";
+import { aBlockPlannedUpper } from "./a-block-upper.ts";
+import { A1_GROUND } from "./a1-ground.ts";
+import { A5_UPPER } from "./a5-upper.ts";
+import { aBlockPlannedGround } from "./a-block-ground.ts";
 import { GEO } from "./campus-geo.ts";
 import { LIBRARY_ROOMS, type LibraryRoom, type Wing } from "../library/rooms.ts";
 
@@ -7,6 +11,8 @@ import { LIBRARY_ROOMS, type LibraryRoom, type Wing } from "../library/rooms.ts"
  * metres. APPROXIMATE: positions are worked out from the XMUM virtual tour (vt.xmu.edu.my: its scene list, how its
  * scenes link to each other and its descriptions), the official campus map (September 2025), the OpenStreetMap
  * footprints and the team's note that A1, A2, A4 and A5 have ground floor classrooms 01 to 12, three in each corner.
+ * A1, A2, A4 and A5 are the exception: every floor is traced from the evacuation plans posted there (a1-ground.ts,
+ * a-block-ground.ts, a-block-upper.ts, a5-upper.ts).
  * Nothing here is a surveyed floor plan, and the viewer says so.
  *
  * Each building has its own frame, in metres from its middle: +x to the right and +z toward the front, as you stand
@@ -29,7 +35,9 @@ export type SpaceKind =
   | "stairs"
   | "entrance"
   | "atrium"
-  | "feature";
+  | "feature"
+  | "service"
+  | "porch";
 
 /** What the viewer furnishes a space with (simple shapes only). */
 export type Furniture = "desks" | "desk" | "round" | "tables" | "dining" | "shelves" | "counter" | "seats" | "pillars" | "none";
@@ -42,6 +50,8 @@ export type Space = {
   /** The number people use, e.g. A1-G03 or N201. */
   code?: string;
   name: string;
+  /** Shorter text for the label on the floor, where the name is too long for the room. */
+  label?: string;
   kind: SpaceKind;
   /** Outline, metres, in the building's frame. Walled spaces are convex. */
   shape: Pt[];
@@ -75,7 +85,12 @@ export type Level = {
   /** Openings in the floor slab: an open courtyard, an atrium. */
   holes: Pt[][];
   note?: string;
+  /** This floor's own outline, where it differs from the building's. */
+  footprint?: Pt[];
 };
+
+/** The outline drawn for one floor. */
+export const levelOutline = (interior: Interior, level: number): Pt[] => interior.levels[level]?.footprint ?? interior.footprint;
 
 export type Interior = {
   place: string;
@@ -235,6 +250,14 @@ export function aBlockHalf(name: string): number {
   return (a + b) / 4 - EAVES_M;
 }
 
+/** The blocks drawn from their posted plans. The demo timetable's rooms (such as A1-210, A2-203, A4-105 and A5-L1) and A4's event venues stay. */
+const PLANNED: Record<string, { summary: string; levels: () => Level[] }> = {
+  A1: { summary: "Computer rooms, classrooms, offices and an auditorium.", levels: () => [A1_GROUND, ...aBlockPlannedUpper("A1", { 2: ["01", "02", "03", "10"] })] },
+  A4: { summary: "Lecture halls, classrooms and offices.", levels: () => [aBlockPlannedGround("A4"), ...aBlockPlannedUpper("A4", { 1: ["01", "02", "03", "05"] })] },
+  A5: { summary: "Lecture halls, computing and science labs, and offices.", levels: () => [aBlockPlannedGround("A5"), ...A5_UPPER] },
+  A2: { summary: "Lecture halls, classrooms and offices.", levels: () => [aBlockPlannedGround("A2"), ...aBlockPlannedUpper("A2", { 3: ["01", "02", "03", "05"] })] },
+};
+
 function aBlock(place: string, entrances: { front: string; back: string; left: string; right: string }): Interior {
   const s = aBlockHalf(place);
   const R = GABLE_PLAN.ridge * s;
@@ -376,6 +399,10 @@ function aBlock(place: string, entrances: { front: string; back: string; left: s
     };
   });
 
+  // A1 and A2 have a posted plan for every floor, so those replace the generic ones
+  const planned = PLANNED[place];
+  if (planned) levels.splice(0, levels.length, ...planned.levels());
+
   return {
     place,
     name: `Block ${place}`,
@@ -383,8 +410,8 @@ function aBlock(place: string, entrances: { front: string; back: string; left: s
     storey: A_STOREY,
     levels,
     front: "the lawn and the Tan Kah Kee statue",
-    summary: "Lecture halls, tutorial rooms and labs round an open, star-shaped courtyard.",
-    sources: [SRC_TEAM, SRC_MAP, SRC_OSM],
+    summary: planned ? planned.summary : "Lecture halls, tutorial rooms and labs round an open, star-shaped courtyard.",
+    sources: planned ? [`Fire evacuation plan posted in Block ${place}`, SRC_MAP, SRC_OSM] : [SRC_TEAM, SRC_MAP, SRC_OSM],
   };
 }
 

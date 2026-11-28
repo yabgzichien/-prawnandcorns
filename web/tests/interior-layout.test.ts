@@ -8,7 +8,7 @@ const length = (w: { a: [number, number]; b: [number, number] }) => Math.hypot(w
 const perimeter = (s: Space) => s.shape.reduce((sum, p, i) => sum + Math.hypot(s.shape[(i + 1) % s.shape.length][0] - p[0], s.shape[(i + 1) % s.shape.length][1] - p[1]), 0);
 
 test("a classroom's walls run round it with one door gap", () => {
-  const g05 = room("A2-G05");
+  const g05 = room("A4-G05");
   const walls = roomWalls(g05);
   assert.equal(walls.length, g05.shape.length + 1, "the door edge is split in two");
   const built = walls.reduce((sum, w) => sum + length(w), 0);
@@ -20,7 +20,7 @@ test("an open study room has no wall on its door side, and open areas have none 
   const s221 = room("S221", "A3");
   assert.ok(s221.openFront);
   assert.equal(roomWalls(s221).length, s221.shape.length - 1);
-  const courtyard = INTERIORS.find((i) => i.place === "A1")!.levels[0].spaces.find((s) => s.kind === "courtyard")!;
+  const courtyard = INTERIORS.find((i) => i.place === "A5")!.levels[1].spaces.find((s) => s.kind === "porch")!;
   assert.deepEqual(roomWalls(courtyard), []);
 });
 

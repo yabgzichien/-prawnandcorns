@@ -6,7 +6,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { centroid, type Interior, type Pt, type Space, type SpaceKind } from "@/lib/data/interiors";
+import { centroid, levelOutline, type Interior, type Pt, type Space, type SpaceKind } from "@/lib/data/interiors";
 import { FLOOR, SELECTED } from "./colors";
 import { labelText } from "./labels";
 import { furnish, outerWalls, railing, roomWalls, stairSteps, WALL_H, type Part, type Piece, type Wall } from "./layout";
@@ -15,7 +15,7 @@ import { furnish, outerWalls, railing, roomWalls, stairSteps, WALL_H, type Part,
 
 /** Draw order on the floor, so overlapping tints never flicker: walkways lowest, rooms on top. */
 const LAYER: Record<SpaceKind, number> = {
-  courtyard: 0, corridor: 1, hall: 1, entrance: 2, atrium: 2, library: 3, food: 3, feature: 4, stairs: 4,
+  courtyard: 0, corridor: 1, hall: 1, entrance: 2, atrium: 2, library: 3, food: 3, feature: 4, stairs: 4, service: 3, porch: 2,
   classroom: 5, study: 5, office: 5, lab: 5, shop: 5,
 };
 const PART: Record<Part, string> = {
@@ -127,7 +127,7 @@ function labelItems(interior: Interior, level: number): LabelItem[] {
       const [x, z] = centroid(s.shape);
       return { id: s.id, text: labelText(s), at: new THREE.Vector3(x, y + (s.walled ? WALL_H + 0.4 : 1.2), z), room: !!s.walled };
     });
-  const front = Math.max(...interior.footprint.map((p) => p[1])) + 3;
+  const front = Math.max(...levelOutline(interior, level).map((p) => p[1])) + 3;
   items.push({ id: "front", text: "Front", at: new THREE.Vector3(0, y + 0.2, front), room: false, front: true });
   return items;
 }
@@ -171,9 +171,9 @@ const Floor = memo(function Floor({ interior, level, selected, hovered, colors, 
   const lv = interior.levels[level];
   const y = level * interior.storey;
   const geo = useMemo(() => {
-    const slab = flat(new THREE.ExtrudeGeometry(toShape(interior.footprint, lv.holes), { depth: 0.3, bevelEnabled: false })).translate(0, y - 0.3, 0);
+    const slab = flat(new THREE.ExtrudeGeometry(toShape(levelOutline(interior, level), lv.holes), { depth: 0.3, bevelEnabled: false })).translate(0, y - 0.3, 0);
     const walls = wallGeometry(lv.spaces.flatMap(roomWalls), y);
-    const outer = wallGeometry(outerWalls(interior.footprint), y);
+    const outer = wallGeometry(outerWalls(levelOutline(interior, level)), y);
     const rails = wallGeometry(lv.holes.flatMap(railing), y);
     const furniture = new Map<Part, Piece[]>();
     for (const s of lv.spaces) {
@@ -181,7 +181,7 @@ const Floor = memo(function Floor({ interior, level, selected, hovered, colors, 
       for (const p of pieces) furniture.set(p.part, [...(furniture.get(p.part) ?? []), p]);
     }
     return { slab, walls, outer, rails, furniture };
-  }, [interior, lv, y]);
+  }, [interior, level, lv, y]);
   useEffect(
     () => () => {
       for (const g of [geo.slab, geo.walls, geo.outer, geo.rails]) g?.dispose();
@@ -229,7 +229,7 @@ function Ghosts({ interior, level, color }: { interior: Interior; level: number;
   const geos = useMemo(
     () =>
       interior.levels.slice(0, level).map((lv, i) =>
-        flat(new THREE.ExtrudeGeometry(toShape(interior.footprint, lv.holes), { depth: 0.2, bevelEnabled: false })).translate(0, i * interior.storey - 0.2, 0),
+        flat(new THREE.ExtrudeGeometry(toShape(levelOutline(interior, i), lv.holes), { depth: 0.2, bevelEnabled: false })).translate(0, i * interior.storey - 0.2, 0),
       ),
     [interior, level],
   );
@@ -294,10 +294,11 @@ function StartView({ interior, level, inset }: { interior: Interior; level: numb
     if (!controls || done.current) return;
     done.current = true;
     const free = { w: Math.max(1, size.width - inset.left), h: Math.max(1, size.height - inset.top) };
-    const d = startDistance(interior, free.w / free.h) * (size.height / free.h);
+    const d = startDistance(interior, free.w / free.h, level) * (size.height / free.h);
     const y = level * interior.storey;
-    controls.target.set(0, y, 0);
-    camera.position.set(START_DIR.x * d, y + START_DIR.y * d, START_DIR.z * d);
+    const [cx, cz] = viewMiddle(interior, level);
+    controls.target.set(cx, y, cz);
+    camera.position.set(cx + START_DIR.x * d, y + START_DIR.y * d, cz + START_DIR.z * d);
     controls.update();
     // the start view is set once per building (the canvas remounts for another one)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,9 +339,18 @@ export type InteriorSceneProps = {
 
 const NO_INSET = { left: 0, top: 0 };
 
+/** What the camera looks at: the building's middle, or the middle of a floor that has its own outline. */
+export function viewMiddle(interior: Interior, level: number): [number, number] {
+  const own = interior.levels[level]?.footprint;
+  if (!own) return [0, 0];
+  const mid = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
+  return [mid(own.map((p) => p[0])), mid(own.map((p) => p[1]))];
+}
+
 /** How far the camera starts from the building: enough to see the whole floor in a canvas of this width to height. */
-export function startDistance(interior: Interior, aspect = 1.6): number {
-  const ext = Math.max(...interior.footprint.map(([x, z]) => Math.max(Math.abs(x), Math.abs(z))));
+export function startDistance(interior: Interior, aspect = 1.6, level = 0): number {
+  const [cx, cz] = viewMiddle(interior, level);
+  const ext = Math.max(...levelOutline(interior, level).map(([x, z]) => Math.max(Math.abs(x - cx), Math.abs(z - cz))));
   return ext * Math.max(2.4, 4.2 / Math.max(0.3, aspect));
 }
 

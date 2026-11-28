@@ -16,6 +16,8 @@ export const FLOOR: Record<SpaceKind, string> = {
   entrance: "#d6ccbb",
   atrium: "#f3e7cc",
   feature: "#e2c9a3",
+  service: "#dcd8cf",
+  porch: "#c9d6c1",
 };
 
 /** What each kind is called in the panel. */
@@ -34,6 +36,8 @@ export const KIND_LABEL: Record<SpaceKind, string> = {
   entrance: "Entrance",
   atrium: "Atrium",
   feature: "Feature",
+  service: "Service room",
+  porch: "Porch",
 };
 
 /** The selected room, in the 3D view and the plan. */
