@@ -119,7 +119,7 @@ test("a set replacement cancels the lost class and adds the new one everywhere t
 });
 
 test("while asking, the class is cancelled but nothing is added; unknown classes are ignored", () => {
-  const asking = scheduled({ status: "asking", chosen: undefined, options: [{ id: "3-09:00-A4-105", day: 3, start: "09:00", end: "10:00", room: "A4-105" }, { id: "5-10:00-A4-105", day: 5, start: "10:00", end: "11:00", room: "A4-105" }] });
+  const asking = scheduled({ status: "asking", chosen: undefined, options: [{ id: "3-09:00-A4-105", day: 3, start: "09:00", end: "10:00", room: "A4-105" }, { id: "4-10:00-A4-105", day: 4, start: "10:00", end: "11:00", room: "A4-105" }] });
   const out = applyReplacements(CLASSES, NOTICES, [asking]);
   assert.equal(out.classes.length, CLASSES.length);
   assert.equal(out.classes.find((c) => c.id === "c11")!.status, "cancelled");

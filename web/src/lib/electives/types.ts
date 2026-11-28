@@ -40,9 +40,9 @@ export type ParsedSchedule = {
   flexible: boolean;
 };
 
-export type TimePrefs = { freeFriday: boolean; noSaturday: boolean; noEvening: boolean; noEarly: boolean };
-export const DEFAULT_PREFS: TimePrefs = { freeFriday: false, noSaturday: true, noEvening: false, noEarly: false };
-export const PREF_LABEL: Record<keyof TimePrefs, string> = { noSaturday: "Keep Saturdays free", freeFriday: "Keep Friday afternoons free", noEvening: "Nothing after 6 pm", noEarly: "Nothing before 9 am" };
+export type TimePrefs = { freeFriday: boolean; noEvening: boolean; noEarly: boolean };
+export const DEFAULT_PREFS: TimePrefs = { freeFriday: false, noEvening: false, noEarly: false };
+export const PREF_LABEL: Record<keyof TimePrefs, string> = { freeFriday: "Keep Friday afternoons free", noEvening: "Nothing after 6 pm", noEarly: "Nothing before 9 am" };
 
 /** What the student saved. Saved in this browser only. It is not a registration. */
 export type ElectiveShortlist = { codes: string[]; target: number; savedAt: string };

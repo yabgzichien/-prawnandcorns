@@ -107,7 +107,7 @@
 
 **Privacy:** The lecturer sees counts and the course that causes each clash, never a named list, and never a student's personal study sessions, bookings or calendar. A student's poll answer shares only "works" or "does not work" for each time. Compass tells the student about a clash with their own study session or library booking privately.
 
-**Rules and data:** Demo policy, not XMUM policy: at least 24 hours' notice, Tuesday to Saturday of the current teaching week, 08:00 to 20:00, no Sundays. The week limit keeps every replacement inside the week the student timetable shows. The cohort of 36 students, their programmes and sections, the lecturer's other teaching and room occupancy are invented and generated deterministically. Alex Tan's own timetable is the demo timetable, including scenario changes.
+**Rules and data:** Demo policy, not XMUM policy: at least 24 hours' notice, Tuesday to Friday of the current teaching week, 08:00 to 20:00, no weekends. The week limit keeps every replacement inside the week the student timetable shows. The cohort of 36 students, their programmes and sections, the lecturer's other teaching and room occupancy are invented and generated deterministically. Alex Tan's own timetable is the demo timetable, including scenario changes.
 
 **Acceptance:**
 
@@ -355,3 +355,19 @@ For alerts:
 ### Today dashboard consolidation, 27 November 2026
 
 A daily list inside the full-width calendar keeps classes and saved commitments together. Separate daily cards repeated the same classes. Keep Week as the initial view and retain its date navigation. Show enabled cards below in two equal columns, stacking on mobile. Check for one row per assignment, four initial attention items, independent completion and dismissal, and migration of existing visibility settings.
+
+### Student hub: open a section beside its tile, 28 November 2026
+
+**Problem:** the open section sat after all ten tiles, so choosing Timetable put its content far down the page and the link between tile and content was lost.
+
+**Alternatives compared:**
+
+- Keep the panel after the grid and scroll to it. Small change, but the chosen tile leaves the screen.
+- Move the panel above the grid. Content is always at the top, but choosing a lower tile makes the page jump away from it.
+- Open the panel full width directly under the row of the chosen tile. Chosen: it reads as a dropdown, and keyboard order still follows the screen order.
+
+**Limit:** tiles in later rows sit below the open panel until it is collapsed.
+
+**Acceptance checks:** at three, two and one columns the panel starts directly under the chosen tile's row; the chosen tile is on screen after selecting it or following a section link; selecting it again collapses the panel; switching sections keeps what was typed in a section that stays mounted.
+
+**Revision, 28 November 2026:** opening the panel under its row pushed the other tiles below it, so switching sections meant a long scroll. Once a section is open, the tiles now become a navigation bar above the content that stays at the top while scrolling: five columns on desktop, one sideways-scrolling row below 900 px. The full tile grid still shows when nothing is open. This replaces the choice and the first and third acceptance checks above. New checks: the bar stays at the top while scrolling; choosing another section from it starts that section from the top; choosing the current one returns to the grid.

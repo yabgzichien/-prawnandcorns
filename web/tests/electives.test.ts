@@ -58,9 +58,9 @@ test("clashes respect weeks: same time in different weeks is not a clash", () =>
   const c = electiveClashes("GEA1402", ["GEA1305"]);
   assert.equal(c.length, 1);
   assert.deepEqual(c[0].weeks, [8, 9, 10, 11, 12, 13, 14]);
-  // Photography (6, 13, 20 Mar) and Negotiation (13, 20 Mar) share two Saturdays
+  // Photography (6, 13, 20 Mar) and Negotiation (13, 20 Mar) share two Wednesday evenings
   assert.deepEqual(electiveClashes("GEA1110", ["GEB1402"])[0].weeks, [2, 3]);
-  // Business Etiquette runs in weeks 8 to 14 only, so it never meets the Saturday workshops
+  // Business Etiquette runs in weeks 8 to 14 only, so it never meets the evening workshops
   assert.equal(electiveClashes("GEB1110", ["GEB1402", "GEA1110"]).length, 0);
   assert.equal(coreClashes("GEA1101")[0].label, "CST1202 Lecture");
 });
@@ -103,8 +103,6 @@ test("interests and time preferences change the ranking, not the rules", () => {
   assert.ok(lang.reasons.some((r) => r.includes("Languages")));
   const money = suggestSets({ stream: "Science", target: 4, interests: ["Money"], prefs: DEFAULT_PREFS })[0];
   assert.ok(money.codes.includes("GEB1203"));
-  const satFree = suggestSets({ stream: "Science", target: 2, interests: ["Communication"], prefs: { ...DEFAULT_PREFS, noSaturday: true } })[0];
-  assert.ok(!satFree.codes.some((c) => parseSchedule(GE_BY_CODE[c].schedule).meetings.some((m) => m.day === 5)));
   // the same input always gives the same answer
   assert.deepEqual(suggestSets({ stream: "Arts", target: 3, interests: ["Nature"], prefs: DEFAULT_PREFS }), suggestSets({ stream: "Arts", target: 3, interests: ["Nature"], prefs: DEFAULT_PREFS }));
 });

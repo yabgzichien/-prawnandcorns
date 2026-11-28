@@ -45,7 +45,7 @@ Without `GEMINI_API_KEY` the agent runs in offline demo mode (steps 1 to 6 of th
 | --- | --- |
 | Move Tuesday's CST1103 lecture to A1-210 | Notes the room change from AC. Timetable shows the old room. |
 | Extend the Lab 6 report deadline to Friday | Moodle change and Dr. Lim's email agree. Moves a now stale study session, adds a reminder. |
-| Cancel Friday's ENG1101 lecture, add a Saturday make-up | Notes both. If a study session sits in the make-up slot, proposes moving it. The timetable gains a Saturday. |
+| Cancel Friday's ENG1101 lecture, add a Thursday make-up | Notes both. If a study session sits in the make-up slot, proposes moving it. |
 | Post tuition instalment 2, due 30 Nov | Adds a reminder tied to the fee. Finance page and the Fees widget show the instalment. |
 | Add a new Moodle assignment due in three days | Notes it. Does not plan study time unasked. |
 | Robotics club announces an info session by email | Reads the email, proposes a calendar entry with the room. |

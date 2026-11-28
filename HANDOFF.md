@@ -290,13 +290,13 @@ Decisions are in `docs/ux/DECISIONS.md` (UX-ADR-005 and UX-ADR-006). Light theme
 ### 13.1 Replacement classes
 
 - **Lecturer desk**: `/demo/lecturer` (console nav "Teaching", "Replacement Classes"). Pick the lost CST1101 class and the reason, see a heatmap of how many of the 36 invented students are free for each start time (counts only, never names), pick a room, then either set the time at once or shortlist two or three times and ask the students. Publish and Ask both confirm in a modal; Undo restores the previous requests.
-- **Rules** (`lib/replacement/availability.ts`, demo policy): Tue to Sat of the current week, 08:00 to 20:00, 24 hours' notice, not on a public holiday, the lecturer's leave day or their other teaching, a room with enough seats. `checkOption` re-checks before anything is written.
+- **Rules** (`lib/replacement/availability.ts`, demo policy): Tue to Fri of the current week, 08:00 to 20:00, 24 hours' notice, not on a public holiday, the lecturer's leave day or their other teaching, a room with enough seats. `checkOption` re-checks before anything is written.
 - **Student side**: `ReplacementPanel` at the top of Timetable (answer Works or Can't per time, prefilled from the timetable; or the set time with Show in timetable, Find room, Add to calendar, and private overlap warnings). `UpdatesBanner` tells the student once. `CampusProvider` overlays the result on `data.classes` and notices (`lib/replacement/overlay.ts`), so the calendar’s next class, Class changes, ICS export, the study planner and the assistant all see it.
 - **Storage**: the desk writes `compass:replacements:v1`; Compass writes `compass:replacement-answers:v1` and `compass:replacement-seen:v1`. An answer counts only for the request `stamp` it was given for.
 
 ### 13.2 GE planner
 
-- Hub section `electives` ("GE planner"); Courses shows a summary card. `lib/electives/`: `parse.ts` reads the AC's time text (week ranges, dates, am and pm, several parts; anything unclear is unreadable, never free), `plan.ts` (clashes by shared weeks, stream rule, `suggestSets`, `checkShortlist`), `catalogue.ts` (19 invented courses with planted cases: TBA, full, core clashes, a weeks 8 to 14 clash, two Saturday courses that share two dates), `request.ts` (plain words to credits and interests).
+- Hub section `electives` ("GE planner"); Courses shows a summary card. `lib/electives/`: `parse.ts` reads the AC's time text (week ranges, dates, am and pm, several parts; anything unclear is unreadable, never free), `plan.ts` (clashes by shared weeks, stream rule, `suggestSets`, `checkShortlist`), `catalogue.ts` (19 invented courses with planted cases: TBA, full, core clashes, a weeks 8 to 14 clash, two Wednesday evening courses that share two dates), `request.ts` (plain words to credits and interests).
 - Saving the shortlist goes through `saveElectives` in `lib/state.tsx`, which re-checks it. Nothing is registered; the copy says so.
 - **Agent**: scripted intent `ge` (checked before the room and layout intents) and card `ge-plan`; Gemini tool `suggest_general_electives` uses the same engine.
 
@@ -394,6 +394,27 @@ Decision: `docs/ux/DECISIONS.md` UX-ADR-007. Light theme screenshots: `docs/ux/e
 ---
 
 ## 15. Change log (newest first, add an entry for every change)
+
+### 28 Nov 2026, Student hub section bar and no Saturday classes
+
+- Replaces the panel-under-the-row layout in the entry below. StudentHubView.tsx shows the tile grid until a section is chosen, then a sticky bar of all ten sections above the content (globals.css). ElectivesView.tsx offsets its sticky summary by the bar height.
+- Removed Saturday classes: the make-up scenario is now Thu 26 Nov 12:00 to 14:00 (events.ts), replacement slots run Tuesday to Friday (availability.ts), the cohort has no Saturday co-curriculum and GE Design Thinking moved to Friday (cohort.ts), and the Timetable shows Monday to Friday. Updated the matching tests, DECISIONS.md and CAMPUS_CONNECTORS_DEMO.md. Saturday club and campus events are unchanged.
+- Type check passed. npm test: 281 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed.
+- In the desktop app's browser at 1400 px and phone width: the bar stayed at the top while scrolling, switching sections worked, no horizontal page overflow, no console errors. Physical devices are unverified.
+- Browser tests with installed Chrome (temporary config, since removed): full run 105 passed, 0 failed.
+
+### 28 Nov 2026, no weekend classes in the GE planner
+
+- Removed the Keep Saturdays free preference (types.ts, plan.ts, icons.tsx, electives.test.ts) because the university has no weekend classes. In catalogue.ts, GEB1402 and GEA1110 moved from Saturdays to Wednesday evenings.
+- Type check passed. npm test: 281 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings. Production build passed. On the built app, the GE planner showed no Saturday text and no Saturday preference.
+- Not changed: the Saturday make-up class scenario, replacement class slots that include Saturday, and the Saturday co-curriculum pattern still exist.
+
+### 28 Nov 2026, Student hub opens under the chosen tile
+
+- StudentHubView.tsx renders the section panel inside the tile grid, directly under the chosen tile's row, and scrolls that tile to the top. globals.css makes the panel span the grid. The decision is in docs/ux/DECISIONS.md. Local branch `local-changes`, not committed or pushed.
+- Type check passed. npm test: 281 passed, 1 skipped, 0 failed. Lint: 0 errors, 2 warnings in layout.tsx and HomeView.tsx. Production build passed.
+- In the desktop app's browser, checked three, two and one columns: the panel sat under the chosen row with no horizontal overflow, collapse removed it, and the panel element survived switching sections.
+- Browser tests with installed Chrome (temporary config, since removed): full run 104 passed, 1 failed (helpdesk.spec.ts, technician scheduling: the AskA review card did not appear). The GE planner change below was made while that run was in progress. Rerun of helpdesk and electives specs afterwards: 11 passed. The one failure did not reproduce and its cause is unknown. Physical devices are unverified.
 
 ### 27 Nov 2026, softer calendar grid lines
 

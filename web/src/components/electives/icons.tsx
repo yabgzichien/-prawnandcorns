@@ -1,4 +1,4 @@
-import { Briefcase, CalendarOff, Coffee, Cpu, Film, HeartPulse, Landmark, Languages, Leaf, MessagesSquare, Moon, Palette, Sunrise, Wallet, type LucideIcon } from "lucide-react";
+import { Briefcase, Coffee, Cpu, Film, HeartPulse, Landmark, Languages, Leaf, MessagesSquare, Moon, Palette, Sunrise, Wallet, type LucideIcon } from "lucide-react";
 import type { Interest, Stream, TimePrefs } from "@/lib/electives/types";
 
 /** One icon for each interest, so a course and a chip about the same thing look the same. */
@@ -7,7 +7,7 @@ export const INTEREST_ICON: Record<Interest, LucideIcon> = {
   Communication: MessagesSquare, Health: HeartPulse, Nature: Leaf, Technology: Cpu,
 };
 
-export const PREF_ICON: Record<keyof TimePrefs, LucideIcon> = { noSaturday: CalendarOff, freeFriday: Coffee, noEvening: Moon, noEarly: Sunrise };
+export const PREF_ICON: Record<keyof TimePrefs, LucideIcon> = { freeFriday: Coffee, noEvening: Moon, noEarly: Sunrise };
 
 /** The same stream colours as the week preview. Colour is never the only signal: the stream name is always written too. */
 export const STREAM_COLOR: Record<Stream, { bg: string; fg: string }> = {

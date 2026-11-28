@@ -41,22 +41,22 @@ export const SCENARIO_EVENTS: ScenarioEvent[] = [
   },
   {
     id: "cancel-lecture-makeup",
-    title: "Cancel Friday's ENG1101 lecture, add a Saturday make-up",
+    title: "Cancel Friday's ENG1101 lecture, add a Thursday make-up",
     group: "Academic Centre",
     system: "ac",
-    summary: "One class is cancelled and a make-up class appears on Saturday morning.",
+    summary: "One class is cancelled and a make-up class appears on Thursday at noon.",
     effects: [
       { op: "cancelClass", classId: "c10" },
       {
         op: "addClass",
-        session: { id: "c12", courseId: "eng1101", day: 5, start: "10:00", end: "12:00", kind: "Lecture", room: "A3-201", status: "makeup", noticeId: "ac-n-makeup" },
+        session: { id: "c12", courseId: "eng1101", day: 3, start: "12:00", end: "14:00", kind: "Lecture", room: "A3-201", status: "makeup", noticeId: "ac-n-makeup" },
       },
       {
         op: "addAnnouncement",
         notice: {
           id: "ac-n-makeup", system: "ac", kind: "cancellation", courseId: "eng1101",
-          title: "ENG1101 Friday lecture cancelled, make-up on Saturday",
-          body: "The Fri 27 Nov 09:00 ENG1101 lecture is cancelled. A make-up lecture is on Sat 28 Nov, 10:00 in A3-201.",
+          title: "ENG1101 Friday lecture cancelled, make-up on Thursday",
+          body: "The Fri 27 Nov 09:00 ENG1101 lecture is cancelled. A make-up lecture is on Thu 26 Nov, 12:00 in A3-201.",
           posted: "2026-11-23T13:26:00+08:00", source: "Academic Centre (demo)",
         },
       },

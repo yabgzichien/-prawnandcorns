@@ -7,9 +7,9 @@ import type { ReplacementReason, SlotOption } from "./types.ts";
 
 /**
  * Plain code, not AI: which times this week suit the students, the lecturer and a room.
- * Demo rules, not XMUM policy: Tuesday to Saturday of this week, 08:00 to 20:00, at least 24 hours' notice.
+ * Demo rules, not XMUM policy: Tuesday to Friday of this week, 08:00 to 20:00, at least 24 hours' notice.
  */
-export const GRID = { days: [1, 2, 3, 4, 5], from: "08:00", until: "20:00", step: 30 } as const;
+export const GRID = { days: [1, 2, 3, 4], from: "08:00", until: "20:00", step: 30 } as const;
 export const NOTICE_HOURS = 24;
 
 export type PlannerContext = {
@@ -91,7 +91,6 @@ export function evaluateSlot(ctx: PlannerContext, day: number, start: string): S
   const clashes = [...groups].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   const rooms = blocked ? [] : freeRooms(ctx, day, start, end);
   const flags: string[] = [];
-  if (day === 5) flags.push("Saturday");
   if (toMin(end) > 18 * 60) flags.push("Evening");
   if (toMin(start) < 9 * 60) flags.push("Early start");
   if (toMin(start) < 13 * 60 && toMin(end) > 12 * 60 + 30) flags.push("Over lunch");

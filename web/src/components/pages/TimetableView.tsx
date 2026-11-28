@@ -21,8 +21,6 @@ export function TimetableView() {
   const [day, setDay] = useState(TODAY_IDX);
   const { showToast } = useApp();
   const { data } = useCampus();
-  // A Saturday make-up class adds a Saturday to the week. Otherwise it stays Monday to Friday.
-  const DAYS = data.classes.some((c) => c.day >= 5) ? [...WEEKDAYS, "Sat"] : WEEKDAYS;
   const list = classesOn(day, data.classes);
   const changed = data.classes.filter((c) => c.status !== "normal").length;
 
@@ -37,7 +35,7 @@ export function TimetableView() {
         <Segmented label="View" value={view} onChange={setView} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} />
         {view === "day" && (
           <div className="rail flex min-w-0 max-w-full gap-1.5 overflow-x-auto" role="tablist" aria-label="Day">
-            {DAYS.map((d, i) => {
+            {WEEKDAYS.map((d, i) => {
               const dots = classesOn(i, data.classes).some((c) => c.status !== "normal");
               return (
                 <button key={d} role="tab" aria-selected={day === i} onClick={() => setDay(i)} className="press relative flex min-h-[56px] w-[58px] shrink-0 flex-col items-center justify-center rounded-2xl text-[0.8rem] font-semibold" style={{ background: day === i ? "var(--accent)" : "var(--surface)", color: day === i ? "var(--accent-fg)" : "var(--label)", boxShadow: "var(--shadow-sm)" }}>
@@ -88,28 +86,28 @@ export function TimetableView() {
           })}
         </Stagger>
       ) : (
-        <WeekGrid classes={data.classes} days={DAYS} />
+        <WeekGrid classes={data.classes} days={WEEKDAYS} />
       )}
     </div>
   );
 }
 
-function WeekGrid({ classes, days: DAYS }: { classes: readonly ClassSession[]; days: string[] }) {
+function WeekGrid({ classes, days }: { classes: readonly ClassSession[]; days: string[] }) {
   const rowH = 56;
   return (
     <div className="card overflow-x-auto">
       <div className="min-w-[720px] p-4">
-        <div className="grid" style={{ gridTemplateColumns: `48px repeat(${DAYS.length}, 1fr)` }}>
+        <div className="grid" style={{ gridTemplateColumns: `48px repeat(${days.length}, 1fr)` }}>
           <div />
-          {DAYS.map((d, i) => (
+          {days.map((d, i) => (
             <div key={d} className="pb-3 text-center"><p className="t-eyebrow">{d}</p><p className="tnum text-[1.15rem] font-bold" style={{ color: i === TODAY_IDX ? "var(--accent)" : undefined }}>{dateShort(atDay(i, "00:00")).split(" ")[0]}</p></div>
           ))}
         </div>
-        <div className="relative grid" style={{ gridTemplateColumns: `48px repeat(${DAYS.length}, 1fr)`, height: HOURS.length * rowH }}>
+        <div className="relative grid" style={{ gridTemplateColumns: `48px repeat(${days.length}, 1fr)`, height: HOURS.length * rowH }}>
           <div className="relative">
             {HOURS.map((h, i) => <span key={h} className="tnum t-caption absolute right-2 -translate-y-1/2" style={{ top: i * rowH }}>{String(h).padStart(2, "0")}:00</span>)}
           </div>
-          {DAYS.map((d, di) => (
+          {days.map((d, di) => (
             <div key={d} className="relative border-l border-sep">
               {HOURS.map((h, i) => <div key={h} className="absolute inset-x-0 border-t border-sep" style={{ top: i * rowH }} />)}
               {classesOn(di, classes).map((c) => {

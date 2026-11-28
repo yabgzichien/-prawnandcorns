@@ -42,21 +42,20 @@ const SECTIONS: Record<string, Block[]> = {
   ],
   "GEN1201 Malaysian Studies": [{ day: 2, start: "14:00", end: "16:00", label: "GEN1201 Lecture", room: "A3-G01" }],
   "GE Chinese Culture": [{ day: 3, start: "11:00", end: "13:00", label: "GE Chinese Culture", room: "A2-305" }],
-  "GE Design Thinking": [{ day: 5, start: "09:00", end: "12:00", label: "GE Design Thinking", room: "A2-305" }],
+  "GE Design Thinking": [{ day: 4, start: "14:00", end: "17:00", label: "GE Design Thinking", room: "A2-305" }],
   "SWE1101 Lecture": [{ day: 2, start: "14:00", end: "16:00", label: "SWE1101 Lecture", room: "A2-203" }],
   "SWE1101 Tutorial": [{ day: 3, start: "11:00", end: "12:00", label: "SWE1101 Tutorial", room: "A1-102" }],
   "DSC1101 Lecture": [{ day: 1, start: "16:00", end: "18:00", label: "DSC1101 Lecture", room: "A2-203" }],
   "DSC1101 Lab": [{ day: 3, start: "16:00", end: "18:00", label: "DSC1101 Lab", room: "A5-L1" }],
   "Co-curriculum Wednesday": [{ day: 2, start: "08:00", end: "10:00", label: "Co-curricular activity" }],
   "Co-curriculum Thursday": [{ day: 3, start: "18:00", end: "20:00", label: "Co-curricular activity" }],
-  "Co-curriculum Saturday": [{ day: 5, start: "08:00", end: "11:00", label: "Co-curricular activity" }],
   "MAT1105 Statistics": [
     { day: 2, start: "16:00", end: "18:00", label: "MAT1105 Lecture", room: "A1-210" },
     { day: 4, start: "11:00", end: "13:00", label: "MAT1105 Lecture", room: "A1-210" },
   ],
 };
 
-const CO_CURRICULUM = ["Co-curriculum Wednesday", "Co-curriculum Thursday", "Co-curriculum Saturday"];
+const CO_CURRICULUM = ["Co-curriculum Wednesday", "Co-curriculum Thursday"];
 
 /** Each programme takes one section from each group, in order. */
 const PROGRAMMES: { name: string; count: number; groups: string[][] }[] = [

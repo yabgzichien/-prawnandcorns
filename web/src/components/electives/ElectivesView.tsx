@@ -90,7 +90,7 @@ export function ElectivesView() {
 
       <Stagger className="space-y-6">
         {/* the summary stays in view while choosing */}
-        <Item className="z-20 transition-[top] duration-300 sm:sticky sm:top-[calc(var(--banner-cover,0px)+0.75rem)]">
+        <Item className="z-20 transition-[top] duration-300 sm:sticky sm:top-[calc(var(--banner-cover,0px)+var(--hub-nav-cover,0px)+0.75rem)]">
           <div className="glass-thick flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[24px] p-3 pl-4">
             <Ring value={target ? check.credits / target : 0} size={52} stroke={6} tone={check.credits === target ? "var(--green)" : check.credits > target ? "var(--orange)" : "var(--accent)"}>
               <span className="tnum text-[0.78rem] font-bold">{check.credits}/{target}</span>

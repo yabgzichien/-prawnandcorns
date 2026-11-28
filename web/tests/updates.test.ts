@@ -59,7 +59,7 @@ test("a moved deadline leaves a stale study session, and a class that moves into
   assert.equal(stale.length, 1);
   assert.match(stale[0].message, /moved from Mon 23 Nov, 23:59 to Fri 27 Nov, 23:59/);
 
-  const ctx2 = await contextAfter(["cancel-lecture-makeup"], { ...EMPTY_PLAN, studySessions: [session("s9", "a5", "2026-11-28T10:30:00+08:00", "2026-11-28T11:30:00+08:00")] });
+  const ctx2 = await contextAfter(["cancel-lecture-makeup"], { ...EMPTY_PLAN, studySessions: [session("s9", "a5", "2026-11-26T12:30:00+08:00", "2026-11-26T13:30:00+08:00")] });
   const clash = conflictsFor(ctx2).filter((c) => c.kind === "class-clash");
   assert.equal(clash.length, 1);
   assert.match(clash[0].message, /A class that changed now clashes/);
@@ -215,7 +215,7 @@ test("Tuesday room change and cancelled lecture with make-up are noted, and a cl
   const room = await review(["move-class-tue"]);
   assert.deepEqual(types(room.proposal), ["acknowledge", "acknowledge"]);
   assert.match(room.proposal.fixes[0].type === "acknowledge" ? room.proposal.fixes[0].summary : "", /Room for CST1103 Lecture on Tuesday 14:00 changed from A4-301 to A1-210/);
-  const cancel = await review(["cancel-lecture-makeup"], { ...EMPTY_PLAN, studySessions: [session("s9", "a5", "2026-11-28T10:30:00+08:00", "2026-11-28T11:30:00+08:00")] });
+  const cancel = await review(["cancel-lecture-makeup"], { ...EMPTY_PLAN, studySessions: [session("s9", "a5", "2026-11-26T12:30:00+08:00", "2026-11-26T13:30:00+08:00")] });
   assert.ok(types(cancel.proposal).includes("move_study_session"), "the make-up class took the session's time");
   assert.ok(cancel.proposal.fixes.filter((f) => f.type === "acknowledge").length >= 3);
 });

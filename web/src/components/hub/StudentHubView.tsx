@@ -1,6 +1,7 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
 import { BookOpen, CalendarDays, Shapes, CalendarRange, CheckSquare, ChevronDown, Landmark, Library, LifeBuoy, MapPin, Users, X } from "lucide-react";
 import { AssignmentsView } from "@/components/pages/AssignmentsView";
@@ -17,16 +18,16 @@ import { DemoBadge, featureTitleStyle } from "@/components/ui/kit";
 import { SPRING } from "@/lib/hooks";
 
 const SECTIONS = [
-  { id: "timetable", title: "Timetable", summary: "3 classes today", description: "Your week, class changes and calendar export.", icon: CalendarDays, tone: "green" },
-  { id: "assignments", title: "Assignments", summary: "2 deadlines this week", description: "Track coursework, deadlines and Moodle status.", icon: CheckSquare, tone: "cream" },
-  { id: "map", title: "Campus map", summary: "Find rooms and facilities", description: "Search buildings, rooms and key campus places.", icon: MapPin, tone: "green" },
-  { id: "courses", title: "Courses", summary: "5 courses this semester", description: "See your semester, degree outlook and GE credits.", icon: BookOpen, tone: "cream" },
-  { id: "clubs", title: "Clubs & events", summary: "Discover your community", description: "Browse events, clubs and activities around campus.", icon: Users, tone: "green" },
-  { id: "finance", title: "Finance", summary: "Fees and payment dates", description: "Review balances, instalments and payment history.", icon: Landmark, tone: "cream" },
-  { id: "library", title: "Library rooms", summary: "Book a study room", description: "Reserve a study or discussion room and see where it is.", icon: Library, tone: "green" },
-  { id: "events", title: "Club events", summary: "Book rooms and items", description: "Ask for rooms, chairs and equipment for a club event in one application.", icon: CalendarRange, tone: "cream" },
-  { id: "helpdesk", title: "Help desk", summary: "Report hostel problems", description: "Report a leak, air-con or other hostel fault as an AskA ticket.", icon: LifeBuoy, tone: "green" },
-  { id: "electives", title: "GE planner", summary: "Electives without clashes", description: "Plan next semester's general electives, checked against your timetable and credits.", icon: Shapes, tone: "cream" },
+  { id: "timetable", title: "Timetable", description: "Your week, class changes and calendar export.", icon: CalendarDays, tone: "green" },
+  { id: "assignments", title: "Assignments", description: "Track coursework, deadlines and Moodle status.", icon: CheckSquare, tone: "cream" },
+  { id: "map", title: "Campus map", description: "Search buildings, rooms and key campus places.", icon: MapPin, tone: "green" },
+  { id: "courses", title: "Courses", description: "See your semester, degree outlook and GE credits.", icon: BookOpen, tone: "cream" },
+  { id: "clubs", title: "Clubs & events", description: "Browse events, clubs and activities around campus.", icon: Users, tone: "green" },
+  { id: "finance", title: "Finance", description: "Review balances, instalments and payment history.", icon: Landmark, tone: "cream" },
+  { id: "library", title: "Library rooms", description: "Reserve a study or discussion room and see where it is.", icon: Library, tone: "green" },
+  { id: "events", title: "Club events", description: "Ask for rooms, chairs and equipment for a club event in one application.", icon: CalendarRange, tone: "cream" },
+  { id: "helpdesk", title: "Help desk", description: "Report a leak, air-con or other hostel fault as an AskA ticket.", icon: LifeBuoy, tone: "green" },
+  { id: "electives", title: "GE planner", description: "Plan next semester's general electives, checked against your timetable and credits.", icon: Shapes, tone: "cream" },
 ] as const;
 
 export type HubSection = (typeof SECTIONS)[number]["id"];
@@ -37,7 +38,32 @@ export function StudentHubView() {
   const params = useSearchParams();
   const reduceMotion = useReducedMotion();
   const selected = isSection(params.get("section")) ? params.get("section") as HubSection : null;
-  const compact = selected !== null;
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const [navHeight, setNavHeight] = useState(0);
+  const open = selected !== null;
+
+  // Things that stick inside a section sit below the bar, so publish its height.
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => setNavHeight(nav.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [open]);
+
+  // Start each section from the top, and keep its button in view in the narrow scrolling row.
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const nav = navRef.current;
+    const active = nav?.querySelector<HTMLElement>(".is-selected");
+    if (!anchor || !nav || !active) return;
+    const behavior = reduceMotion ? "auto" : "smooth";
+    nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2 });
+    window.scrollTo({ top: anchor.getBoundingClientRect().top + window.scrollY, behavior });
+  }, [selected, reduceMotion]);
 
   const select = (id: HubSection | null) => {
     const next = new URLSearchParams(window.location.search);
@@ -46,7 +72,7 @@ export function StudentHubView() {
   };
 
   return (
-    <div className="hub-page">
+    <div className="hub-page" style={{ "--hub-nav-cover": `${open ? navHeight : 0}px` } as CSSProperties}>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 pt-1 sm:mb-8">
         <div>
           <div className="mb-2 flex items-center gap-3"><p className="t-eyebrow">Your campus, in one place</p><DemoBadge /></div>
@@ -60,39 +86,28 @@ export function StudentHubView() {
         )}
       </header>
 
-      <motion.div layout className={`hub-grid ${compact ? "is-compact" : ""}`} aria-label="Student hub sections">
-        {SECTIONS.map(({ id, title, summary, description, icon: Icon, tone }) => {
-          const active = selected === id;
-          return (
-            <motion.button
-              layout
-              key={id}
-              type="button"
-              onClick={() => select(active ? null : id)}
-              aria-expanded={active}
-              aria-controls="hub-content"
-              aria-pressed={active}
-              className={`hub-tile press hub-tile-${tone} ${active ? "is-selected" : ""}`}
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 24 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              whileHover={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
-              whileFocus={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
-              viewport={{ once: true, amount: 0.6 }}
-              transition={reduceMotion ? { duration: 0 } : SPRING}
-            >
-              <motion.span layout className="hub-tile-icon"><Icon aria-hidden /></motion.span>
-              <motion.span layout className="hub-tile-copy">
-                <span className="hub-tile-title" style={{ fontFamily: '"Abril Fatface", Georgia, serif', fontWeight: 700, letterSpacing: "0.01em", WebkitTextStroke: "0.25px currentColor" }}>{title}</span>
-                <span className="hub-tile-summary">{compact ? summary : description}</span>
-              </motion.span>
-              <motion.span layout className="hub-tile-chevron" aria-hidden><ChevronDown /></motion.span>
-            </motion.button>
-          );
-        })}
-      </motion.div>
-
-      <AnimatePresence initial={false}>
-        {selected ? (
+      {selected ? (
+        <>
+          <div ref={anchorRef} aria-hidden />
+          <nav ref={navRef} className="hub-nav" aria-label="Student hub sections">
+            {SECTIONS.map(({ id, title, icon: Icon }) => {
+              const active = selected === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => select(active ? null : id)}
+                  aria-expanded={active}
+                  aria-controls="hub-content"
+                  aria-pressed={active}
+                  className={`hub-nav-item press ${active ? "is-selected" : ""}`}
+                >
+                  <Icon aria-hidden />
+                  {title}
+                </button>
+              );
+            })}
+          </nav>
           <motion.section
             id="hub-content"
             key="hub-content"
@@ -100,7 +115,6 @@ export function StudentHubView() {
             aria-label={`${SECTIONS.find((section) => section.id === selected)?.title} details`}
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
             transition={SPRING}
             className="hub-content-panel"
           >
@@ -115,12 +129,39 @@ export function StudentHubView() {
             {selected === "helpdesk" && <HelpDeskView />}
             {selected === "electives" && <ElectivesView />}
           </motion.section>
-        ) : (
-          <motion.p key="hub-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-5 flex items-center gap-2 px-1 text-sm text-label-2">
-            Select a tile to open its details below.
+        </>
+      ) : (
+        <>
+          <motion.div layout className="hub-grid" aria-label="Student hub sections">
+            {SECTIONS.map(({ id, title, description, icon: Icon, tone }) => (
+              <motion.button
+                layout
+                key={id}
+                type="button"
+                onClick={() => select(id)}
+                aria-expanded={false}
+                className={`hub-tile press hub-tile-${tone}`}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 24 }}
+                whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                whileHover={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
+                whileFocus={reduceMotion ? undefined : { scale: 1.045, y: -8, boxShadow: "0 22px 48px rgb(33 63 104 / 0.14)" }}
+                viewport={{ once: true, amount: 0.6 }}
+                transition={reduceMotion ? { duration: 0 } : SPRING}
+              >
+                <motion.span layout className="hub-tile-icon"><Icon aria-hidden /></motion.span>
+                <motion.span layout className="hub-tile-copy">
+                  <span className="hub-tile-title" style={{ fontFamily: '"Abril Fatface", Georgia, serif', fontWeight: 700, letterSpacing: "0.01em", WebkitTextStroke: "0.25px currentColor" }}>{title}</span>
+                  <span className="hub-tile-summary">{description}</span>
+                </motion.span>
+                <motion.span layout className="hub-tile-chevron" aria-hidden><ChevronDown /></motion.span>
+              </motion.button>
+            ))}
+          </motion.div>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 flex items-center gap-2 px-1 text-sm text-label-2">
+            Select a tile to open its details.
           </motion.p>
-        )}
-      </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

@@ -71,7 +71,6 @@ export type SetSuggestion = { codes: string[]; credits: number; score: number; r
 const prefBreaks = (code: string, prefs: TimePrefs): string[] => {
   const out: string[] = [];
   for (const m of parsedOf(code).meetings) {
-    if (prefs.noSaturday && m.day === 5) out.push("Saturday");
     if (prefs.freeFriday && m.day === 4 && toMin(m.end) > 12 * 60) out.push("Friday afternoon");
     if (prefs.noEvening && toMin(m.end) > 18 * 60) out.push("after 6 pm");
     if (prefs.noEarly && toMin(m.start) < 9 * 60) out.push("before 9 am");
@@ -91,7 +90,7 @@ function scoreSet(codes: string[], interests: readonly Interest[], prefs: TimePr
     if (hits.length) score += 3 + (hits.length - 1);
     const b = prefBreaks(code, prefs);
     score -= 6 * b.length;
-    breaks.push(...b.map((x) => `${code} meets ${x === "Saturday" ? "on a Saturday" : x === "Friday afternoon" ? "on Friday afternoon" : x}`));
+    breaks.push(...b.map((x) => `${code} meets ${x === "Friday afternoon" ? "on Friday afternoon" : x}`));
     if (c.seats <= 5) { score -= 1; lowSeats.push(c); }
   }
   return { score, matched: [...matched], breaks, lowSeats };
